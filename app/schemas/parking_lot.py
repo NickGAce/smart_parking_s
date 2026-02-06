@@ -18,3 +18,13 @@ class ParkingLotOut(ParkingLotCreate):
 
     class Config:
         from_attributes = True
+
+
+class ParkingLotUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    total_spots: Optional[int] = None
+    guest_spot_percentage: Optional[int] = None
+
+    class Config:
+        from_attributes = True

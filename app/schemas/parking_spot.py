@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from app.models.parking_spot import SpotStatus
+from typing import Optional
 
 
 class ParkingSpotCreate(BaseModel):
@@ -20,3 +21,14 @@ class ParkingSpotOut(BaseModel):
 
     class Config:
         from_attributes = True  
+
+
+class ParkingSpotUpdate(BaseModel):
+    spot_number: Optional[int] = None
+    status: Optional[SpotStatus] = None
+    type: Optional[str] = None
+    owner_id: Optional[int] = None
+    parking_lot_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
