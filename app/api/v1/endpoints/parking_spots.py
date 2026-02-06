@@ -5,28 +5,28 @@ from sqlalchemy import select
 from app.db.session import get_session
 from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.parking_lot import ParkingLot
-from app.schemas.parking_spot import ParkingSpotOut
+from app.schemas.parking_spot import ParkingSpotCreate, ParkingSpotOut
 
 router = APIRouter(prefix="/parking_spots", tags=["parking_spots"])
 
 
 @router.post("", response_model=ParkingSpotOut, status_code=201)
 async def create_parking_spot(
-    spot_number: int,
-    parking_lot_id: int,
+    payload: ParkingSpotCreate,
     session: AsyncSession = Depends(get_session),
 ):
     # Проверяем, существует ли парковка с данным ID
-    res = await session.execute(select(ParkingLot).where(ParkingLot.id == parking_lot_id))
+    res = await session.execute(select(ParkingLot).where(ParkingLot.id == payload.parking_lot_id))
     parking_lot = res.scalar_one_or_none()
     if not parking_lot:
         raise HTTPException(status_code=404, detail="ParkingLot not found")
 
     # Создаем парковочное место
     parking_spot = ParkingSpot(
-        spot_number=spot_number,
+        spot_number=payload.spot_number,
         status=SpotStatus.available,  # Место изначально доступно
-        parking_lot_id=parking_lot_id,
+        type=payload.type,
+        parking_lot_id=payload.parking_lot_id,
     )
 
     session.add(parking_spot)
@@ -44,4 +44,3 @@ async def get_parking_spot(
     if not parking_spot:
         raise HTTPException(status_code=404, detail="ParkingSpot not found")
     return parking_spot
-
