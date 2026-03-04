@@ -1,0 +1,149 @@
+import asyncio
+import os
+from datetime import datetime, timedelta
+
+from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
+os.environ.setdefault("JWT_SECRET", "test-secret")
+
+from app.api.deps import get_session
+from app.core.security import create_access_token, hash_password
+from app.db.base import Base
+from app.main import app
+from app.models.booking import BookingStatus, BookingType
+from app.models.parking_lot import ParkingLot
+from app.models.parking_spot import ParkingSpot, SpotStatus
+from app.models.user import User, UserRole
+
+
+def _setup_state():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_local = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def init_db():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        async with session_local() as session:
+            admin = User(email="admin@test.com", hashed_password=hash_password("secret123"), role=UserRole.admin)
+            user = User(email="user@test.com", hashed_password=hash_password("secret123"), role=UserRole.owner)
+            another = User(email="another@test.com", hashed_password=hash_password("secret123"), role=UserRole.owner)
+            session.add_all([admin, user, another])
+            await session.flush()
+
+            lot = ParkingLot(name="Lot A", address="Addr", total_spots=10, guest_spot_percentage=10)
+            session.add(lot)
+            await session.flush()
+
+            spot = ParkingSpot(
+                spot_number=1,
+                status=SpotStatus.available,
+                type="regular",
+                parking_lot_id=lot.id,
+                owner_id=another.id,
+            )
+            session.add(spot)
+            await session.commit()
+
+    asyncio.run(init_db())
+
+    async def override_get_session():
+        async with session_local() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_get_session
+
+    tokens = {
+        "admin": create_access_token("1"),
+        "user": create_access_token("2"),
+        "another": create_access_token("3"),
+    }
+    return engine, tokens
+
+
+def test_create_booking_success():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        payload = {
+            "parking_spot_id": 1,
+            "start_time": (now + timedelta(minutes=10)).isoformat(),
+            "end_time": (now + timedelta(minutes=40)).isoformat(),
+            "type": BookingType.guest,
+        }
+        response = client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {tokens['user']}"})
+        assert response.status_code == 201
+        assert response.json()["status"] == BookingStatus.active
+
+
+def test_cannot_create_overlapping_booking():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        first = {
+            "parking_spot_id": 1,
+            "start_time": (now + timedelta(minutes=10)).isoformat(),
+            "end_time": (now + timedelta(minutes=40)).isoformat(),
+            "type": BookingType.guest,
+        }
+        second = {
+            "parking_spot_id": 1,
+            "start_time": (now + timedelta(minutes=20)).isoformat(),
+            "end_time": (now + timedelta(minutes=50)).isoformat(),
+            "type": BookingType.guest,
+        }
+        client.post("/api/v1/bookings", json=first, headers={"Authorization": f"Bearer {tokens['user']}"})
+        response = client.post("/api/v1/bookings", json=second, headers={"Authorization": f"Bearer {tokens['another']}"})
+        assert response.status_code == 409
+
+
+def test_user_does_not_see_others_bookings():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        payload = {
+            "parking_spot_id": 1,
+            "start_time": (now + timedelta(minutes=10)).isoformat(),
+            "end_time": (now + timedelta(minutes=40)).isoformat(),
+            "type": BookingType.guest,
+        }
+        client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {tokens['another']}"})
+        response = client.get("/api/v1/bookings", headers={"Authorization": f"Bearer {tokens['user']}"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+
+def test_admin_sees_all_bookings():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        payload = {
+            "parking_spot_id": 1,
+            "start_time": (now + timedelta(minutes=10)).isoformat(),
+            "end_time": (now + timedelta(minutes=40)).isoformat(),
+            "type": BookingType.guest,
+        }
+        client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {tokens['user']}"})
+        response = client.get("/api/v1/bookings", headers={"Authorization": f"Bearer {tokens['admin']}"})
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+
+def test_effective_status_booked_when_active_booking():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        payload = {
+            "parking_spot_id": 1,
+            "start_time": (now + timedelta(minutes=1)).isoformat(),
+            "end_time": (now + timedelta(minutes=30)).isoformat(),
+            "type": BookingType.guest,
+        }
+        client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {tokens['user']}"})
+        response = client.get(
+            f"/api/v1/parking_spots?from={(now + timedelta(minutes=5)).isoformat()}&to={(now + timedelta(minutes=6)).isoformat()}"
+        )
+        assert response.status_code == 200
+        assert response.json()[0]["effective_status"] == SpotStatus.booked
