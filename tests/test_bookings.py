@@ -147,3 +147,29 @@ def test_effective_status_booked_when_active_booking():
         )
         assert response.status_code == 200
         assert response.json()[0]["effective_status"] == SpotStatus.booked
+
+
+def test_active_booking_auto_completes_on_list():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        payload = {
+            "parking_spot_id": 1,
+            "start_time": (now - timedelta(minutes=30)).isoformat(),
+            "end_time": (now - timedelta(minutes=1)).isoformat(),
+            "type": BookingType.guest,
+        }
+        create_response = client.post(
+            "/api/v1/bookings",
+            json=payload,
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert create_response.status_code == 201
+        assert create_response.json()["status"] == BookingStatus.active
+
+        list_response = client.get(
+            "/api/v1/bookings?mine=true",
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert list_response.status_code == 200
+        assert list_response.json()[0]["status"] == BookingStatus.completed

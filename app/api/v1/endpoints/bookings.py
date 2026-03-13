@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import and_, or_, select
@@ -10,21 +10,13 @@ from app.models.booking import Booking, BookingStatus
 from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
 from app.schemas.booking import BookingCreate, BookingOut, BookingUpdate
+from app.services.bookings import sync_booking_statuses, to_db_datetime as _to_db_datetime
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 
 def _overlap_filter(start_time: datetime, end_time: datetime):
     return and_(Booking.end_time > start_time, Booking.start_time < end_time)
-
-
-def _to_db_datetime(dt: datetime) -> datetime:
-    """Normalize datetimes for TIMESTAMP WITHOUT TIME ZONE columns (UTC naive)."""
-    if dt.tzinfo is None:
-        return dt
-    return dt.astimezone(timezone.utc).replace(tzinfo=None)
-
-
 async def _get_booking_or_404(session: AsyncSession, booking_id: int) -> Booking:
     result = await session.execute(select(Booking).where(Booking.id == booking_id))
     booking = result.scalar_one_or_none()
@@ -108,6 +100,8 @@ async def list_bookings(
     current_user: User = Depends(get_current_user),
 ):
     """List bookings with filters and role-based visibility restrictions."""
+    await sync_booking_statuses(session)
+
     if from_time is not None:
         from_time = _to_db_datetime(from_time)
     if to_time is not None:

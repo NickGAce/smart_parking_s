@@ -9,17 +9,9 @@ from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.parking_lot import ParkingLot
 from app.models.booking import Booking, BookingStatus
 from app.schemas.parking_spot import ParkingSpotCreate, ParkingSpotOut, ParkingSpotUpdate
+from app.services.bookings import sync_booking_statuses, to_db_datetime as _to_db_datetime
 
 router = APIRouter(prefix="/parking_spots", tags=["parking_spots"])
-
-
-def _to_db_datetime(dt: datetime) -> datetime:
-    """Normalize datetimes for TIMESTAMP WITHOUT TIME ZONE columns (UTC naive)."""
-    if dt.tzinfo is None:
-        return dt
-    return dt.astimezone(timezone.utc).replace(tzinfo=None)
-
-
 async def _has_active_booking(
     session: AsyncSession,
     spot_id: int,
@@ -98,6 +90,8 @@ async def list_parking_spots(
     to_time: datetime | None = Query(None, alias="to"),
     session: AsyncSession = Depends(get_session),
 ):
+    await sync_booking_statuses(session)
+
     if (from_time and not to_time) or (to_time and not from_time):
         raise HTTPException(status_code=400, detail="Both 'from' and 'to' must be provided")
 
@@ -121,6 +115,8 @@ async def list_parking_spots(
 async def get_parking_spot(
     parking_spot_id: int, session: AsyncSession = Depends(get_session)
 ):
+    await sync_booking_statuses(session)
+
     res = await session.execute(select(ParkingSpot).filter_by(id=parking_spot_id))
     parking_spot = res.scalar_one_or_none()
     if not parking_spot:
