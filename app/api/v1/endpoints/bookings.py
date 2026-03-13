@@ -38,6 +38,11 @@ def _is_admin(user: User) -> bool:
     return user.role == UserRole.admin
 
 
+async def _rollback_if_needed(session: AsyncSession) -> None:
+    if session.in_transaction():
+        await session.rollback()
+
+
 @router.post("", response_model=BookingOut, status_code=201)
 async def create_booking(
     payload: BookingCreate,
@@ -74,7 +79,7 @@ async def create_booking(
         session.add(booking)
         await session.commit()
     except Exception:
-        await session.rollback()
+        await _rollback_if_needed(session)
         raise
 
     await session.refresh(booking)
@@ -185,7 +190,7 @@ async def update_booking(
                 raise HTTPException(status_code=409, detail="Booking time overlaps with an existing booking")
         await session.commit()
     except Exception:
-        await session.rollback()
+        await _rollback_if_needed(session)
         raise
 
     await session.refresh(booking)
@@ -206,7 +211,7 @@ async def cancel_booking(
         booking.status = BookingStatus.cancelled
         await session.commit()
     except Exception:
-        await session.rollback()
+        await _rollback_if_needed(session)
         raise
 
     return Response(status_code=204)
