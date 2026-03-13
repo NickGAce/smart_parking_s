@@ -49,6 +49,18 @@ def resolve_client_now(
     return normalize_client_datetime(parsed, client_timezone)
 
 
+def to_client_datetime(dt: datetime, client_timezone: str | None) -> datetime:
+    """Convert DB UTC-naive datetime to client timezone-aware datetime for API output."""
+    utc_aware = dt.replace(tzinfo=timezone.utc)
+    if not client_timezone:
+        return utc_aware
+    try:
+        tz = ZoneInfo(client_timezone)
+    except ZoneInfoNotFoundError as exc:
+        raise HTTPException(status_code=400, detail="Invalid X-Timezone header") from exc
+    return utc_aware.astimezone(tz)
+
+
 async def sync_booking_statuses(
     session: AsyncSession,
     now: datetime | None = None,

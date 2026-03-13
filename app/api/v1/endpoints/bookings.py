@@ -15,6 +15,7 @@ from app.services.bookings import (
     resolve_client_now,
     sync_parking_spot_statuses,
     sync_booking_statuses,
+    to_client_datetime,
 )
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -45,6 +46,18 @@ def _is_admin(user: User) -> bool:
 async def _rollback_if_needed(session: AsyncSession) -> None:
     if session.in_transaction():
         await session.rollback()
+
+
+def _booking_to_out(booking: Booking, client_timezone: str | None) -> BookingOut:
+    return BookingOut(
+        id=booking.id,
+        user_id=booking.user_id,
+        parking_spot_id=booking.parking_spot_id,
+        type=booking.type,
+        status=booking.status,
+        start_time=to_client_datetime(booking.start_time, client_timezone),
+        end_time=to_client_datetime(booking.end_time, client_timezone),
+    )
 
 
 @router.post("", response_model=BookingOut, status_code=201)
@@ -95,7 +108,7 @@ async def create_booking(
         raise
 
     await session.refresh(booking)
-    return booking
+    return _booking_to_out(booking, client_timezone)
 
 
 @router.get("", response_model=list[BookingOut])
@@ -150,22 +163,30 @@ async def list_bookings(
         )
 
     result = await session.execute(stmt.order_by(Booking.start_time.desc()))
-    return result.scalars().all()
+    bookings = result.scalars().all()
+    return [_booking_to_out(booking, client_timezone) for booking in bookings]
 
 
 @router.get("/{booking_id}", response_model=BookingOut)
 async def get_booking(
     booking_id: int,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    client_timezone = request.headers.get("X-Timezone")
+    device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
+    await sync_booking_statuses(session, now=device_now)
+    await sync_parking_spot_statuses(session, now=device_now)
+    await session.commit()
+
     booking = await _get_booking_or_404(session, booking_id)
     spot = await _get_spot_or_404(session, booking.parking_spot_id)
 
     if not _is_admin(current_user) and booking.user_id != current_user.id and spot.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions to access this booking")
 
-    return booking
+    return _booking_to_out(booking, client_timezone)
 
 
 @router.patch("/{booking_id}", response_model=BookingOut)
@@ -237,7 +258,7 @@ async def update_booking(
         raise
 
     await session.refresh(booking)
-    return booking
+    return _booking_to_out(booking, client_timezone)
 
 
 @router.delete("/{booking_id}", status_code=204)
