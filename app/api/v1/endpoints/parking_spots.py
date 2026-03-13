@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,13 @@ from app.models.booking import Booking, BookingStatus
 from app.schemas.parking_spot import ParkingSpotCreate, ParkingSpotOut, ParkingSpotUpdate
 
 router = APIRouter(prefix="/parking_spots", tags=["parking_spots"])
+
+
+def _to_db_datetime(dt: datetime) -> datetime:
+    """Normalize datetimes for TIMESTAMP WITHOUT TIME ZONE columns (UTC naive)."""
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 async def _has_active_booking(
@@ -81,8 +88,8 @@ async def create_parking_spot(
     return await _to_spot_out(
         session,
         parking_spot,
-        datetime.utcnow(),
-        datetime.utcnow(),
+        _to_db_datetime(datetime.now(timezone.utc)),
+        _to_db_datetime(datetime.now(timezone.utc)),
     )
 
 @router.get("", response_model=list[ParkingSpotOut])
@@ -93,11 +100,17 @@ async def list_parking_spots(
 ):
     if (from_time and not to_time) or (to_time and not from_time):
         raise HTTPException(status_code=400, detail="Both 'from' and 'to' must be provided")
+
+    if from_time is not None:
+        from_time = _to_db_datetime(from_time)
+    if to_time is not None:
+        to_time = _to_db_datetime(to_time)
+
     if from_time and to_time and from_time >= to_time:
         raise HTTPException(status_code=400, detail="'from' must be earlier than 'to'")
 
     if not from_time and not to_time:
-        from_time = datetime.utcnow()
+        from_time = _to_db_datetime(datetime.now(timezone.utc))
         to_time = from_time
 
     res = await session.execute(select(ParkingSpot))
@@ -112,7 +125,7 @@ async def get_parking_spot(
     parking_spot = res.scalar_one_or_none()
     if not parking_spot:
         raise HTTPException(status_code=404, detail="ParkingSpot not found")
-    now = datetime.utcnow()
+    now = _to_db_datetime(datetime.now(timezone.utc))
     return await _to_spot_out(session, parking_spot, now, now)
 
 @router.patch("/{parking_spot_id}", response_model=ParkingSpotOut)
@@ -140,7 +153,7 @@ async def update_parking_spot(
 
     await session.commit()
     await session.refresh(parking_spot)
-    now = datetime.utcnow()
+    now = _to_db_datetime(datetime.now(timezone.utc))
     return await _to_spot_out(session, parking_spot, now, now)
 
 @router.delete("/{parking_spot_id}", status_code=204)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import and_, or_, select
@@ -16,6 +16,13 @@ router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 def _overlap_filter(start_time: datetime, end_time: datetime):
     return and_(Booking.end_time > start_time, Booking.start_time < end_time)
+
+
+def _to_db_datetime(dt: datetime) -> datetime:
+    """Normalize datetimes for TIMESTAMP WITHOUT TIME ZONE columns (UTC naive)."""
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 async def _get_booking_or_404(session: AsyncSession, booking_id: int) -> Booking:
@@ -50,7 +57,10 @@ async def create_booking(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new booking for a parking spot if time slot is available."""
-    if payload.start_time >= payload.end_time:
+    start_time = _to_db_datetime(payload.start_time)
+    end_time = _to_db_datetime(payload.end_time)
+
+    if start_time >= end_time:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
     try:
@@ -62,15 +72,15 @@ async def create_booking(
             select(Booking.id)
             .where(Booking.parking_spot_id == payload.parking_spot_id)
             .where(Booking.status == BookingStatus.active)
-            .where(_overlap_filter(payload.start_time, payload.end_time))
+            .where(_overlap_filter(start_time, end_time))
             .limit(1)
         )
         if conflict_result.scalar_one_or_none() is not None:
             raise HTTPException(status_code=409, detail="Booking time overlaps with an existing booking")
 
         booking = Booking(
-            start_time=payload.start_time,
-            end_time=payload.end_time,
+            start_time=start_time,
+            end_time=end_time,
             type=payload.type,
             parking_spot_id=payload.parking_spot_id,
             user_id=current_user.id,
@@ -98,6 +108,11 @@ async def list_bookings(
     current_user: User = Depends(get_current_user),
 ):
     """List bookings with filters and role-based visibility restrictions."""
+    if from_time is not None:
+        from_time = _to_db_datetime(from_time)
+    if to_time is not None:
+        to_time = _to_db_datetime(to_time)
+
     if from_time is not None and to_time is not None and from_time >= to_time:
         raise HTTPException(status_code=400, detail="'from' must be earlier than 'to'")
 
@@ -151,7 +166,10 @@ async def update_booking(
     current_user: User = Depends(get_current_user),
 ):
     """Update booking times or cancel booking based on access rules."""
-    if payload.start_time is not None and payload.end_time is not None and payload.start_time >= payload.end_time:
+    next_start_payload = _to_db_datetime(payload.start_time) if payload.start_time is not None else None
+    next_end_payload = _to_db_datetime(payload.end_time) if payload.end_time is not None else None
+
+    if next_start_payload is not None and next_end_payload is not None and next_start_payload >= next_end_payload:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
     try:
@@ -159,8 +177,8 @@ async def update_booking(
         if not _is_admin(current_user) and booking.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not enough permissions to modify this booking")
 
-        next_start = payload.start_time if payload.start_time is not None else booking.start_time
-        next_end = payload.end_time if payload.end_time is not None else booking.end_time
+        next_start = next_start_payload if next_start_payload is not None else booking.start_time
+        next_end = next_end_payload if next_end_payload is not None else booking.end_time
         if next_start >= next_end:
             raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
@@ -171,10 +189,10 @@ async def update_booking(
         elif payload.status is not None:
             booking.status = payload.status
 
-        if payload.start_time is not None:
-            booking.start_time = payload.start_time
-        if payload.end_time is not None:
-            booking.end_time = payload.end_time
+        if next_start_payload is not None:
+            booking.start_time = next_start_payload
+        if next_end_payload is not None:
+            booking.end_time = next_end_payload
 
         if payload.start_time is not None or payload.end_time is not None:
             overlap_stmt = (
