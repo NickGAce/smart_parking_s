@@ -33,6 +33,22 @@ def normalize_client_datetime(dt: datetime, client_timezone: str | None) -> date
     return dt
 
 
+def resolve_client_now(
+    client_time: str | None,
+    client_timezone: str | None,
+) -> datetime:
+    """Resolve 'now' from device/browser time and normalize to UTC naive."""
+    if not client_time:
+        return to_db_datetime(datetime.now(timezone.utc))
+
+    try:
+        parsed = datetime.fromisoformat(client_time)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid X-Device-Time header") from exc
+
+    return normalize_client_datetime(parsed, client_timezone)
+
+
 async def sync_booking_statuses(
     session: AsyncSession,
     now: datetime | None = None,
@@ -52,14 +68,16 @@ async def sync_booking_statuses(
 async def sync_parking_spot_statuses(
     session: AsyncSession,
     spot_ids: list[int] | None = None,
+    now: datetime | None = None,
 ) -> None:
     """Sync persisted parking spot status based on active bookings.
 
     blocked spots are not changed.
     """
-    booked_spots_subquery = select(Booking.parking_spot_id).where(
-        Booking.status == BookingStatus.active
-    )
+    current = to_db_datetime(now or datetime.now(timezone.utc))
+    booked_spots_subquery = select(Booking.parking_spot_id).where(Booking.status == BookingStatus.active)
+    booked_spots_subquery = booked_spots_subquery.where(Booking.start_time <= current)
+    booked_spots_subquery = booked_spots_subquery.where(Booking.end_time > current)
     if spot_ids:
         booked_spots_subquery = booked_spots_subquery.where(Booking.parking_spot_id.in_(spot_ids))
     booked_spots_subquery = booked_spots_subquery.distinct()

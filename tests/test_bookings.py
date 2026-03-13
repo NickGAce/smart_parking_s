@@ -241,7 +241,18 @@ def test_parking_spot_status_changes_on_booking_create_and_cancel():
 
         spot_after_create = client.get("/api/v1/parking_spots/1")
         assert spot_after_create.status_code == 200
-        assert spot_after_create.json()["status"] == SpotStatus.booked
+        assert spot_after_create.json()["status"] == SpotStatus.available
+
+        # Simulate device time inside booking interval.
+        spot_during_booking = client.get(
+            "/api/v1/parking_spots/1",
+            headers={
+                "X-Device-Time": (now + timedelta(minutes=15)).isoformat(),
+                "X-Timezone": "UTC",
+            },
+        )
+        assert spot_during_booking.status_code == 200
+        assert spot_during_booking.json()["status"] == SpotStatus.booked
 
         cancel_response = client.delete(
             f"/api/v1/bookings/{booking_id}",
@@ -252,3 +263,34 @@ def test_parking_spot_status_changes_on_booking_create_and_cancel():
         spot_after_cancel = client.get("/api/v1/parking_spots/1")
         assert spot_after_cancel.status_code == 200
         assert spot_after_cancel.json()["status"] == SpotStatus.available
+
+
+def test_device_time_header_affects_default_effective_status_window():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now + timedelta(hours=2)).isoformat(),
+                "end_time": (now + timedelta(hours=3)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert create_response.status_code == 201
+
+        now_response = client.get("/api/v1/parking_spots/1")
+        assert now_response.status_code == 200
+        assert now_response.json()["effective_status"] == SpotStatus.available
+
+        future_response = client.get(
+            "/api/v1/parking_spots/1",
+            headers={
+                "X-Device-Time": (now + timedelta(hours=2, minutes=10)).isoformat(),
+                "X-Timezone": "UTC",
+            },
+        )
+        assert future_response.status_code == 200
+        assert future_response.json()["effective_status"] == SpotStatus.booked

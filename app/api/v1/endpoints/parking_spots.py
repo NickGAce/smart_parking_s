@@ -11,6 +11,7 @@ from app.models.booking import Booking, BookingStatus
 from app.schemas.parking_spot import ParkingSpotCreate, ParkingSpotOut, ParkingSpotUpdate
 from app.services.bookings import (
     normalize_client_datetime,
+    resolve_client_now,
     sync_parking_spot_statuses,
     sync_booking_statuses,
     to_db_datetime as _to_db_datetime,
@@ -95,15 +96,17 @@ async def list_parking_spots(
     from_time: datetime | None = Query(None, alias="from"),
     to_time: datetime | None = Query(None, alias="to"),
     session: AsyncSession = Depends(get_session),
-): 
-    await sync_booking_statuses(session)
-    await sync_parking_spot_statuses(session)
+):
+    client_timezone = request.headers.get("X-Timezone")
+    device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
+
+    await sync_booking_statuses(session, now=device_now)
+    await sync_parking_spot_statuses(session, now=device_now)
     await session.commit()
 
     if (from_time and not to_time) or (to_time and not from_time):
         raise HTTPException(status_code=400, detail="Both 'from' and 'to' must be provided")
 
-    client_timezone = request.headers.get("X-Timezone")
     if from_time is not None:
         from_time = normalize_client_datetime(from_time, client_timezone)
     if to_time is not None:
@@ -113,7 +116,7 @@ async def list_parking_spots(
         raise HTTPException(status_code=400, detail="'from' must be earlier than 'to'")
 
     if not from_time and not to_time:
-        from_time = _to_db_datetime(datetime.now(timezone.utc))
+        from_time = device_now
         to_time = from_time
 
     res = await session.execute(select(ParkingSpot))
@@ -122,17 +125,22 @@ async def list_parking_spots(
 
 @router.get("/{parking_spot_id}", response_model=ParkingSpotOut)
 async def get_parking_spot(
-    parking_spot_id: int, session: AsyncSession = Depends(get_session)
+    parking_spot_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session)
 ):
-    await sync_booking_statuses(session)
-    await sync_parking_spot_statuses(session, spot_ids=[parking_spot_id])
+    client_timezone = request.headers.get("X-Timezone")
+    device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
+
+    await sync_booking_statuses(session, now=device_now)
+    await sync_parking_spot_statuses(session, spot_ids=[parking_spot_id], now=device_now)
     await session.commit()
 
     res = await session.execute(select(ParkingSpot).filter_by(id=parking_spot_id))
     parking_spot = res.scalar_one_or_none()
     if not parking_spot:
         raise HTTPException(status_code=404, detail="ParkingSpot not found")
-    now = _to_db_datetime(datetime.now(timezone.utc))
+    now = device_now
     return await _to_spot_out(session, parking_spot, now, now)
 
 @router.patch("/{parking_spot_id}", response_model=ParkingSpotOut)
