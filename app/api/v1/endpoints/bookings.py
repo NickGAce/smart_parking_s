@@ -48,7 +48,7 @@ async def create_booking(
     if payload.start_time >= payload.end_time:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
-    async with session.begin():
+    try:
         spot = await _get_spot_or_404(session, payload.parking_spot_id)
         if spot.status == SpotStatus.blocked:
             raise HTTPException(status_code=400, detail="Cannot book a blocked parking spot")
@@ -72,6 +72,10 @@ async def create_booking(
             status=BookingStatus.active,
         )
         session.add(booking)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
 
     await session.refresh(booking)
     return booking
@@ -145,7 +149,7 @@ async def update_booking(
     if payload.start_time is not None and payload.end_time is not None and payload.start_time >= payload.end_time:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
-    async with session.begin():
+    try:
         booking = await _get_booking_or_404(session, booking_id)
         if not _is_admin(current_user) and booking.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not enough permissions to modify this booking")
@@ -179,6 +183,10 @@ async def update_booking(
             overlap_result = await session.execute(overlap_stmt)
             if overlap_result.scalar_one_or_none() is not None:
                 raise HTTPException(status_code=409, detail="Booking time overlaps with an existing booking")
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
 
     await session.refresh(booking)
     return booking
@@ -191,10 +199,14 @@ async def cancel_booking(
     current_user: User = Depends(get_current_user),
 ):
     """Soft-cancel booking by changing status to cancelled."""
-    async with session.begin():
+    try:
         booking = await _get_booking_or_404(session, booking_id)
         if not _is_admin(current_user) and booking.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not enough permissions to cancel this booking")
         booking.status = BookingStatus.cancelled
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
 
     return Response(status_code=204)
