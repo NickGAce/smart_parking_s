@@ -173,3 +173,50 @@ def test_active_booking_auto_completes_on_list():
         )
         assert list_response.status_code == 200
         assert list_response.json()[0]["status"] == BookingStatus.completed
+
+
+def test_patch_booking_type_changes():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        payload = {
+            "parking_spot_id": 1,
+            "start_time": (now + timedelta(minutes=10)).isoformat(),
+            "end_time": (now + timedelta(minutes=40)).isoformat(),
+            "type": BookingType.guest,
+        }
+        create_response = client.post(
+            "/api/v1/bookings",
+            json=payload,
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        booking_id = create_response.json()["id"]
+
+        patch_response = client.patch(
+            f"/api/v1/bookings/{booking_id}",
+            json={"type": BookingType.rental},
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert patch_response.status_code == 200
+        assert patch_response.json()["type"] == BookingType.rental
+
+
+def test_create_booking_respects_browser_timezone_header():
+    _, tokens = _setup_state()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": "2026-03-13T12:00:00",
+                "end_time": "2026-03-13T13:00:00",
+                "type": BookingType.guest,
+            },
+            headers={
+                "Authorization": f"Bearer {tokens['user']}",
+                "X-Timezone": "Europe/Moscow",
+            },
+        )
+        assert create_response.status_code == 201
+        # Moscow (UTC+3) -> UTC naive stored time should be 09:00
+        assert create_response.json()["start_time"].startswith("2026-03-13T09:00:00")

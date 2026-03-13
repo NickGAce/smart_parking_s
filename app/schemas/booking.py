@@ -17,6 +17,7 @@ class BookingCreate(BaseModel):
 class BookingUpdate(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
+    type: Optional[BookingType] = None
     status: Optional[BookingStatus] = None
 
 

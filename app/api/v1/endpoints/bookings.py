@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +10,10 @@ from app.models.booking import Booking, BookingStatus
 from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
 from app.schemas.booking import BookingCreate, BookingOut, BookingUpdate
-from app.services.bookings import sync_booking_statuses, to_db_datetime as _to_db_datetime
+from app.services.bookings import (
+    normalize_client_datetime,
+    sync_booking_statuses,
+)
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -45,12 +48,14 @@ async def _rollback_if_needed(session: AsyncSession) -> None:
 @router.post("", response_model=BookingOut, status_code=201)
 async def create_booking(
     payload: BookingCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
     """Create a new booking for a parking spot if time slot is available."""
-    start_time = _to_db_datetime(payload.start_time)
-    end_time = _to_db_datetime(payload.end_time)
+    client_timezone = request.headers.get("X-Timezone")
+    start_time = normalize_client_datetime(payload.start_time, client_timezone)
+    end_time = normalize_client_datetime(payload.end_time, client_timezone)
 
     if start_time >= end_time:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
@@ -90,6 +95,7 @@ async def create_booking(
 
 @router.get("", response_model=list[BookingOut])
 async def list_bookings(
+    request: Request,
     mine: bool = False,
     parking_lot_id: int | None = None,
     parking_spot_id: int | None = None,
@@ -102,10 +108,11 @@ async def list_bookings(
     """List bookings with filters and role-based visibility restrictions."""
     await sync_booking_statuses(session)
 
+    client_timezone = request.headers.get("X-Timezone")
     if from_time is not None:
-        from_time = _to_db_datetime(from_time)
+        from_time = normalize_client_datetime(from_time, client_timezone)
     if to_time is not None:
-        to_time = _to_db_datetime(to_time)
+        to_time = normalize_client_datetime(to_time, client_timezone)
 
     if from_time is not None and to_time is not None and from_time >= to_time:
         raise HTTPException(status_code=400, detail="'from' must be earlier than 'to'")
@@ -156,12 +163,22 @@ async def get_booking(
 async def update_booking(
     booking_id: int,
     payload: BookingUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
     """Update booking times or cancel booking based on access rules."""
-    next_start_payload = _to_db_datetime(payload.start_time) if payload.start_time is not None else None
-    next_end_payload = _to_db_datetime(payload.end_time) if payload.end_time is not None else None
+    client_timezone = request.headers.get("X-Timezone")
+    next_start_payload = (
+        normalize_client_datetime(payload.start_time, client_timezone)
+        if payload.start_time is not None
+        else None
+    )
+    next_end_payload = (
+        normalize_client_datetime(payload.end_time, client_timezone)
+        if payload.end_time is not None
+        else None
+    )
 
     if next_start_payload is not None and next_end_payload is not None and next_start_payload >= next_end_payload:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
@@ -182,6 +199,9 @@ async def update_booking(
             raise HTTPException(status_code=403, detail="Only admins can set this booking status")
         elif payload.status is not None:
             booking.status = payload.status
+
+        if payload.type is not None:
+            booking.type = payload.type
 
         if next_start_payload is not None:
             booking.start_time = next_start_payload

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import and_, select
 
@@ -9,7 +9,11 @@ from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.parking_lot import ParkingLot
 from app.models.booking import Booking, BookingStatus
 from app.schemas.parking_spot import ParkingSpotCreate, ParkingSpotOut, ParkingSpotUpdate
-from app.services.bookings import sync_booking_statuses, to_db_datetime as _to_db_datetime
+from app.services.bookings import (
+    normalize_client_datetime,
+    sync_booking_statuses,
+    to_db_datetime as _to_db_datetime,
+)
 
 router = APIRouter(prefix="/parking_spots", tags=["parking_spots"])
 async def _has_active_booking(
@@ -86,6 +90,7 @@ async def create_parking_spot(
 
 @router.get("", response_model=list[ParkingSpotOut])
 async def list_parking_spots(
+    request: Request,
     from_time: datetime | None = Query(None, alias="from"),
     to_time: datetime | None = Query(None, alias="to"),
     session: AsyncSession = Depends(get_session),
@@ -95,10 +100,11 @@ async def list_parking_spots(
     if (from_time and not to_time) or (to_time and not from_time):
         raise HTTPException(status_code=400, detail="Both 'from' and 'to' must be provided")
 
+    client_timezone = request.headers.get("X-Timezone")
     if from_time is not None:
-        from_time = _to_db_datetime(from_time)
+        from_time = normalize_client_datetime(from_time, client_timezone)
     if to_time is not None:
-        to_time = _to_db_datetime(to_time)
+        to_time = normalize_client_datetime(to_time, client_timezone)
 
     if from_time and to_time and from_time >= to_time:
         raise HTTPException(status_code=400, detail="'from' must be earlier than 'to'")
