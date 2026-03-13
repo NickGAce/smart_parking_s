@@ -3,10 +3,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.booking import Booking, BookingStatus
+from app.models.parking_spot import ParkingSpot, SpotStatus
 
 
 def to_db_datetime(dt: datetime) -> datetime:
@@ -46,3 +47,38 @@ async def sync_booking_statuses(
     )
     await session.commit()
     return result.rowcount or 0
+
+
+async def sync_parking_spot_statuses(
+    session: AsyncSession,
+    spot_ids: list[int] | None = None,
+) -> None:
+    """Sync persisted parking spot status based on active bookings.
+
+    blocked spots are not changed.
+    """
+    booked_spots_subquery = select(Booking.parking_spot_id).where(
+        Booking.status == BookingStatus.active
+    )
+    if spot_ids:
+        booked_spots_subquery = booked_spots_subquery.where(Booking.parking_spot_id.in_(spot_ids))
+    booked_spots_subquery = booked_spots_subquery.distinct()
+
+    available_stmt = (
+        update(ParkingSpot)
+        .where(ParkingSpot.status != SpotStatus.blocked)
+        .values(status=SpotStatus.available)
+    )
+    if spot_ids:
+        available_stmt = available_stmt.where(ParkingSpot.id.in_(spot_ids))
+    await session.execute(available_stmt)
+
+    booked_stmt = (
+        update(ParkingSpot)
+        .where(ParkingSpot.status != SpotStatus.blocked)
+        .where(ParkingSpot.id.in_(booked_spots_subquery))
+        .values(status=SpotStatus.booked)
+    )
+    if spot_ids:
+        booked_stmt = booked_stmt.where(ParkingSpot.id.in_(spot_ids))
+    await session.execute(booked_stmt)

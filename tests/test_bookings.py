@@ -220,3 +220,35 @@ def test_create_booking_respects_browser_timezone_header():
         assert create_response.status_code == 201
         # Moscow (UTC+3) -> UTC naive stored time should be 09:00
         assert create_response.json()["start_time"].startswith("2026-03-13T09:00:00")
+
+
+def test_parking_spot_status_changes_on_booking_create_and_cancel():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now + timedelta(minutes=10)).isoformat(),
+                "end_time": (now + timedelta(minutes=30)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert create_response.status_code == 201
+        booking_id = create_response.json()["id"]
+
+        spot_after_create = client.get("/api/v1/parking_spots/1")
+        assert spot_after_create.status_code == 200
+        assert spot_after_create.json()["status"] == SpotStatus.booked
+
+        cancel_response = client.delete(
+            f"/api/v1/bookings/{booking_id}",
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert cancel_response.status_code == 204
+
+        spot_after_cancel = client.get("/api/v1/parking_spots/1")
+        assert spot_after_cancel.status_code == 200
+        assert spot_after_cancel.json()["status"] == SpotStatus.available

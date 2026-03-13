@@ -11,6 +11,7 @@ from app.models.booking import Booking, BookingStatus
 from app.schemas.parking_spot import ParkingSpotCreate, ParkingSpotOut, ParkingSpotUpdate
 from app.services.bookings import (
     normalize_client_datetime,
+    sync_parking_spot_statuses,
     sync_booking_statuses,
     to_db_datetime as _to_db_datetime,
 )
@@ -94,8 +95,10 @@ async def list_parking_spots(
     from_time: datetime | None = Query(None, alias="from"),
     to_time: datetime | None = Query(None, alias="to"),
     session: AsyncSession = Depends(get_session),
-):
+): 
     await sync_booking_statuses(session)
+    await sync_parking_spot_statuses(session)
+    await session.commit()
 
     if (from_time and not to_time) or (to_time and not from_time):
         raise HTTPException(status_code=400, detail="Both 'from' and 'to' must be provided")
@@ -122,6 +125,8 @@ async def get_parking_spot(
     parking_spot_id: int, session: AsyncSession = Depends(get_session)
 ):
     await sync_booking_statuses(session)
+    await sync_parking_spot_statuses(session, spot_ids=[parking_spot_id])
+    await session.commit()
 
     res = await session.execute(select(ParkingSpot).filter_by(id=parking_spot_id))
     parking_spot = res.scalar_one_or_none()
