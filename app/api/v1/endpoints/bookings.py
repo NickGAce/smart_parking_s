@@ -14,6 +14,7 @@ from app.services.bookings import (
     normalize_client_datetime,
     sync_parking_spot_statuses,
     sync_booking_statuses,
+    to_db_datetime,
     to_client_datetime,
 )
 
@@ -74,6 +75,8 @@ async def create_booking(
     if start_time >= end_time:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
+    server_now = to_db_datetime(datetime.utcnow())
+
     try:
         spot = await _get_spot_or_404(session, payload.parking_spot_id)
         if spot.status == SpotStatus.blocked:
@@ -95,7 +98,7 @@ async def create_booking(
             type=payload.type,
             parking_spot_id=payload.parking_spot_id,
             user_id=current_user.id,
-            status=BookingStatus.active,
+            status=BookingStatus.completed if end_time <= server_now else BookingStatus.active,
         )
         session.add(booking)
         await session.flush()
@@ -219,6 +222,8 @@ async def update_booking(
         if next_start >= next_end:
             raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
+        server_now = to_db_datetime(datetime.utcnow())
+
         if payload.status == BookingStatus.cancelled:
             booking.status = BookingStatus.cancelled
         elif payload.status is not None and not _is_admin(current_user):
@@ -233,6 +238,9 @@ async def update_booking(
             booking.start_time = next_start_payload
         if next_end_payload is not None:
             booking.end_time = next_end_payload
+
+        if booking.status == BookingStatus.active and booking.end_time <= server_now:
+            booking.status = BookingStatus.completed
 
         if payload.start_time is not None or payload.end_time is not None:
             overlap_stmt = (

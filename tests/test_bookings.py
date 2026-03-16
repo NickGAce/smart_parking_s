@@ -348,3 +348,21 @@ def test_device_time_header_does_not_force_premature_completion():
         )
         assert get_response.status_code == 200
         assert get_response.json()["status"] == BookingStatus.active
+
+
+def test_create_booking_in_past_is_completed_immediately():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now - timedelta(minutes=5)).isoformat(),
+                "end_time": (now - timedelta(minutes=1)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["status"] == BookingStatus.completed
