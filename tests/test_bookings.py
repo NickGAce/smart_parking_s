@@ -366,3 +366,26 @@ def test_create_booking_in_past_is_completed_immediately():
         )
         assert response.status_code == 201
         assert response.json()["status"] == BookingStatus.completed
+
+
+def test_utc_z_input_is_interpreted_as_local_when_timezone_header_present():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now + timedelta(hours=1)).isoformat() + "Z",
+                "end_time": (now + timedelta(hours=2)).isoformat() + "Z",
+                "type": BookingType.guest,
+            },
+            headers={
+                "Authorization": f"Bearer {tokens['user']}",
+                "X-Timezone": "Europe/Moscow",
+            },
+        )
+        assert response.status_code == 201
+        # Compatibility: values with `Z` + timezone header are treated as local wall-clock time.
+        # For UTC+3 this shifts stored UTC by -3h, so end_time can already be in the past.
+        assert response.json()["status"] == BookingStatus.completed

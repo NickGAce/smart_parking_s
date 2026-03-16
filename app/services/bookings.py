@@ -20,6 +20,15 @@ def to_db_datetime(dt: datetime) -> datetime:
 def normalize_client_datetime(dt: datetime, client_timezone: str | None) -> datetime:
     """Convert browser/client datetime to UTC naive for DB operations."""
     if dt.tzinfo is not None:
+        # Compatibility mode for clients that send local wall-clock time with trailing `Z`.
+        # If timezone header is provided and input is UTC-aware, reinterpret the value as local time.
+        if client_timezone and dt.utcoffset() == timezone.utc.utcoffset(None):
+            try:
+                tz = ZoneInfo(client_timezone)
+            except ZoneInfoNotFoundError as exc:
+                raise HTTPException(status_code=400, detail="Invalid X-Timezone header") from exc
+            local_wall_time = dt.replace(tzinfo=None)
+            return local_wall_time.replace(tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
         return to_db_datetime(dt)
 
     if client_timezone:
