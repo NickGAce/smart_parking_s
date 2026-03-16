@@ -12,7 +12,6 @@ from app.models.user import User, UserRole
 from app.schemas.booking import BookingCreate, BookingOut, BookingUpdate
 from app.services.bookings import (
     normalize_client_datetime,
-    resolve_client_now,
     sync_parking_spot_statuses,
     sync_booking_statuses,
     to_client_datetime,
@@ -69,7 +68,6 @@ async def create_booking(
 ):
     """Create a new booking for a parking spot if time slot is available."""
     client_timezone = request.headers.get("X-Timezone")
-    device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
     start_time = normalize_client_datetime(payload.start_time, client_timezone)
     end_time = normalize_client_datetime(payload.end_time, client_timezone)
 
@@ -101,7 +99,7 @@ async def create_booking(
         )
         session.add(booking)
         await session.flush()
-        await sync_parking_spot_statuses(session, spot_ids=[payload.parking_spot_id], now=device_now)
+        await sync_parking_spot_statuses(session, spot_ids=[payload.parking_spot_id])
         await session.commit()
     except Exception:
         await _rollback_if_needed(session)
@@ -125,10 +123,9 @@ async def list_bookings(
 ):
     """List bookings with filters and role-based visibility restrictions."""
     client_timezone = request.headers.get("X-Timezone")
-    device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
 
-    await sync_booking_statuses(session, now=device_now)
-    await sync_parking_spot_statuses(session, now=device_now)
+    await sync_booking_statuses(session)
+    await sync_parking_spot_statuses(session)
     await session.commit()
 
     if from_time is not None:
@@ -175,9 +172,8 @@ async def get_booking(
     current_user: User = Depends(get_current_user),
 ):
     client_timezone = request.headers.get("X-Timezone")
-    device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
-    await sync_booking_statuses(session, now=device_now)
-    await sync_parking_spot_statuses(session, now=device_now)
+    await sync_booking_statuses(session)
+    await sync_parking_spot_statuses(session)
     await session.commit()
 
     booking = await _get_booking_or_404(session, booking_id)
@@ -199,7 +195,6 @@ async def update_booking(
 ):
     """Update booking times or cancel booking based on access rules."""
     client_timezone = request.headers.get("X-Timezone")
-    device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
     next_start_payload = (
         normalize_client_datetime(payload.start_time, client_timezone)
         if payload.start_time is not None
@@ -251,7 +246,7 @@ async def update_booking(
             overlap_result = await session.execute(overlap_stmt)
             if overlap_result.scalar_one_or_none() is not None:
                 raise HTTPException(status_code=409, detail="Booking time overlaps with an existing booking")
-        await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=device_now)
+        await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id])
         await session.commit()
     except Exception:
         await _rollback_if_needed(session)
@@ -270,13 +265,11 @@ async def cancel_booking(
 ):
     """Soft-cancel booking by changing status to cancelled."""
     try:
-        client_timezone = request.headers.get("X-Timezone")
-        device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
         booking = await _get_booking_or_404(session, booking_id)
         if not _is_admin(current_user) and booking.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not enough permissions to cancel this booking")
         booking.status = BookingStatus.cancelled
-        await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=device_now)
+        await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id])
         await session.commit()
     except Exception:
         await _rollback_if_needed(session)

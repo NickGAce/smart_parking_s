@@ -100,8 +100,8 @@ async def list_parking_spots(
     client_timezone = request.headers.get("X-Timezone")
     device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
 
-    await sync_booking_statuses(session, now=device_now)
-    await sync_parking_spot_statuses(session, now=device_now)
+    await sync_booking_statuses(session)
+    await sync_parking_spot_statuses(session)
     await session.commit()
 
     if (from_time and not to_time) or (to_time and not from_time):
@@ -132,8 +132,8 @@ async def get_parking_spot(
     client_timezone = request.headers.get("X-Timezone")
     device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
 
-    await sync_booking_statuses(session, now=device_now)
-    await sync_parking_spot_statuses(session, spot_ids=[parking_spot_id], now=device_now)
+    await sync_booking_statuses(session)
+    await sync_parking_spot_statuses(session, spot_ids=[parking_spot_id])
     await session.commit()
 
     res = await session.execute(select(ParkingSpot).filter_by(id=parking_spot_id))

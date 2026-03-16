@@ -318,3 +318,33 @@ def test_get_booking_syncs_status_with_device_time():
         )
         assert get_response.status_code == 200
         assert get_response.json()["status"] == BookingStatus.completed
+
+
+def test_device_time_header_does_not_force_premature_completion():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now - timedelta(minutes=5)).isoformat(),
+                "end_time": (now + timedelta(minutes=55)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        booking_id = create_response.json()["id"]
+
+        # Even with a client-provided future device time, lifecycle status
+        # must be based on server time and stay active.
+        get_response = client.get(
+            f"/api/v1/bookings/{booking_id}",
+            headers={
+                "Authorization": f"Bearer {tokens['user']}",
+                "X-Device-Time": (now + timedelta(hours=5)).isoformat(),
+                "X-Timezone": "UTC",
+            },
+        )
+        assert get_response.status_code == 200
+        assert get_response.json()["status"] == BookingStatus.active
