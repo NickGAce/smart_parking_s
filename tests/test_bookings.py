@@ -241,7 +241,7 @@ def test_parking_spot_status_changes_on_booking_create_and_cancel():
 
         spot_after_create = client.get("/api/v1/parking_spots/1")
         assert spot_after_create.status_code == 200
-        assert spot_after_create.json()["status"] == SpotStatus.available
+        assert spot_after_create.json()["status"] == SpotStatus.booked
 
         # Simulate device time inside booking interval.
         spot_during_booking = client.get(
@@ -350,6 +350,38 @@ def test_device_time_header_does_not_force_premature_completion():
         assert get_response.json()["status"] == BookingStatus.active
 
 
+def test_create_booking_uses_device_time_for_status_and_spot_state():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now - timedelta(hours=2)).isoformat(),
+                "end_time": (now - timedelta(hours=1)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={
+                "Authorization": f"Bearer {tokens['user']}",
+                "X-Device-Time": (now - timedelta(hours=1, minutes=1)).isoformat(),
+                "X-Timezone": "UTC",
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["status"] == BookingStatus.completed
+
+        spot_response = client.get(
+            "/api/v1/parking_spots/1",
+            headers={
+                "X-Device-Time": (now - timedelta(hours=1, minutes=1)).isoformat(),
+                "X-Timezone": "UTC",
+            },
+        )
+        assert spot_response.status_code == 200
+        assert spot_response.json()["status"] == SpotStatus.available
+
+
 def test_create_booking_in_past_is_completed_immediately():
     _, tokens = _setup_state()
     now = datetime.utcnow()
@@ -389,3 +421,67 @@ def test_utc_z_input_is_interpreted_as_local_when_timezone_header_present():
         # Compatibility: values with `Z` + timezone header are treated as local wall-clock time.
         # For UTC+3 this shifts stored UTC by -3h, so end_time can already be in the past.
         assert response.json()["status"] == BookingStatus.completed
+
+
+def test_utc_z_input_without_header_uses_default_timezone_local_time():
+    _, tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": "2026-03-17T14:17:48.465Z",
+                "end_time": "2026-03-17T15:17:48.465Z",
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+
+        assert response.status_code == 201
+        # Without X-Timezone, `Z` input is interpreted as local default timezone (Europe/Moscow).
+        assert response.json()["start_time"].startswith("2026-03-17T14:17:48.465")
+        assert response.json()["start_time"].endswith("+03:00")
+
+
+def test_invalid_default_timezone_falls_back_to_moscow_for_z_input():
+    _, tokens = _setup_state()
+    from app.core.config import settings
+
+    original_tz = settings.default_timezone
+    settings.default_timezone = "Invalid/Timezone"
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/bookings",
+                json={
+                    "parking_spot_id": 1,
+                    "start_time": "2026-03-17T14:35:20.283Z",
+                    "end_time": "2026-03-17T15:35:20.283Z",
+                    "type": BookingType.guest,
+                },
+                headers={"Authorization": f"Bearer {tokens['user']}"},
+            )
+
+            assert response.status_code == 201
+            assert response.json()["start_time"].endswith("+03:00")
+    finally:
+        settings.default_timezone = original_tz
+
+
+def test_naive_datetime_without_header_uses_default_timezone():
+    _, tokens = _setup_state()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": "2026-03-13T10:00:00",
+                "end_time": "2026-03-13T11:00:00",
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+
+        assert create_response.status_code == 201
+        # Without X-Timezone, API falls back to default timezone (Europe/Moscow).
+        assert create_response.json()["start_time"].startswith("2026-03-13T10:00:00+03:00")

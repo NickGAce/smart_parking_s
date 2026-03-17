@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_alg: str = "HS256"
     access_token_expire_minutes: int = 60
+    default_timezone: str = "Europe/Moscow"
 
 
 settings = Settings()
