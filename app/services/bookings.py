@@ -62,8 +62,8 @@ def normalize_client_datetime(dt: datetime, client_timezone: str | None) -> date
     """Convert browser/client datetime to UTC naive for DB operations."""
     if dt.tzinfo is not None:
         # Compatibility mode for clients that send local wall-clock time with trailing `Z`.
-        # If timezone header is provided and input is UTC-aware, reinterpret the value as local time.
-        if client_timezone and dt.utcoffset() == timezone.utc.utcoffset(None):
+        # Reinterpret UTC-aware value as local wall time in request/default timezone.
+        if dt.utcoffset() == timezone.utc.utcoffset(None):
             tz = _resolve_timezone(client_timezone)
             local_wall_time = dt.replace(tzinfo=None)
             return local_wall_time.replace(tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)

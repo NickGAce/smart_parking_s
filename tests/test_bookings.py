@@ -423,6 +423,26 @@ def test_utc_z_input_is_interpreted_as_local_when_timezone_header_present():
         assert response.json()["status"] == BookingStatus.completed
 
 
+def test_utc_z_input_without_header_uses_default_timezone_local_time():
+    _, tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": "2026-03-17T14:17:48.465Z",
+                "end_time": "2026-03-17T15:17:48.465Z",
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+
+        assert response.status_code == 201
+        # Without X-Timezone, `Z` input is interpreted as local default timezone (Europe/Moscow).
+        assert response.json()["start_time"].startswith("2026-03-17T14:17:48.465")
+        assert response.json()["start_time"].endswith("+03:00")
+
+
 def test_naive_datetime_without_header_uses_default_timezone():
     _, tokens = _setup_state()
     with TestClient(app) as client:
