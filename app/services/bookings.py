@@ -8,6 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.booking import Booking, BookingStatus
 from app.models.parking_spot import ParkingSpot, SpotStatus
+from app.core.config import settings
+
+
+def _resolve_timezone(client_timezone: str | None) -> ZoneInfo:
+    tz_name = client_timezone or settings.default_timezone
+    try:
+        return ZoneInfo(tz_name)
+    except ZoneInfoNotFoundError as exc:
+        detail = "Invalid X-Timezone header" if client_timezone else "Invalid default timezone"
+        raise HTTPException(status_code=400, detail=detail) from exc
 
 
 def to_db_datetime(dt: datetime) -> datetime:
@@ -23,23 +33,13 @@ def normalize_client_datetime(dt: datetime, client_timezone: str | None) -> date
         # Compatibility mode for clients that send local wall-clock time with trailing `Z`.
         # If timezone header is provided and input is UTC-aware, reinterpret the value as local time.
         if client_timezone and dt.utcoffset() == timezone.utc.utcoffset(None):
-            try:
-                tz = ZoneInfo(client_timezone)
-            except ZoneInfoNotFoundError as exc:
-                raise HTTPException(status_code=400, detail="Invalid X-Timezone header") from exc
+            tz = _resolve_timezone(client_timezone)
             local_wall_time = dt.replace(tzinfo=None)
             return local_wall_time.replace(tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
         return to_db_datetime(dt)
 
-    if client_timezone:
-        try:
-            tz = ZoneInfo(client_timezone)
-        except ZoneInfoNotFoundError as exc:
-            raise HTTPException(status_code=400, detail="Invalid X-Timezone header") from exc
-        return dt.replace(tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
-
-    # Fallback: treat naive datetime as UTC.
-    return dt
+    tz = _resolve_timezone(client_timezone)
+    return dt.replace(tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def resolve_client_now(
@@ -61,12 +61,7 @@ def resolve_client_now(
 def to_client_datetime(dt: datetime, client_timezone: str | None) -> datetime:
     """Convert DB UTC-naive datetime to client timezone-aware datetime for API output."""
     utc_aware = dt.replace(tzinfo=timezone.utc)
-    if not client_timezone:
-        return utc_aware
-    try:
-        tz = ZoneInfo(client_timezone)
-    except ZoneInfoNotFoundError as exc:
-        raise HTTPException(status_code=400, detail="Invalid X-Timezone header") from exc
+    tz = _resolve_timezone(client_timezone)
     return utc_aware.astimezone(tz)
 
 
