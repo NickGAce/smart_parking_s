@@ -47,8 +47,11 @@ def _resolve_timezone(client_timezone: str | None) -> tzinfo:
         if client_timezone:
             raise HTTPException(status_code=400, detail="Invalid X-Timezone header") from exc
 
-        # Keep API usable even with bad server config value.
-        return timezone.utc
+        # Keep API usable even with bad server config and preserve business rule: work in MSK.
+        try:
+            return ZoneInfo("Europe/Moscow")
+        except ZoneInfoNotFoundError:
+            return timezone(timedelta(hours=3))
 
 
 def to_db_datetime(dt: datetime) -> datetime:

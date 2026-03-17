@@ -443,6 +443,31 @@ def test_utc_z_input_without_header_uses_default_timezone_local_time():
         assert response.json()["start_time"].endswith("+03:00")
 
 
+def test_invalid_default_timezone_falls_back_to_moscow_for_z_input():
+    _, tokens = _setup_state()
+    from app.core.config import settings
+
+    original_tz = settings.default_timezone
+    settings.default_timezone = "Invalid/Timezone"
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/api/v1/bookings",
+                json={
+                    "parking_spot_id": 1,
+                    "start_time": "2026-03-17T14:35:20.283Z",
+                    "end_time": "2026-03-17T15:35:20.283Z",
+                    "type": BookingType.guest,
+                },
+                headers={"Authorization": f"Bearer {tokens['user']}"},
+            )
+
+            assert response.status_code == 201
+            assert response.json()["start_time"].endswith("+03:00")
+    finally:
+        settings.default_timezone = original_tz
+
+
 def test_naive_datetime_without_header_uses_default_timezone():
     _, tokens = _setup_state()
     with TestClient(app) as client:
