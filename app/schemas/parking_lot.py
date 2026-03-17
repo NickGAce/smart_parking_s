@@ -15,6 +15,7 @@ class ParkingLotCreate(BaseModel):
 
 class ParkingLotOut(ParkingLotCreate):
     id: int
+    owner_id: int | None = None
 
     class Config:
         from_attributes = True

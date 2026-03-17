@@ -143,7 +143,8 @@ def test_effective_status_booked_when_active_booking():
         }
         client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {tokens['user']}"})
         response = client.get(
-            f"/api/v1/parking_spots?from={(now + timedelta(minutes=5)).isoformat()}&to={(now + timedelta(minutes=6)).isoformat()}"
+            f"/api/v1/parking_spots?from={(now + timedelta(minutes=5)).isoformat()}&to={(now + timedelta(minutes=6)).isoformat()}",
+            headers={"Authorization": f"Bearer {tokens['user']}"},
         )
         assert response.status_code == 200
         assert response.json()[0]["effective_status"] == SpotStatus.booked
@@ -239,7 +240,7 @@ def test_parking_spot_status_changes_on_booking_create_and_cancel():
         assert create_response.status_code == 201
         booking_id = create_response.json()["id"]
 
-        spot_after_create = client.get("/api/v1/parking_spots/1")
+        spot_after_create = client.get("/api/v1/parking_spots/1", headers={"Authorization": f"Bearer {tokens['user']}"})
         assert spot_after_create.status_code == 200
         assert spot_after_create.json()["status"] == SpotStatus.booked
 
@@ -247,6 +248,7 @@ def test_parking_spot_status_changes_on_booking_create_and_cancel():
         spot_during_booking = client.get(
             "/api/v1/parking_spots/1",
             headers={
+                "Authorization": f"Bearer {tokens['user']}",
                 "X-Device-Time": (now + timedelta(minutes=15)).isoformat(),
                 "X-Timezone": "UTC",
             },
@@ -260,7 +262,7 @@ def test_parking_spot_status_changes_on_booking_create_and_cancel():
         )
         assert cancel_response.status_code == 204
 
-        spot_after_cancel = client.get("/api/v1/parking_spots/1")
+        spot_after_cancel = client.get("/api/v1/parking_spots/1", headers={"Authorization": f"Bearer {tokens['user']}"})
         assert spot_after_cancel.status_code == 200
         assert spot_after_cancel.json()["status"] == SpotStatus.available
 
@@ -281,13 +283,14 @@ def test_device_time_header_affects_default_effective_status_window():
         )
         assert create_response.status_code == 201
 
-        now_response = client.get("/api/v1/parking_spots/1")
+        now_response = client.get("/api/v1/parking_spots/1", headers={"Authorization": f"Bearer {tokens['user']}"})
         assert now_response.status_code == 200
         assert now_response.json()["effective_status"] == SpotStatus.available
 
         future_response = client.get(
             "/api/v1/parking_spots/1",
             headers={
+                "Authorization": f"Bearer {tokens['user']}",
                 "X-Device-Time": (now + timedelta(hours=2, minutes=10)).isoformat(),
                 "X-Timezone": "UTC",
             },
@@ -374,6 +377,7 @@ def test_create_booking_uses_device_time_for_status_and_spot_state():
         spot_response = client.get(
             "/api/v1/parking_spots/1",
             headers={
+                "Authorization": f"Bearer {tokens['user']}",
                 "X-Device-Time": (now - timedelta(hours=1, minutes=1)).isoformat(),
                 "X-Timezone": "UTC",
             },
