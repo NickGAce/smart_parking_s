@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+import re
+from datetime import datetime, timedelta, timezone, tzinfo
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException
@@ -10,14 +11,44 @@ from app.models.booking import Booking, BookingStatus
 from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.core.config import settings
 
+_FIXED_OFFSET_PATTERN = re.compile(r"^(?:UTC|GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$", re.IGNORECASE)
 
-def _resolve_timezone(client_timezone: str | None) -> ZoneInfo:
+
+def _parse_fixed_offset_timezone(value: str) -> tzinfo | None:
+    normalized = value.strip()
+    if normalized.upper() in {"UTC", "GMT", "Z"}:
+        return timezone.utc
+
+    match = _FIXED_OFFSET_PATTERN.match(normalized)
+    if not match:
+        return None
+
+    sign, hours_str, minutes_str = match.groups()
+    hours = int(hours_str)
+    minutes = int(minutes_str or 0)
+    if hours > 14 or minutes > 59:
+        return None
+
+    delta = timedelta(hours=hours, minutes=minutes)
+    if sign == "-":
+        delta = -delta
+    return timezone(delta)
+
+
+def _resolve_timezone(client_timezone: str | None) -> tzinfo:
     tz_name = client_timezone or settings.default_timezone
+    fixed_offset_tz = _parse_fixed_offset_timezone(tz_name)
+    if fixed_offset_tz is not None:
+        return fixed_offset_tz
+
     try:
         return ZoneInfo(tz_name)
     except ZoneInfoNotFoundError as exc:
-        detail = "Invalid X-Timezone header" if client_timezone else "Invalid default timezone"
-        raise HTTPException(status_code=400, detail=detail) from exc
+        if client_timezone:
+            raise HTTPException(status_code=400, detail="Invalid X-Timezone header") from exc
+
+        # Keep API usable even with bad server config value.
+        return timezone.utc
 
 
 def to_db_datetime(dt: datetime) -> datetime:
