@@ -241,7 +241,7 @@ def test_parking_spot_status_changes_on_booking_create_and_cancel():
 
         spot_after_create = client.get("/api/v1/parking_spots/1")
         assert spot_after_create.status_code == 200
-        assert spot_after_create.json()["status"] == SpotStatus.available
+        assert spot_after_create.json()["status"] == SpotStatus.booked
 
         # Simulate device time inside booking interval.
         spot_during_booking = client.get(

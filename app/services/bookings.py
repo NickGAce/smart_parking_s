@@ -126,7 +126,7 @@ async def sync_parking_spot_statuses(
     """
     current = to_db_datetime(now or datetime.now(timezone.utc))
     booked_spots_subquery = select(Booking.parking_spot_id).where(Booking.status == BookingStatus.active)
-    booked_spots_subquery = booked_spots_subquery.where(Booking.start_time <= current)
+    # Persisted spot status reflects reservation state: any active and non-ended booking keeps spot booked.
     booked_spots_subquery = booked_spots_subquery.where(Booking.end_time > current)
     if spot_ids:
         booked_spots_subquery = booked_spots_subquery.where(Booking.parking_spot_id.in_(spot_ids))
