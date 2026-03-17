@@ -3,7 +3,7 @@ from app.api.v1.endpoints import auth, admin_users
 from fastapi import Depends
 from app.api.deps import get_current_user, require_roles
 from app.models.user import UserRole
-from app.api.v1.endpoints import parking, parking_spots
+from app.api.v1.endpoints import bookings, parking, parking_spots
 
 
 router = APIRouter(prefix="/api/v1")
@@ -11,6 +11,7 @@ router.include_router(auth.router)
 router.include_router(admin_users.router)
 router.include_router(parking.router)
 router.include_router(parking_spots.router)
+router.include_router(bookings.router)
 
 
 @router.get("/health")

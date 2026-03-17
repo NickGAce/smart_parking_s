@@ -16,6 +16,7 @@ class ParkingSpotOut(BaseModel):
     id: int
     spot_number: int
     status: SpotStatus
+    effective_status: SpotStatus
     type: str
     parking_lot_id: int
 
