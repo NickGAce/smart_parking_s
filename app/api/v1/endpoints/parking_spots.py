@@ -13,7 +13,7 @@ from app.models.user import User, UserRole
 from app.schemas.parking_spot import ParkingSpotCreate, ParkingSpotOut, ParkingSpotUpdate
 from app.services.bookings import (
     normalize_client_datetime,
-    resolve_client_now,
+    server_now_utc_naive,
     sync_booking_statuses,
     sync_parking_spot_statuses,
     to_db_datetime as _to_db_datetime,
@@ -136,7 +136,7 @@ async def list_parking_spots(
     current_user: User = Depends(get_current_user),
 ):
     client_timezone = request.headers.get("X-Timezone")
-    device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
+    server_now = server_now_utc_naive()
 
     await sync_booking_statuses(session)
     await sync_parking_spot_statuses(session)
@@ -154,7 +154,7 @@ async def list_parking_spots(
         raise HTTPException(status_code=400, detail="'from' must be earlier than 'to'")
 
     if not from_time and not to_time:
-        from_time = device_now
+        from_time = server_now
         to_time = from_time
 
     stmt = select(ParkingSpot)
@@ -175,8 +175,7 @@ async def get_parking_spot(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    client_timezone = request.headers.get("X-Timezone")
-    device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
+    server_now = server_now_utc_naive()
 
     await sync_booking_statuses(session)
     await sync_parking_spot_statuses(session, spot_ids=[parking_spot_id])
@@ -189,7 +188,7 @@ async def get_parking_spot(
         if not _can_owner_manage_spot(current_user, parking_spot, lot):
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    return await _to_spot_out(session, parking_spot, device_now, device_now)
+    return await _to_spot_out(session, parking_spot, server_now, server_now)
 
 
 @router.patch("/{parking_spot_id}", response_model=ParkingSpotOut)

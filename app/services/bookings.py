@@ -92,6 +92,11 @@ def resolve_client_now(
     return normalize_client_datetime(parsed, client_timezone)
 
 
+def server_now_utc_naive() -> datetime:
+    """Return current server timestamp in UTC naive form used by DB/business logic."""
+    return to_db_datetime(datetime.now(timezone.utc))
+
+
 def to_client_datetime(dt: datetime, client_timezone: str | None) -> datetime:
     """Convert DB UTC-naive datetime to client timezone-aware datetime for API output."""
     utc_aware = dt.replace(tzinfo=timezone.utc)
