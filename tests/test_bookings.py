@@ -152,7 +152,7 @@ def test_effective_status_booked_when_active_booking():
         assert response.json()[0]["effective_status"] == SpotStatus.booked
 
 
-def test_active_booking_auto_completes_on_list():
+def test_past_booking_is_completed_immediately_and_stays_completed():
     _, tokens = _setup_state()
     now = datetime.utcnow()
     with TestClient(app) as client:
@@ -168,7 +168,7 @@ def test_active_booking_auto_completes_on_list():
             headers={"Authorization": f"Bearer {tokens['user']}"},
         )
         assert create_response.status_code == 201
-        assert create_response.json()["status"] == BookingStatus.active
+        assert create_response.json()["status"] == BookingStatus.completed
 
         list_response = client.get(
             "/api/v1/bookings?mine=true",
@@ -269,7 +269,7 @@ def test_parking_spot_status_changes_on_booking_create_and_cancel():
         assert spot_after_cancel.json()["status"] == SpotStatus.available
 
 
-def test_device_time_header_affects_default_effective_status_window():
+def test_device_time_header_does_not_affect_default_effective_status_window():
     _, tokens = _setup_state()
     now = datetime.utcnow()
     with TestClient(app) as client:
@@ -298,10 +298,10 @@ def test_device_time_header_affects_default_effective_status_window():
             },
         )
         assert future_response.status_code == 200
-        assert future_response.json()["effective_status"] == SpotStatus.booked
+        assert future_response.json()["effective_status"] == SpotStatus.available
 
 
-def test_get_booking_syncs_status_with_device_time():
+def test_get_booking_syncs_status_with_server_time():
     _, tokens = _setup_state()
     now = datetime.utcnow()
     with TestClient(app) as client:
@@ -355,7 +355,7 @@ def test_device_time_header_does_not_force_premature_completion():
         assert get_response.json()["status"] == BookingStatus.active
 
 
-def test_create_booking_uses_device_time_for_status_and_spot_state():
+def test_create_booking_ignores_device_time_for_status_and_spot_state():
     _, tokens = _setup_state()
     now = datetime.utcnow()
     with TestClient(app) as client:
@@ -369,7 +369,7 @@ def test_create_booking_uses_device_time_for_status_and_spot_state():
             },
             headers={
                 "Authorization": f"Bearer {tokens['user']}",
-                "X-Device-Time": (now - timedelta(hours=1, minutes=1)).isoformat(),
+                "X-Device-Time": (now + timedelta(days=7)).isoformat(),
                 "X-Timezone": "UTC",
             },
         )
@@ -380,13 +380,36 @@ def test_create_booking_uses_device_time_for_status_and_spot_state():
             "/api/v1/parking_spots/1",
             headers={
                 "Authorization": f"Bearer {tokens['user']}",
-                "X-Device-Time": (now - timedelta(hours=1, minutes=1)).isoformat(),
+                "X-Device-Time": (now + timedelta(days=7)).isoformat(),
                 "X-Timezone": "UTC",
             },
         )
         assert spot_response.status_code == 200
         assert spot_response.json()["status"] == SpotStatus.available
 
+
+
+
+def test_future_device_time_header_does_not_force_completion_on_create():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now + timedelta(minutes=5)).isoformat(),
+                "end_time": (now + timedelta(minutes=30)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={
+                "Authorization": f"Bearer {tokens['user']}",
+                "X-Device-Time": (now + timedelta(days=1)).isoformat(),
+                "X-Timezone": "UTC",
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["status"] == BookingStatus.active
 
 def test_create_booking_in_past_is_completed_immediately():
     _, tokens = _setup_state()
