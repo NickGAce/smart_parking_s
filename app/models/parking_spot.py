@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import String, Enum, Integer, ForeignKey
+from sqlalchemy import CheckConstraint, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.parking_lot import ParkingLot  # Импортируем модель парковки
@@ -15,6 +15,10 @@ class SpotStatus(str, enum.Enum):
 
 class ParkingSpot(Base):
     __tablename__ = "parking_spots"
+    __table_args__ = (
+        UniqueConstraint("parking_lot_id", "spot_number", name="uq_parking_spots_lot_spot_number"),
+        CheckConstraint("spot_number > 0", name="ck_parking_spots_spot_number_positive"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     spot_number: Mapped[int] = mapped_column(Integer, nullable=False)

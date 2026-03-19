@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -10,6 +11,7 @@ from app.models.booking import Booking, BookingStatus
 from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
 from app.schemas.booking import BookingCreate, BookingOut, BookingUpdate
+from app.schemas.pagination import BookingListResponse, PaginationMeta
 from app.services.bookings import (
     normalize_client_datetime,
     server_now_utc_naive,
@@ -106,7 +108,7 @@ async def create_booking(
     return _booking_to_out(booking, client_timezone)
 
 
-@router.get("", response_model=list[BookingOut])
+@router.get("", response_model=BookingListResponse)
 async def list_bookings(
     request: Request,
     mine: bool = False,
@@ -115,6 +117,10 @@ async def list_bookings(
     from_time: datetime | None = Query(None, alias="from"),
     to_time: datetime | None = Query(None, alias="to"),
     status: BookingStatus | None = None,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort_by: Literal["start_time", "end_time", "status", "id"] = Query("start_time"),
+    sort_order: Literal["asc", "desc"] = Query("desc"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -157,9 +163,43 @@ async def list_bookings(
             )
         )
 
-    result = await session.execute(stmt.order_by(Booking.start_time.desc()))
+    count_stmt = select(func.count(Booking.id)).select_from(Booking).join(
+        ParkingSpot, Booking.parking_spot_id == ParkingSpot.id
+    )
+
+    if parking_lot_id is not None:
+        count_stmt = count_stmt.where(ParkingSpot.parking_lot_id == parking_lot_id)
+    if parking_spot_id is not None:
+        count_stmt = count_stmt.where(Booking.parking_spot_id == parking_spot_id)
+    if from_time is not None:
+        count_stmt = count_stmt.where(Booking.end_time > from_time)
+    if to_time is not None:
+        count_stmt = count_stmt.where(Booking.start_time < to_time)
+    if status is not None:
+        count_stmt = count_stmt.where(Booking.status == status)
+    if mine:
+        count_stmt = count_stmt.where(Booking.user_id == current_user.id)
+    elif not _is_admin(current_user):
+        count_stmt = count_stmt.where(
+            or_(
+                Booking.user_id == current_user.id,
+                ParkingSpot.owner_id == current_user.id,
+            )
+        )
+
+    sortable_fields = {
+        "id": Booking.id,
+        "start_time": Booking.start_time,
+        "end_time": Booking.end_time,
+        "status": Booking.status,
+    }
+    order_clause = sortable_fields[sort_by].desc() if sort_order == "desc" else sortable_fields[sort_by].asc()
+    total = (await session.execute(count_stmt)).scalar_one()
+
+    result = await session.execute(stmt.order_by(order_clause).limit(limit).offset(offset))
     bookings = result.scalars().all()
-    return [_booking_to_out(booking, client_timezone) for booking in bookings]
+    items = [_booking_to_out(booking, client_timezone) for booking in bookings]
+    return BookingListResponse(items=items, meta=PaginationMeta(limit=limit, offset=offset, total=total))
 
 
 @router.get("/{booking_id}", response_model=BookingOut)

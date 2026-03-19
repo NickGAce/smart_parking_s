@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, Text, ForeignKey
+from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
@@ -6,6 +6,13 @@ from app.db.base import Base
 # Убираем прямой импорт ParkingSpot
 class ParkingLot(Base):
     __tablename__ = "parking_lots"
+    __table_args__ = (
+        CheckConstraint("total_spots > 0", name="ck_parking_lots_total_spots_positive"),
+        CheckConstraint(
+            "guest_spot_percentage >= 0 AND guest_spot_percentage <= 100",
+            name="ck_parking_lots_guest_spot_percentage_range",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)

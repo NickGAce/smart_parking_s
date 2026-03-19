@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_roles
@@ -7,6 +7,7 @@ from app.db.session import get_session
 from app.models.parking_lot import ParkingLot
 from app.models.user import User, UserRole
 from app.schemas.parking_lot import ParkingLotCreate, ParkingLotOut, ParkingLotUpdate
+from app.schemas.pagination import PaginationMeta, ParkingLotListResponse
 
 router = APIRouter(prefix="/parking", tags=["parking"])
 
@@ -46,18 +47,36 @@ async def create_parking_lot(
     return parking_lot
 
 
-@router.get("", response_model=list[ParkingLotOut])
+@router.get("", response_model=ParkingLotListResponse)
 async def list_parking_lots(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort_by: str = Query("id"),
+    sort_order: str = Query("asc"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
     stmt = select(ParkingLot)
+    count_stmt = select(func.count(ParkingLot.id))
 
     if current_user.role == UserRole.owner:
         stmt = stmt.where(ParkingLot.owner_id == current_user.id)
+        count_stmt = count_stmt.where(ParkingLot.owner_id == current_user.id)
+
+    sortable_fields = {
+        "id": ParkingLot.id,
+        "name": ParkingLot.name,
+        "total_spots": ParkingLot.total_spots,
+    }
+    sort_column = sortable_fields.get(sort_by, ParkingLot.id)
+    order_clause = sort_column.desc() if sort_order.lower() == "desc" else sort_column.asc()
+
+    total = (await session.execute(count_stmt)).scalar_one()
+    stmt = stmt.order_by(order_clause).limit(limit).offset(offset)
 
     res = await session.execute(stmt)
-    return res.scalars().all()
+    items = res.scalars().all()
+    return ParkingLotListResponse(items=items, meta=PaginationMeta(limit=limit, offset=offset, total=total))
 
 
 @router.get("/{parking_lot_id}", response_model=ParkingLotOut)
