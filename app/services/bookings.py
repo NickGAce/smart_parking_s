@@ -111,7 +111,6 @@ async def sync_booking_statuses(
         .where(Booking.end_time <= current)
         .values(status=BookingStatus.completed)
     )
-    await session.commit()
     return result.rowcount or 0
 
 

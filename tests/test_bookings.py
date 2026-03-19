@@ -12,10 +12,12 @@ from app.api.deps import get_session
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base
 from app.main import app
+from app.models.booking import Booking
 from app.models.booking import BookingStatus, BookingType
 from app.models.parking_lot import ParkingLot
 from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
+from app.services.bookings import sync_booking_statuses
 
 
 def _setup_state():
@@ -489,3 +491,61 @@ def test_naive_datetime_without_header_uses_default_timezone():
         assert create_response.status_code == 201
         # Without X-Timezone, API falls back to default timezone (Europe/Moscow).
         assert create_response.json()["start_time"].startswith("2026-03-13T10:00:00+03:00")
+
+
+def test_sync_booking_statuses_does_not_commit_inside_service():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    session_local = async_sessionmaker(engine, expire_on_commit=False)
+    now = datetime.utcnow()
+
+    async def scenario():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        async with session_local() as session:
+            owner = User(email="owner_sync@test.com", hashed_password=hash_password("secret123"), role=UserRole.owner)
+            session.add(owner)
+            await session.flush()
+
+            lot = ParkingLot(name="Lot Sync", address="Addr", total_spots=10, guest_spot_percentage=10, owner_id=owner.id)
+            session.add(lot)
+            await session.flush()
+
+            spot = ParkingSpot(
+                spot_number=100,
+                status=SpotStatus.available,
+                type="regular",
+                parking_lot_id=lot.id,
+                owner_id=owner.id,
+            )
+            session.add(spot)
+            await session.flush()
+
+            booking = Booking(
+                start_time=now - timedelta(hours=2),
+                end_time=now - timedelta(hours=1),
+                type=BookingType.guest,
+                parking_spot_id=spot.id,
+                user_id=owner.id,
+                status=BookingStatus.active,
+            )
+            session.add(booking)
+            await session.commit()
+            booking_id = booking.id
+
+        async with session_local() as session:
+            try:
+                async with session.begin():
+                    await sync_booking_statuses(session, now=now)
+                    raise RuntimeError("force rollback")
+            except RuntimeError:
+                pass
+
+        async with session_local() as session:
+            reloaded = await session.get(Booking, booking_id)
+            assert reloaded is not None
+            assert reloaded.status == BookingStatus.active
+
+        await engine.dispose()
+
+    asyncio.run(scenario())

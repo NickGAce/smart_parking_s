@@ -23,7 +23,9 @@ async def create_user(
         raise HTTPException(status_code=409, detail="Email already registered")
 
     # Регистрируем пользователя с ролью, заданной администратором
-    user = await register_user(session, payload.email, payload.password, payload.role)
+    async with session.begin():
+        user = await register_user(session, payload.email, payload.password, payload.role)
+    await session.refresh(user)
     return user
 
 

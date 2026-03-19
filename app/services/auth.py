@@ -10,8 +10,7 @@ async def register_user(
 ) -> User:
     user = User(email=email, hashed_password=hash_password(password), role=role)
     session.add(user)
-    await session.commit()
-    await session.refresh(user)
+    await session.flush()
     return user
 
 
