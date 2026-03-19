@@ -114,7 +114,7 @@ def test_user_does_not_see_others_bookings():
         client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {tokens['another']}"})
         response = client.get("/api/v1/bookings", headers={"Authorization": f"Bearer {tokens['user']}"})
         assert response.status_code == 200
-        assert response.json() == []
+        assert response.json()["items"] == []
 
 
 def test_admin_sees_all_bookings():
@@ -130,7 +130,7 @@ def test_admin_sees_all_bookings():
         client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {tokens['user']}"})
         response = client.get("/api/v1/bookings", headers={"Authorization": f"Bearer {tokens['admin']}"})
         assert response.status_code == 200
-        assert len(response.json()) == 1
+        assert len(response.json()["items"]) == 1
 
 
 def test_effective_status_booked_when_active_booking():
@@ -149,7 +149,7 @@ def test_effective_status_booked_when_active_booking():
             headers={"Authorization": f"Bearer {tokens['user']}"},
         )
         assert response.status_code == 200
-        assert response.json()[0]["effective_status"] == SpotStatus.booked
+        assert response.json()["items"][0]["effective_status"] == SpotStatus.booked
 
 
 def test_past_booking_is_completed_immediately_and_stays_completed():
@@ -175,7 +175,7 @@ def test_past_booking_is_completed_immediately_and_stays_completed():
             headers={"Authorization": f"Bearer {tokens['user']}"},
         )
         assert list_response.status_code == 200
-        assert list_response.json()[0]["status"] == BookingStatus.completed
+        assert list_response.json()["items"][0]["status"] == BookingStatus.completed
 
 
 def test_patch_booking_type_changes():

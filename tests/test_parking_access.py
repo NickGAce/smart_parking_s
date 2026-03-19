@@ -117,6 +117,8 @@ def test_tenant_and_guard_read_only_access():
 
         assert tenant_list.status_code == 200
         assert guard_list.status_code == 200
+        assert "items" in tenant_list.json()
+        assert "items" in guard_list.json()
         assert tenant_create.status_code == 403
         assert guard_update.status_code == 403
 
@@ -133,12 +135,12 @@ def test_owner_has_access_only_to_own_parking_entities():
         )
 
         assert owner_lots.status_code == 200
-        assert len(owner_lots.json()) == 1
-        assert owner_lots.json()[0]["id"] == 1
+        assert len(owner_lots.json()["items"]) == 1
+        assert owner_lots.json()["items"][0]["id"] == 1
 
         assert owner_spots.status_code == 200
-        assert len(owner_spots.json()) == 1
-        assert owner_spots.json()[0]["parking_lot_id"] == 1
+        assert len(owner_spots.json()["items"]) == 1
+        assert owner_spots.json()["items"][0]["parking_lot_id"] == 1
         assert forbidden_lot.status_code == 403
 
 

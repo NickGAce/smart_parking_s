@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_roles
@@ -10,6 +12,7 @@ from app.models.booking import Booking, BookingStatus
 from app.models.parking_lot import ParkingLot
 from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
+from app.schemas.pagination import PaginationMeta, ParkingSpotListResponse
 from app.schemas.parking_spot import ParkingSpotCreate, ParkingSpotOut, ParkingSpotUpdate
 from app.services.bookings import (
     normalize_client_datetime,
@@ -120,18 +123,29 @@ async def create_parking_spot(
     )
 
     session.add(parking_spot)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Parking spot with this number already exists in the parking lot",
+        )
     await session.refresh(parking_spot)
 
     now = _to_db_datetime(datetime.now(timezone.utc))
     return await _to_spot_out(session, parking_spot, now, now)
 
 
-@router.get("", response_model=list[ParkingSpotOut])
+@router.get("", response_model=ParkingSpotListResponse)
 async def list_parking_spots(
     request: Request,
     from_time: datetime | None = Query(None, alias="from"),
     to_time: datetime | None = Query(None, alias="to"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    sort_by: Literal["id", "spot_number", "status"] = Query("id"),
+    sort_order: Literal["asc", "desc"] = Query("asc"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -158,14 +172,27 @@ async def list_parking_spots(
         to_time = from_time
 
     stmt = select(ParkingSpot)
+    count_stmt = select(func.count(ParkingSpot.id))
     if _is_owner(current_user):
         stmt = stmt.join(ParkingLot, ParkingLot.id == ParkingSpot.parking_lot_id).where(
             ParkingLot.owner_id == current_user.id
         )
+        count_stmt = count_stmt.join(ParkingLot, ParkingLot.id == ParkingSpot.parking_lot_id).where(
+            ParkingLot.owner_id == current_user.id
+        )
 
-    res = await session.execute(stmt)
+    sortable_fields = {
+        "id": ParkingSpot.id,
+        "spot_number": ParkingSpot.spot_number,
+        "status": ParkingSpot.status,
+    }
+    order_clause = sortable_fields[sort_by].desc() if sort_order == "desc" else sortable_fields[sort_by].asc()
+    total = (await session.execute(count_stmt)).scalar_one()
+
+    res = await session.execute(stmt.order_by(order_clause).limit(limit).offset(offset))
     spots = res.scalars().all()
-    return [await _to_spot_out(session, spot, from_time, to_time) for spot in spots]
+    items = [await _to_spot_out(session, spot, from_time, to_time) for spot in spots]
+    return ParkingSpotListResponse(items=items, meta=PaginationMeta(limit=limit, offset=offset, total=total))
 
 
 @router.get("/{parking_spot_id}", response_model=ParkingSpotOut)
@@ -216,7 +243,14 @@ async def update_parking_spot(
     for field, value in data.items():
         setattr(parking_spot, field, value)
 
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Parking spot with this number already exists in the parking lot",
+        )
     await session.refresh(parking_spot)
     now = _to_db_datetime(datetime.now(timezone.utc))
     return await _to_spot_out(session, parking_spot, now, now)

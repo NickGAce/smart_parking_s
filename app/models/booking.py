@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime
-from sqlalchemy import Integer, DateTime, ForeignKey, Enum
+from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Index, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
@@ -18,6 +18,11 @@ class BookingStatus(str, enum.Enum):
 
 class Booking(Base):
     __tablename__ = "bookings"
+    __table_args__ = (
+        CheckConstraint("start_time < end_time", name="ck_bookings_start_before_end"),
+        Index("ix_bookings_status_start_time", "status", "start_time"),
+        Index("ix_bookings_status_end_time", "status", "end_time"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
