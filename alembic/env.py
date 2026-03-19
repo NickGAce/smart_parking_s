@@ -26,7 +26,7 @@ config.set_main_option("sqlalchemy.url", database_url)
 
 # Импортируем metadata
 from app.db.base import Base
-from app.models import user  # важно: импорт чтобы модель зарегистрировалась
+from app import models  # noqa: F401
 
 target_metadata = Base.metadata
 

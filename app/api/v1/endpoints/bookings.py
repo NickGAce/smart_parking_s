@@ -3,12 +3,14 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import and_, func, or_, select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.db.session import get_session
 from app.models.booking import Booking, BookingStatus
 from app.models.parking_spot import ParkingSpot, SpotStatus
+from app.models.parking_lot import ParkingLot
 from app.models.user import User, UserRole
 from app.schemas.booking import BookingCreate, BookingOut, BookingUpdate
 from app.schemas.pagination import BookingListResponse, PaginationMeta
@@ -19,6 +21,7 @@ from app.services.bookings import (
     sync_booking_statuses,
     to_client_datetime,
 )
+from app.services.parking_rules import validate_booking_against_lot_rules
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -36,7 +39,14 @@ async def _get_booking_or_404(session: AsyncSession, booking_id: int) -> Booking
 
 
 async def _get_spot_or_404(session: AsyncSession, parking_spot_id: int) -> ParkingSpot:
-    result = await session.execute(select(ParkingSpot).where(ParkingSpot.id == parking_spot_id))
+    result = await session.execute(
+        select(ParkingSpot)
+        .options(
+            selectinload(ParkingSpot.parking_lot).selectinload(ParkingLot.working_hours),
+            selectinload(ParkingSpot.parking_lot).selectinload(ParkingLot.schedule_exceptions),
+        )
+        .where(ParkingSpot.id == parking_spot_id)
+    )
     spot = result.scalar_one_or_none()
     if not spot:
         raise HTTPException(status_code=404, detail="ParkingSpot not found")
@@ -80,6 +90,8 @@ async def create_booking(
     spot = await _get_spot_or_404(session, payload.parking_spot_id)
     if spot.status == SpotStatus.blocked:
         raise HTTPException(status_code=400, detail="Cannot book a blocked parking spot")
+
+    validate_booking_against_lot_rules(spot.parking_lot, current_user, start_time, end_time)
 
     conflict_result = await session.execute(
         select(Booking.id)
@@ -278,6 +290,8 @@ async def update_booking(
         booking.status = BookingStatus.completed
 
     if payload.start_time is not None or payload.end_time is not None:
+        spot = await _get_spot_or_404(session, booking.parking_spot_id)
+        validate_booking_against_lot_rules(spot.parking_lot, current_user, next_start, next_end)
         overlap_stmt = (
             select(Booking.id)
             .where(Booking.parking_spot_id == booking.parking_spot_id)

@@ -6,8 +6,15 @@ from app.api.deps import get_current_user, require_roles
 from app.db.session import get_session
 from app.models.parking_lot import ParkingLot
 from app.models.user import User, UserRole
-from app.schemas.parking_lot import ParkingLotCreate, ParkingLotOut, ParkingLotUpdate
+from app.schemas.parking_lot import (
+    ParkingLotCreate,
+    ParkingLotOut,
+    ParkingLotRulesOut,
+    ParkingLotRulesUpdate,
+    ParkingLotUpdate,
+)
 from app.schemas.pagination import PaginationMeta, ParkingLotListResponse
+from app.services.parking_rules import get_parking_lot_with_rules, replace_rules
 
 router = APIRouter(prefix="/parking", tags=["parking"])
 
@@ -40,6 +47,12 @@ async def create_parking_lot(
         total_spots=payload.total_spots,
         guest_spot_percentage=payload.guest_spot_percentage,
         owner_id=current_user.id if current_user.role == UserRole.owner else None,
+        access_mode=payload.access_mode,
+        allowed_user_roles=[role.value for role in payload.allowed_user_roles],
+        min_booking_minutes=payload.min_booking_minutes,
+        max_booking_minutes=payload.max_booking_minutes,
+        booking_step_minutes=payload.booking_step_minutes,
+        max_advance_minutes=payload.max_advance_minutes,
     )
     session.add(parking_lot)
     await session.commit()
@@ -106,12 +119,79 @@ async def update_parking_lot(
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     data = payload.model_dump(exclude_unset=True)
+    if "allowed_user_roles" in data and data["allowed_user_roles"] is not None:
+        data["allowed_user_roles"] = [role.value for role in data["allowed_user_roles"]]
     for field, value in data.items():
         setattr(parking_lot, field, value)
 
     await session.commit()
     await session.refresh(parking_lot)
     return parking_lot
+
+
+@router.get("/{parking_lot_id}/rules", response_model=ParkingLotRulesOut)
+async def get_parking_lot_rules(
+    parking_lot_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    parking_lot = await get_parking_lot_with_rules(session, parking_lot_id)
+    if parking_lot is None:
+        raise HTTPException(status_code=404, detail="ParkingLot not found")
+    if current_user.role == UserRole.owner and not _can_access_parking_lot(current_user, parking_lot):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    return ParkingLotRulesOut(
+        parking_lot_id=parking_lot.id,
+        access_mode=parking_lot.access_mode,
+        allowed_user_roles=parking_lot.allowed_user_roles,
+        min_booking_minutes=parking_lot.min_booking_minutes,
+        max_booking_minutes=parking_lot.max_booking_minutes,
+        booking_step_minutes=parking_lot.booking_step_minutes,
+        max_advance_minutes=parking_lot.max_advance_minutes,
+        working_hours=parking_lot.working_hours,
+        exceptions=parking_lot.schedule_exceptions,
+    )
+
+
+@router.put("/{parking_lot_id}/rules", response_model=ParkingLotRulesOut)
+async def update_parking_lot_rules(
+    parking_lot_id: int,
+    payload: ParkingLotRulesUpdate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(require_roles(UserRole.admin, UserRole.owner)),
+):
+    parking_lot = await get_parking_lot_with_rules(session, parking_lot_id)
+    if parking_lot is None:
+        raise HTTPException(status_code=404, detail="ParkingLot not found")
+    if not _can_access_parking_lot(current_user, parking_lot):
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    replace_rules(
+        parking_lot=parking_lot,
+        access_mode=payload.access_mode,
+        allowed_user_roles=payload.allowed_user_roles,
+        min_booking_minutes=payload.min_booking_minutes,
+        max_booking_minutes=payload.max_booking_minutes,
+        booking_step_minutes=payload.booking_step_minutes,
+        max_advance_minutes=payload.max_advance_minutes,
+        working_hours=payload.working_hours,
+        exceptions=payload.exceptions,
+    )
+    await session.commit()
+    await session.refresh(parking_lot)
+    parking_lot = await get_parking_lot_with_rules(session, parking_lot_id)
+    return ParkingLotRulesOut(
+        parking_lot_id=parking_lot.id,
+        access_mode=parking_lot.access_mode,
+        allowed_user_roles=parking_lot.allowed_user_roles,
+        min_booking_minutes=parking_lot.min_booking_minutes,
+        max_booking_minutes=parking_lot.max_booking_minutes,
+        booking_step_minutes=parking_lot.booking_step_minutes,
+        max_advance_minutes=parking_lot.max_advance_minutes,
+        working_hours=parking_lot.working_hours,
+        exceptions=parking_lot.schedule_exceptions,
+    )
 
 
 @router.delete("/{parking_lot_id}", status_code=204)
