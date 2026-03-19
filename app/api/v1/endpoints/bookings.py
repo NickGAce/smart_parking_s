@@ -23,6 +23,8 @@ router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 def _overlap_filter(start_time: datetime, end_time: datetime):
     return and_(Booking.end_time > start_time, Booking.start_time < end_time)
+
+
 async def _get_booking_or_404(session: AsyncSession, booking_id: int) -> Booking:
     result = await session.execute(select(Booking).where(Booking.id == booking_id))
     booking = result.scalar_one_or_none()
@@ -41,11 +43,6 @@ async def _get_spot_or_404(session: AsyncSession, parking_spot_id: int) -> Parki
 
 def _is_admin(user: User) -> bool:
     return user.role == UserRole.admin
-
-
-async def _rollback_if_needed(session: AsyncSession) -> None:
-    if session.in_transaction():
-        await session.rollback()
 
 
 def _booking_to_out(booking: Booking, client_timezone: str | None) -> BookingOut:
@@ -76,7 +73,7 @@ async def create_booking(
     if start_time >= end_time:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
-    try:
+    async with session.begin():
         await sync_booking_statuses(session, now=device_now)
 
         spot = await _get_spot_or_404(session, payload.parking_spot_id)
@@ -104,10 +101,6 @@ async def create_booking(
         session.add(booking)
         await session.flush()
         await sync_parking_spot_statuses(session, spot_ids=[payload.parking_spot_id], now=device_now)
-        await session.commit()
-    except Exception:
-        await _rollback_if_needed(session)
-        raise
 
     await session.refresh(booking)
     return _booking_to_out(booking, client_timezone)
@@ -129,9 +122,9 @@ async def list_bookings(
     client_timezone = request.headers.get("X-Timezone")
     device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
 
-    await sync_booking_statuses(session, now=device_now)
-    await sync_parking_spot_statuses(session, now=device_now)
-    await session.commit()
+    async with session.begin():
+        await sync_booking_statuses(session, now=device_now)
+        await sync_parking_spot_statuses(session, now=device_now)
 
     if from_time is not None:
         from_time = normalize_client_datetime(from_time, client_timezone)
@@ -179,9 +172,9 @@ async def get_booking(
     client_timezone = request.headers.get("X-Timezone")
     device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
 
-    await sync_booking_statuses(session, now=device_now)
-    await sync_parking_spot_statuses(session, now=device_now)
-    await session.commit()
+    async with session.begin():
+        await sync_booking_statuses(session, now=device_now)
+        await sync_parking_spot_statuses(session, now=device_now)
 
     booking = await _get_booking_or_404(session, booking_id)
     spot = await _get_spot_or_404(session, booking.parking_spot_id)
@@ -217,7 +210,7 @@ async def update_booking(
     if next_start_payload is not None and next_end_payload is not None and next_start_payload >= next_end_payload:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
-    try:
+    async with session.begin():
         booking = await _get_booking_or_404(session, booking_id)
         if not _is_admin(current_user) and booking.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not enough permissions to modify this booking")
@@ -258,10 +251,6 @@ async def update_booking(
             if overlap_result.scalar_one_or_none() is not None:
                 raise HTTPException(status_code=409, detail="Booking time overlaps with an existing booking")
         await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=device_now)
-        await session.commit()
-    except Exception:
-        await _rollback_if_needed(session)
-        raise
 
     await session.refresh(booking)
     return _booking_to_out(booking, client_timezone)
@@ -275,18 +264,16 @@ async def cancel_booking(
     current_user: User = Depends(get_current_user),
 ):
     """Soft-cancel booking by changing status to cancelled."""
-    client_timezone = request.headers.get("X-Timezone")
-    device_now = resolve_client_now(request.headers.get("X-Device-Time"), client_timezone)
+    device_now = resolve_client_now(
+        request.headers.get("X-Device-Time"),
+        request.headers.get("X-Timezone"),
+    )
 
-    try:
+    async with session.begin():
         booking = await _get_booking_or_404(session, booking_id)
         if not _is_admin(current_user) and booking.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not enough permissions to cancel this booking")
         booking.status = BookingStatus.cancelled
         await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=device_now)
-        await session.commit()
-    except Exception:
-        await _rollback_if_needed(session)
-        raise
 
     return Response(status_code=204)
