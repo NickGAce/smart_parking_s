@@ -66,8 +66,8 @@ def upgrade() -> None:
         """
         UPDATE parking_spots
         SET spot_type = CASE
-            WHEN type IN ('regular', 'guest', 'disabled', 'ev', 'reserved', 'vip') THEN type
-            ELSE 'regular'
+            WHEN type IN ('regular', 'guest', 'disabled', 'ev', 'reserved', 'vip') THEN type::spottype
+            ELSE 'regular'::spottype
         END
         """
     )
