@@ -10,7 +10,8 @@ from app.api.deps import get_current_user, require_roles
 from app.db.session import get_session
 from app.models.booking import Booking, BookingStatus
 from app.models.parking_lot import ParkingLot
-from app.models.parking_spot import ParkingSpot, SpotStatus
+from app.models.parking_spot import ParkingSpot, SizeCategory, SpotStatus, SpotType, VehicleType
+from app.models.parking_zone import AccessLevel, ParkingZone, ZoneType
 from app.models.user import User, UserRole
 from app.schemas.pagination import PaginationMeta, ParkingSpotListResponse
 from app.schemas.parking_spot import ParkingSpotCreate, ParkingSpotOut, ParkingSpotUpdate
@@ -62,7 +63,13 @@ async def _to_spot_out(
         spot_number=spot.spot_number,
         status=spot.status,
         effective_status=effective_status,
+        spot_type=spot.spot_type,
         type=spot.type,
+        vehicle_type=spot.vehicle_type,
+        has_charger=spot.has_charger,
+        size_category=spot.size_category,
+        zone_id=spot.zone_id,
+        zone_name=spot.zone.name if spot.zone else None,
         parking_lot_id=spot.parking_lot_id,
     )
 
@@ -81,6 +88,45 @@ async def _get_lot_or_404(session: AsyncSession, parking_lot_id: int) -> Parking
     if not parking_lot:
         raise HTTPException(status_code=404, detail="ParkingLot not found")
     return parking_lot
+
+
+async def _resolve_zone(
+    session: AsyncSession,
+    parking_lot_id: int,
+    zone_id: int | None,
+    zone_name: str | None,
+) -> int | None:
+    if zone_id is None and not zone_name:
+        return None
+
+    if zone_id is not None:
+        zone_res = await session.execute(select(ParkingZone).where(ParkingZone.id == zone_id))
+        zone = zone_res.scalar_one_or_none()
+        if zone is None:
+            raise HTTPException(status_code=404, detail="ParkingZone not found")
+        if zone.parking_lot_id != parking_lot_id:
+            raise HTTPException(status_code=400, detail="Zone must belong to the same parking lot")
+        return zone.id
+
+    existing_zone_res = await session.execute(
+        select(ParkingZone).where(
+            ParkingZone.parking_lot_id == parking_lot_id,
+            ParkingZone.name == zone_name,
+        )
+    )
+    existing_zone = existing_zone_res.scalar_one_or_none()
+    if existing_zone:
+        return existing_zone.id
+
+    new_zone = ParkingZone(
+        parking_lot_id=parking_lot_id,
+        name=zone_name,
+        zone_type=ZoneType.general,
+        access_level=AccessLevel.public,
+    )
+    session.add(new_zone)
+    await session.flush()
+    return new_zone.id
 
 
 def _is_admin(user: User) -> bool:
@@ -114,10 +160,17 @@ async def create_parking_spot(
     if _is_owner(current_user) and not _can_owner_manage_lot(current_user, parking_lot):
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
+    zone_id = await _resolve_zone(session, payload.parking_lot_id, payload.zone_id, payload.zone_name)
+
     parking_spot = ParkingSpot(
         spot_number=payload.spot_number,
         status=SpotStatus.available,
-        type=payload.type,
+        type=payload.spot_type.value,
+        spot_type=payload.spot_type,
+        vehicle_type=payload.vehicle_type,
+        zone_id=zone_id,
+        has_charger=payload.has_charger,
+        size_category=payload.size_category,
         parking_lot_id=payload.parking_lot_id,
         owner_id=current_user.id if _is_owner(current_user) else None,
     )
@@ -142,9 +195,17 @@ async def list_parking_spots(
     request: Request,
     from_time: datetime | None = Query(None, alias="from"),
     to_time: datetime | None = Query(None, alias="to"),
+    spot_type: SpotType | None = None,
+    vehicle_type: VehicleType | None = None,
+    size_category: SizeCategory | None = None,
+    has_charger: bool | None = None,
+    zone_id: int | None = None,
+    zone_name: str | None = None,
+    parking_lot_id: int | None = None,
+    status: SpotStatus | None = None,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    sort_by: Literal["id", "spot_number", "status"] = Query("id"),
+    sort_by: Literal["id", "spot_number", "status", "spot_type", "vehicle_type", "size_category"] = Query("id"),
     sort_order: Literal["asc", "desc"] = Query("asc"),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -171,8 +232,8 @@ async def list_parking_spots(
         from_time = server_now
         to_time = from_time
 
-    stmt = select(ParkingSpot)
-    count_stmt = select(func.count(ParkingSpot.id))
+    stmt = select(ParkingSpot).outerjoin(ParkingZone, ParkingZone.id == ParkingSpot.zone_id)
+    count_stmt = select(func.count(ParkingSpot.id)).outerjoin(ParkingZone, ParkingZone.id == ParkingSpot.zone_id)
     if _is_owner(current_user):
         stmt = stmt.join(ParkingLot, ParkingLot.id == ParkingSpot.parking_lot_id).where(
             ParkingLot.owner_id == current_user.id
@@ -181,10 +242,38 @@ async def list_parking_spots(
             ParkingLot.owner_id == current_user.id
         )
 
+    if spot_type is not None:
+        stmt = stmt.where(ParkingSpot.spot_type == spot_type)
+        count_stmt = count_stmt.where(ParkingSpot.spot_type == spot_type)
+    if vehicle_type is not None:
+        stmt = stmt.where(ParkingSpot.vehicle_type == vehicle_type)
+        count_stmt = count_stmt.where(ParkingSpot.vehicle_type == vehicle_type)
+    if size_category is not None:
+        stmt = stmt.where(ParkingSpot.size_category == size_category)
+        count_stmt = count_stmt.where(ParkingSpot.size_category == size_category)
+    if has_charger is not None:
+        stmt = stmt.where(ParkingSpot.has_charger == has_charger)
+        count_stmt = count_stmt.where(ParkingSpot.has_charger == has_charger)
+    if zone_id is not None:
+        stmt = stmt.where(ParkingSpot.zone_id == zone_id)
+        count_stmt = count_stmt.where(ParkingSpot.zone_id == zone_id)
+    if zone_name:
+        stmt = stmt.where(ParkingZone.name == zone_name)
+        count_stmt = count_stmt.where(ParkingZone.name == zone_name)
+    if parking_lot_id is not None:
+        stmt = stmt.where(ParkingSpot.parking_lot_id == parking_lot_id)
+        count_stmt = count_stmt.where(ParkingSpot.parking_lot_id == parking_lot_id)
+    if status is not None:
+        stmt = stmt.where(ParkingSpot.status == status)
+        count_stmt = count_stmt.where(ParkingSpot.status == status)
+
     sortable_fields = {
         "id": ParkingSpot.id,
         "spot_number": ParkingSpot.spot_number,
         "status": ParkingSpot.status,
+        "spot_type": ParkingSpot.spot_type,
+        "vehicle_type": ParkingSpot.vehicle_type,
+        "size_category": ParkingSpot.size_category,
     }
     order_clause = sortable_fields[sort_by].desc() if sort_order == "desc" else sortable_fields[sort_by].asc()
     total = (await session.execute(count_stmt)).scalar_one()
@@ -231,14 +320,34 @@ async def update_parking_spot(
     if _is_owner(current_user) and not _can_owner_manage_spot(current_user, parking_spot, current_lot):
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    if payload.parking_lot_id is not None:
-        target_lot = await _get_lot_or_404(session, payload.parking_lot_id)
+    data = payload.model_dump(exclude_unset=True)
+
+    target_parking_lot_id = data.get("parking_lot_id", parking_spot.parking_lot_id)
+    if target_parking_lot_id != parking_spot.parking_lot_id:
+        target_lot = await _get_lot_or_404(session, target_parking_lot_id)
         if _is_owner(current_user) and not _can_owner_manage_lot(current_user, target_lot):
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    data = payload.model_dump(exclude_unset=True)
     if _is_owner(current_user):
         data.pop("owner_id", None)
+
+    zone_id_from_payload = data.pop("zone_id", None) if "zone_id" in payload.model_fields_set else None
+    zone_name_from_payload = data.pop("zone_name", None) if "zone_name" in payload.model_fields_set else None
+    if "zone_id" in payload.model_fields_set or "zone_name" in payload.model_fields_set:
+        data["zone_id"] = await _resolve_zone(
+            session,
+            target_parking_lot_id,
+            zone_id_from_payload,
+            zone_name_from_payload,
+        )
+
+    if "spot_type" in data:
+        data["type"] = data["spot_type"].value
+    elif "type" in payload.model_fields_set and payload.spot_type is not None:
+        data["spot_type"] = payload.spot_type
+        data["type"] = payload.spot_type.value
+    else:
+        data.pop("type", None)
 
     for field, value in data.items():
         setattr(parking_spot, field, value)

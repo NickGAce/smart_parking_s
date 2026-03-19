@@ -23,6 +23,7 @@ class ParkingLot(Base):
 
     # Связь с местами парковки
     spots: Mapped[list["ParkingSpot"]] = relationship("ParkingSpot", back_populates="parking_lot")  # Используем строку для отложенного импорта
+    zones: Mapped[list["ParkingZone"]] = relationship("ParkingZone", back_populates="parking_lot")
 
     def __repr__(self):
         return f"<ParkingLot(id={self.id}, name={self.name})>"
