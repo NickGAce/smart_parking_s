@@ -11,10 +11,13 @@ class BookingType(str, enum.Enum):
 
 
 class BookingStatus(str, enum.Enum):
+    pending = "pending"
+    confirmed = "confirmed"
     active = "active"
-    cancelled = "cancelled"
     completed = "completed"
+    cancelled = "cancelled"
     expired = "expired"
+    no_show = "no_show"
 
 class Booking(Base):
     __tablename__ = "bookings"
@@ -29,7 +32,7 @@ class Booking(Base):
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     type: Mapped["BookingType"] = mapped_column(Enum(BookingType), default=BookingType.guest)  # Используем строковый тип
     status: Mapped["BookingStatus"] = mapped_column(
-        Enum(BookingStatus), default=BookingStatus.active, nullable=False
+        Enum(BookingStatus), default=BookingStatus.pending, nullable=False
     )
     parking_spot_id: Mapped[int] = mapped_column(ForeignKey("parking_spots.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
