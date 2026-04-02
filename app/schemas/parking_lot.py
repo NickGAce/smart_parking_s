@@ -63,7 +63,8 @@ class WorkingHourItem(BaseModel):
         if self.open_time >= self.close_time:
             raise ValueError("open_time must be earlier than close_time")
         return self
-
+    class Config:
+        from_attributes = True
 
 class ScheduleExceptionItem(BaseModel):
     date: date
@@ -80,7 +81,8 @@ class ScheduleExceptionItem(BaseModel):
         if self.open_time >= self.close_time:
             raise ValueError("open_time must be earlier than close_time")
         return self
-
+    class Config:
+        from_attributes = True
 
 class ParkingLotRulesUpdate(BaseModel):
     access_mode: AccessMode
