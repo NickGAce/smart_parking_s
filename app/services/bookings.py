@@ -83,34 +83,33 @@ def _resolve_timezone(client_timezone: str | None) -> tzinfo:
 
 
 def to_db_datetime(dt: datetime) -> datetime:
-    """Normalize datetimes for TIMESTAMP WITHOUT TIME ZONE columns (UTC naive)."""
+    """Normalize datetimes for TIMESTAMP WITHOUT TIME ZONE columns (local wall-clock naive)."""
     if dt.tzinfo is None:
         return dt
-    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    local_tz = _resolve_timezone(None)
+    return dt.astimezone(local_tz).replace(tzinfo=None)
 
 
 def normalize_client_datetime(dt: datetime, client_timezone: str | None) -> datetime:
-    """Convert browser/client datetime to UTC naive for DB operations."""
+    """Normalize browser/client datetime to local wall-clock naive value for DB operations."""
     if dt.tzinfo is not None:
         # Compatibility mode for clients that send local wall-clock time with trailing `Z`.
         # Reinterpret UTC-aware value as local wall time in request/default timezone.
         if dt.utcoffset() == timezone.utc.utcoffset(None):
-            tz = _resolve_timezone(client_timezone)
-            local_wall_time = dt.replace(tzinfo=None)
-            return local_wall_time.replace(tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
-        return to_db_datetime(dt)
+            return dt.replace(tzinfo=None)
+        tz = _resolve_timezone(client_timezone)
+        return dt.astimezone(tz).replace(tzinfo=None)
 
-    tz = _resolve_timezone(client_timezone)
-    return dt.replace(tzinfo=tz).astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 def resolve_client_now(
     client_time: str | None,
     client_timezone: str | None,
 ) -> datetime:
-    """Resolve 'now' from device/browser time and normalize to UTC naive."""
+    """Resolve 'now' from device/browser time and normalize to local wall-clock naive."""
     if not client_time:
-        return to_db_datetime(datetime.now(timezone.utc))
+        return to_db_datetime(datetime.now(_resolve_timezone(None)))
 
     try:
         parsed = datetime.fromisoformat(client_time)
@@ -121,15 +120,15 @@ def resolve_client_now(
 
 
 def server_now_utc_naive() -> datetime:
-    """Return current server timestamp in UTC naive form used by DB/business logic."""
-    return to_db_datetime(datetime.now(timezone.utc))
+    """Return current server timestamp in local wall-clock naive form used by DB/business logic."""
+    return to_db_datetime(datetime.now(_resolve_timezone(None)))
 
 
 def to_client_datetime(dt: datetime, client_timezone: str | None) -> datetime:
-    """Convert DB UTC-naive datetime to client timezone-aware datetime for API output."""
-    utc_aware = dt.replace(tzinfo=timezone.utc)
+    """Convert DB local wall-clock naive datetime to client timezone-aware datetime for API output."""
+    local_aware = dt.replace(tzinfo=_resolve_timezone(None))
     tz = _resolve_timezone(client_timezone)
-    return utc_aware.astimezone(tz)
+    return local_aware.astimezone(tz)
 
 
 def can_transition_booking_status(current: BookingStatus, target: BookingStatus) -> bool:
