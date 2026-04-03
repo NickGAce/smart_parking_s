@@ -33,7 +33,8 @@ def _setup_state():
             admin = User(email="admin@test.com", hashed_password=hash_password("secret123"), role=UserRole.admin)
             user = User(email="user@test.com", hashed_password=hash_password("secret123"), role=UserRole.owner)
             another = User(email="another@test.com", hashed_password=hash_password("secret123"), role=UserRole.owner)
-            session.add_all([admin, user, another])
+            guard = User(email="guard@test.com", hashed_password=hash_password("secret123"), role=UserRole.guard)
+            session.add_all([admin, user, another, guard])
             await session.flush()
 
             lot = ParkingLot(name="Lot A", address="Addr", total_spots=10, guest_spot_percentage=10)
@@ -62,6 +63,7 @@ def _setup_state():
         "admin": create_access_token("1"),
         "user": create_access_token("2"),
         "another": create_access_token("3"),
+        "guard": create_access_token("4"),
     }
     return engine, tokens
 
@@ -383,7 +385,120 @@ def test_device_time_header_does_not_force_premature_completion():
             },
         )
         assert get_response.status_code == 200
-        assert get_response.json()["status"] == BookingStatus.active
+        assert get_response.json()["status"] == BookingStatus.confirmed
+
+
+def test_check_in_and_check_out_by_booking_owner():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now + timedelta(minutes=1)).isoformat(),
+                "end_time": (now + timedelta(minutes=45)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        booking_id = create_response.json()["id"]
+
+        check_in_response = client.post(
+            f"/api/v1/bookings/{booking_id}/check-in",
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert check_in_response.status_code == 200
+        assert check_in_response.json()["status"] == BookingStatus.active
+
+        check_out_response = client.post(
+            f"/api/v1/bookings/{booking_id}/check-out",
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert check_out_response.status_code == 200
+        assert check_out_response.json()["status"] == BookingStatus.completed
+
+
+def test_check_in_allowed_for_guard_and_forbidden_for_other_user():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now + timedelta(minutes=5)).isoformat(),
+                "end_time": (now + timedelta(minutes=30)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        booking_id = create_response.json()["id"]
+
+        forbidden_response = client.post(
+            f"/api/v1/bookings/{booking_id}/check-in",
+            headers={"Authorization": f"Bearer {tokens['another']}"},
+        )
+        assert forbidden_response.status_code == 403
+
+        guard_response = client.post(
+            f"/api/v1/bookings/{booking_id}/check-in",
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+        assert guard_response.status_code == 200
+        assert guard_response.json()["status"] == BookingStatus.active
+
+
+def test_manual_no_show_requires_grace_window_end():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now + timedelta(minutes=10)).isoformat(),
+                "end_time": (now + timedelta(minutes=40)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        booking_id = create_response.json()["id"]
+
+        early_no_show = client.post(
+            f"/api/v1/bookings/{booking_id}/mark-no-show",
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+        assert early_no_show.status_code == 409
+
+
+def test_sync_sets_no_show_after_grace_window():
+    engine, _ = _setup_state()
+    now = datetime.utcnow()
+
+    async def create_confirmed_and_sync():
+        session_local = async_sessionmaker(engine, expire_on_commit=False)
+        async with session_local() as session:
+            booking = Booking(
+                start_time=now - timedelta(minutes=31),
+                end_time=now + timedelta(minutes=10),
+                type=BookingType.guest,
+                parking_spot_id=1,
+                user_id=2,
+                status=BookingStatus.confirmed,
+            )
+            session.add(booking)
+            await session.flush()
+            booking_id = booking.id
+            await sync_booking_statuses(session, now=now)
+            await session.commit()
+
+        async with session_local() as session:
+            result = await session.execute(select(Booking).where(Booking.id == booking_id))
+            return result.scalar_one()
+
+    booking = asyncio.run(create_confirmed_and_sync())
+    assert booking.status == BookingStatus.no_show
 
 
 def test_create_booking_ignores_device_time_for_status_and_spot_state():

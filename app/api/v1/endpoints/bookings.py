@@ -17,12 +17,16 @@ from app.schemas.pagination import BookingListResponse, PaginationMeta
 from app.services.bookings import (
     BOOKING_BLOCKING_STATUSES,
     derive_initial_booking_status,
+    ensure_can_manage_booking_operationally,
     normalize_client_datetime,
     server_now_utc_naive,
     sync_booking_statuses,
     sync_parking_spot_statuses,
     to_client_datetime,
     transition_booking_status,
+    validate_check_in_window,
+    validate_check_out_window,
+    validate_manual_no_show,
 )
 from app.services.parking_rules import validate_booking_against_lot_rules
 
@@ -338,3 +342,69 @@ async def cancel_booking(
     await session.commit()
 
     return Response(status_code=204)
+
+
+@router.post("/{booking_id}/check-in", response_model=BookingOut)
+async def check_in_booking(
+    booking_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    client_timezone = request.headers.get("X-Timezone")
+    server_now = server_now_utc_naive()
+
+    await sync_booking_statuses(session, now=server_now)
+    booking = await _get_booking_or_404(session, booking_id)
+    ensure_can_manage_booking_operationally(current_user, booking)
+    validate_check_in_window(booking, server_now)
+    transition_booking_status(booking, BookingStatus.active)
+
+    await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
+    await session.commit()
+    await session.refresh(booking)
+    return _booking_to_out(booking, client_timezone)
+
+
+@router.post("/{booking_id}/check-out", response_model=BookingOut)
+async def check_out_booking(
+    booking_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    client_timezone = request.headers.get("X-Timezone")
+    server_now = server_now_utc_naive()
+
+    await sync_booking_statuses(session, now=server_now)
+    booking = await _get_booking_or_404(session, booking_id)
+    ensure_can_manage_booking_operationally(current_user, booking)
+    validate_check_out_window(booking)
+    transition_booking_status(booking, BookingStatus.completed)
+
+    await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
+    await session.commit()
+    await session.refresh(booking)
+    return _booking_to_out(booking, client_timezone)
+
+
+@router.post("/{booking_id}/mark-no-show", response_model=BookingOut)
+async def mark_booking_no_show(
+    booking_id: int,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    client_timezone = request.headers.get("X-Timezone")
+    server_now = server_now_utc_naive()
+
+    await sync_booking_statuses(session, now=server_now)
+    booking = await _get_booking_or_404(session, booking_id)
+    ensure_can_manage_booking_operationally(current_user, booking)
+    validate_manual_no_show(booking, server_now)
+    transition_booking_status(booking, BookingStatus.no_show)
+
+    await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
+    await session.commit()
+    await session.refresh(booking)
+    return _booking_to_out(booking, client_timezone)
