@@ -16,6 +16,7 @@ from app.models.user import User, UserRole
 from app.schemas.pagination import PaginationMeta, ParkingSpotListResponse
 from app.schemas.parking_spot import ParkingSpotCreate, ParkingSpotOut, ParkingSpotUpdate
 from app.services.bookings import (
+    BOOKING_BLOCKING_STATUSES,
     normalize_client_datetime,
     server_now_utc_naive,
     sync_booking_statuses,
@@ -39,7 +40,7 @@ async def _has_active_booking(
     result = await session.execute(
         select(Booking.id)
         .where(Booking.parking_spot_id == spot_id)
-        .where(Booking.status == BookingStatus.active)
+        .where(Booking.status.in_(BOOKING_BLOCKING_STATUSES))
         .where(overlap_condition)
         .limit(1)
     )

@@ -77,7 +77,7 @@ def test_create_booking_success():
         }
         response = client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {tokens['user']}"})
         assert response.status_code == 201
-        assert response.json()["status"] == BookingStatus.active
+        assert response.json()["status"] == BookingStatus.confirmed
 
 
 def test_cannot_create_overlapping_booking():
@@ -152,7 +152,7 @@ def test_effective_status_booked_when_active_booking():
         assert response.json()["items"][0]["effective_status"] == SpotStatus.booked
 
 
-def test_past_booking_is_completed_immediately_and_stays_completed():
+def test_past_booking_is_expired_immediately_and_stays_expired():
     _, tokens = _setup_state()
     now = datetime.utcnow()
     with TestClient(app) as client:
@@ -168,14 +168,14 @@ def test_past_booking_is_completed_immediately_and_stays_completed():
             headers={"Authorization": f"Bearer {tokens['user']}"},
         )
         assert create_response.status_code == 201
-        assert create_response.json()["status"] == BookingStatus.completed
+        assert create_response.json()["status"] == BookingStatus.expired
 
         list_response = client.get(
             "/api/v1/bookings?mine=true",
             headers={"Authorization": f"Bearer {tokens['user']}"},
         )
         assert list_response.status_code == 200
-        assert list_response.json()["items"][0]["status"] == BookingStatus.completed
+        assert list_response.json()["items"][0]["status"] == BookingStatus.expired
 
 
 def test_patch_booking_type_changes():
@@ -322,7 +322,7 @@ def test_get_booking_syncs_status_with_server_time():
             headers={"Authorization": f"Bearer {tokens['user']}"},
         )
         assert get_response.status_code == 200
-        assert get_response.json()["status"] == BookingStatus.completed
+        assert get_response.json()["status"] == BookingStatus.expired
 
 
 def test_device_time_header_does_not_force_premature_completion():
@@ -374,7 +374,7 @@ def test_create_booking_ignores_device_time_for_status_and_spot_state():
             },
         )
         assert response.status_code == 201
-        assert response.json()["status"] == BookingStatus.completed
+        assert response.json()["status"] == BookingStatus.expired
 
         spot_response = client.get(
             "/api/v1/parking_spots/1",
@@ -409,9 +409,9 @@ def test_future_device_time_header_does_not_force_completion_on_create():
             },
         )
         assert response.status_code == 201
-        assert response.json()["status"] == BookingStatus.active
+        assert response.json()["status"] == BookingStatus.confirmed
 
-def test_create_booking_in_past_is_completed_immediately():
+def test_create_booking_in_past_is_expired_immediately():
     _, tokens = _setup_state()
     now = datetime.utcnow()
     with TestClient(app) as client:
@@ -426,7 +426,7 @@ def test_create_booking_in_past_is_completed_immediately():
             headers={"Authorization": f"Bearer {tokens['user']}"},
         )
         assert response.status_code == 201
-        assert response.json()["status"] == BookingStatus.completed
+        assert response.json()["status"] == BookingStatus.expired
 
 
 def test_utc_z_input_is_interpreted_as_local_when_timezone_header_present():
@@ -449,7 +449,7 @@ def test_utc_z_input_is_interpreted_as_local_when_timezone_header_present():
         assert response.status_code == 201
         # Compatibility: values with `Z` + timezone header are treated as local wall-clock time.
         # For UTC+3 this shifts stored UTC by -3h, so end_time can already be in the past.
-        assert response.json()["status"] == BookingStatus.completed
+        assert response.json()["status"] == BookingStatus.expired
 
 
 def test_utc_z_input_without_header_uses_default_timezone_local_time():
@@ -572,3 +572,63 @@ def test_sync_booking_statuses_does_not_commit_inside_service():
         await engine.dispose()
 
     asyncio.run(scenario())
+
+
+def test_invalid_terminal_transition_is_rejected():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now + timedelta(minutes=10)).isoformat(),
+                "end_time": (now + timedelta(minutes=40)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        booking_id = create_response.json()["id"]
+
+        cancel_response = client.delete(
+            f"/api/v1/bookings/{booking_id}",
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert cancel_response.status_code == 204
+
+        update_response = client.patch(
+            f"/api/v1/bookings/{booking_id}",
+            json={"status": BookingStatus.confirmed},
+            headers={"Authorization": f"Bearer {tokens['admin']}"},
+        )
+        assert update_response.status_code == 409
+
+
+def test_list_bookings_supports_statuses_filter():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": (now + timedelta(minutes=10)).isoformat(),
+                "end_time": (now + timedelta(minutes=40)).isoformat(),
+                "type": BookingType.guest,
+            },
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        booking_id = create_response.json()["id"]
+
+        client.delete(
+            f"/api/v1/bookings/{booking_id}",
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+
+        response = client.get(
+            "/api/v1/bookings?statuses=cancelled&statuses=confirmed",
+            headers={"Authorization": f"Bearer {tokens['admin']}"},
+        )
+        assert response.status_code == 200
+        assert len(response.json()["items"]) == 1
+        assert response.json()["items"][0]["status"] == BookingStatus.cancelled

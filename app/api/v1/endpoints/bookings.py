@@ -3,23 +3,26 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.db.session import get_session
 from app.models.booking import Booking, BookingStatus
-from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.parking_lot import ParkingLot
+from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
 from app.schemas.booking import BookingCreate, BookingOut, BookingUpdate
 from app.schemas.pagination import BookingListResponse, PaginationMeta
 from app.services.bookings import (
+    BOOKING_BLOCKING_STATUSES,
+    derive_initial_booking_status,
     normalize_client_datetime,
     server_now_utc_naive,
-    sync_parking_spot_statuses,
     sync_booking_statuses,
+    sync_parking_spot_statuses,
     to_client_datetime,
+    transition_booking_status,
 )
 from app.services.parking_rules import validate_booking_against_lot_rules
 
@@ -96,7 +99,7 @@ async def create_booking(
     conflict_result = await session.execute(
         select(Booking.id)
         .where(Booking.parking_spot_id == payload.parking_spot_id)
-        .where(Booking.status == BookingStatus.active)
+        .where(Booking.status.in_(BOOKING_BLOCKING_STATUSES))
         .where(_overlap_filter(start_time, end_time))
         .limit(1)
     )
@@ -109,7 +112,7 @@ async def create_booking(
         type=payload.type,
         parking_spot_id=payload.parking_spot_id,
         user_id=current_user.id,
-        status=BookingStatus.completed if end_time <= server_now else BookingStatus.active,
+        status=derive_initial_booking_status(start_time=start_time, end_time=end_time, now=server_now),
     )
     session.add(booking)
     await session.flush()
@@ -129,6 +132,7 @@ async def list_bookings(
     from_time: datetime | None = Query(None, alias="from"),
     to_time: datetime | None = Query(None, alias="to"),
     status: BookingStatus | None = None,
+    statuses: list[BookingStatus] | None = Query(default=None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     sort_by: Literal["start_time", "end_time", "status", "id"] = Query("start_time"),
@@ -152,6 +156,11 @@ async def list_bookings(
     if from_time is not None and to_time is not None and from_time >= to_time:
         raise HTTPException(status_code=400, detail="'from' must be earlier than 'to'")
 
+    if status is not None and statuses:
+        raise HTTPException(status_code=400, detail="Use either status or statuses, not both")
+
+    status_filters = statuses or ([status] if status is not None else None)
+
     stmt = select(Booking).join(ParkingSpot, Booking.parking_spot_id == ParkingSpot.id)
 
     if parking_lot_id is not None:
@@ -162,8 +171,8 @@ async def list_bookings(
         stmt = stmt.where(Booking.end_time > from_time)
     if to_time is not None:
         stmt = stmt.where(Booking.start_time < to_time)
-    if status is not None:
-        stmt = stmt.where(Booking.status == status)
+    if status_filters is not None:
+        stmt = stmt.where(Booking.status.in_(status_filters))
 
     if mine:
         stmt = stmt.where(Booking.user_id == current_user.id)
@@ -187,8 +196,8 @@ async def list_bookings(
         count_stmt = count_stmt.where(Booking.end_time > from_time)
     if to_time is not None:
         count_stmt = count_stmt.where(Booking.start_time < to_time)
-    if status is not None:
-        count_stmt = count_stmt.where(Booking.status == status)
+    if status_filters is not None:
+        count_stmt = count_stmt.where(Booking.status.in_(status_filters))
     if mine:
         count_stmt = count_stmt.where(Booking.user_id == current_user.id)
     elif not _is_admin(current_user):
@@ -245,7 +254,7 @@ async def update_booking(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    """Update booking times or cancel booking based on access rules."""
+    """Update booking fields and transition lifecycle status with explicit validation."""
     client_timezone = request.headers.get("X-Timezone")
     server_now = server_now_utc_naive()
     next_start_payload = (
@@ -262,6 +271,8 @@ async def update_booking(
     if next_start_payload is not None and next_end_payload is not None and next_start_payload >= next_end_payload:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
+    await sync_booking_statuses(session, now=server_now)
+
     booking = await _get_booking_or_404(session, booking_id)
     if not _is_admin(current_user) and booking.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions to modify this booking")
@@ -271,23 +282,13 @@ async def update_booking(
     if next_start >= next_end:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
-    if payload.status == BookingStatus.cancelled:
-        booking.status = BookingStatus.cancelled
-    elif payload.status is not None and not _is_admin(current_user):
-        raise HTTPException(status_code=403, detail="Only admins can set this booking status")
-    elif payload.status is not None:
-        booking.status = payload.status
+    if payload.status is not None:
+        if payload.status != BookingStatus.cancelled and not _is_admin(current_user):
+            raise HTTPException(status_code=403, detail="Only admins can set this booking status")
+        transition_booking_status(booking, payload.status)
 
     if payload.type is not None:
         booking.type = payload.type
-
-    if next_start_payload is not None:
-        booking.start_time = next_start_payload
-    if next_end_payload is not None:
-        booking.end_time = next_end_payload
-
-    if booking.status == BookingStatus.active and booking.end_time <= server_now:
-        booking.status = BookingStatus.completed
 
     if payload.start_time is not None or payload.end_time is not None:
         spot = await _get_spot_or_404(session, booking.parking_spot_id)
@@ -296,13 +297,20 @@ async def update_booking(
             select(Booking.id)
             .where(Booking.parking_spot_id == booking.parking_spot_id)
             .where(Booking.id != booking.id)
-            .where(Booking.status == BookingStatus.active)
+            .where(Booking.status.in_(BOOKING_BLOCKING_STATUSES))
             .where(_overlap_filter(next_start, next_end))
             .limit(1)
         )
         overlap_result = await session.execute(overlap_stmt)
         if overlap_result.scalar_one_or_none() is not None:
             raise HTTPException(status_code=409, detail="Booking time overlaps with an existing booking")
+
+    if next_start_payload is not None:
+        booking.start_time = next_start_payload
+    if next_end_payload is not None:
+        booking.end_time = next_end_payload
+
+    await sync_booking_statuses(session, now=server_now)
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
     await session.commit()
 
@@ -320,10 +328,12 @@ async def cancel_booking(
     """Soft-cancel booking by changing status to cancelled."""
     server_now = server_now_utc_naive()
 
+    await sync_booking_statuses(session, now=server_now)
     booking = await _get_booking_or_404(session, booking_id)
     if not _is_admin(current_user) and booking.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions to cancel this booking")
-    booking.status = BookingStatus.cancelled
+
+    transition_booking_status(booking, BookingStatus.cancelled)
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
     await session.commit()
 
