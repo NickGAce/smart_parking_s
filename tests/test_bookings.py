@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
@@ -223,6 +224,36 @@ def test_create_booking_respects_browser_timezone_header():
         assert create_response.status_code == 201
         # API returns time in client timezone when X-Timezone is passed
         assert create_response.json()["start_time"].startswith("2026-03-13T12:00:00")
+
+
+def test_create_booking_stores_same_local_time_as_request():
+    engine, tokens = _setup_state()
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/bookings",
+            json={
+                "parking_spot_id": 1,
+                "start_time": "2026-03-13T18:00:00",
+                "end_time": "2026-03-13T19:00:00",
+                "type": BookingType.guest,
+            },
+            headers={
+                "Authorization": f"Bearer {tokens['user']}",
+                "X-Timezone": "Europe/Moscow",
+            },
+        )
+        assert create_response.status_code == 201
+        booking_id = create_response.json()["id"]
+
+    async def fetch_booking():
+        session_local = async_sessionmaker(engine, expire_on_commit=False)
+        async with session_local() as session:
+            result = await session.execute(select(Booking).where(Booking.id == booking_id))
+            return result.scalar_one()
+
+    booking = asyncio.run(fetch_booking())
+    assert booking.start_time == datetime(2026, 3, 13, 18, 0, 0)
+    assert booking.end_time == datetime(2026, 3, 13, 19, 0, 0)
 
 
 def test_parking_spot_status_changes_on_booking_create_and_cancel():
