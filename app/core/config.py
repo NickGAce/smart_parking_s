@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     jwt_alg: str = "HS256"
     access_token_expire_minutes: int = 60
     default_timezone: str = "Europe/Moscow"
+    check_in_open_before_minutes: int = 15
+    no_show_grace_minutes: int = 30
 
 
 settings = Settings()

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.booking import Booking, BookingStatus
 from app.models.parking_spot import ParkingSpot, SpotStatus
+from app.models.user import User, UserRole
 
 _FIXED_OFFSET_PATTERN = re.compile(r"^(?:UTC|GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$")
 
@@ -40,6 +41,9 @@ ALLOWED_BOOKING_TRANSITIONS: dict[BookingStatus, set[BookingStatus]] = {
     BookingStatus.expired: set(),
     BookingStatus.no_show: set(),
 }
+
+
+CHECKIN_ALLOWED_ROLES = {UserRole.admin, UserRole.guard}
 
 
 def _parse_fixed_offset_timezone(value: str) -> tzinfo | None:
@@ -137,6 +141,46 @@ def can_transition_booking_status(current: BookingStatus, target: BookingStatus)
     return target in ALLOWED_BOOKING_TRANSITIONS[current]
 
 
+def can_manage_booking_operationally(actor: User, booking: Booking) -> bool:
+    if actor.id == booking.user_id:
+        return True
+    return actor.role in CHECKIN_ALLOWED_ROLES
+
+
+def ensure_can_manage_booking_operationally(actor: User, booking: Booking) -> None:
+    if not can_manage_booking_operationally(actor, booking):
+        raise HTTPException(status_code=403, detail="Not enough permissions for booking operation")
+
+
+def validate_check_in_window(booking: Booking, now: datetime) -> None:
+    if booking.status != BookingStatus.confirmed:
+        raise HTTPException(status_code=409, detail="Check-in is allowed only for confirmed bookings")
+
+    check_in_open_at = booking.start_time - timedelta(minutes=settings.check_in_open_before_minutes)
+    no_show_at = booking.start_time + timedelta(minutes=settings.no_show_grace_minutes)
+
+    if now < check_in_open_at:
+        raise HTTPException(status_code=409, detail="Check-in window has not opened yet")
+    if now >= no_show_at:
+        raise HTTPException(status_code=409, detail="Check-in window is closed, booking is no-show")
+    if now >= booking.end_time:
+        raise HTTPException(status_code=409, detail="Check-in is not allowed after booking end time")
+
+
+def validate_check_out_window(booking: Booking) -> None:
+    if booking.status != BookingStatus.active:
+        raise HTTPException(status_code=409, detail="Check-out is allowed only for active bookings")
+
+
+def validate_manual_no_show(booking: Booking, now: datetime) -> None:
+    if booking.status != BookingStatus.confirmed:
+        raise HTTPException(status_code=409, detail="No-show can be set only for confirmed bookings")
+
+    no_show_at = booking.start_time + timedelta(minutes=settings.no_show_grace_minutes)
+    if now < no_show_at:
+        raise HTTPException(status_code=409, detail="No-show cannot be set before grace window ends")
+
+
 def transition_booking_status(booking: Booking, target: BookingStatus) -> None:
     if not can_transition_booking_status(booking.status, target):
         raise HTTPException(
@@ -160,6 +204,7 @@ async def sync_booking_statuses(
 ) -> int:
     """Apply server-driven booking lifecycle transitions based on current time."""
     current = to_db_datetime(now or datetime.now(timezone.utc))
+    no_show_cutoff = current - timedelta(minutes=settings.no_show_grace_minutes)
     updates_total = 0
 
     completed_result = await session.execute(
@@ -170,19 +215,10 @@ async def sync_booking_statuses(
     )
     updates_total += completed_result.rowcount or 0
 
-    active_result = await session.execute(
-        update(Booking)
-        .where(Booking.status == BookingStatus.confirmed)
-        .where(Booking.start_time <= current)
-        .where(Booking.end_time > current)
-        .values(status=BookingStatus.active)
-    )
-    updates_total += active_result.rowcount or 0
-
     no_show_result = await session.execute(
         update(Booking)
         .where(Booking.status == BookingStatus.confirmed)
-        .where(Booking.end_time <= current)
+        .where(Booking.start_time <= no_show_cutoff)
         .values(status=BookingStatus.no_show)
     )
     updates_total += no_show_result.rowcount or 0
