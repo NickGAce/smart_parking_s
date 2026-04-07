@@ -85,6 +85,7 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
         .where(Booking.status == BookingStatus.active)
         .where(Booking.end_time <= current)
         .values(status=BookingStatus.completed)
+        .execution_options(synchronize_session=False)
     )
 
     no_show_result = await session.execute(
@@ -92,6 +93,7 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
         .where(Booking.status == BookingStatus.confirmed)
         .where(Booking.start_time <= no_show_cutoff)
         .values(status=BookingStatus.no_show)
+        .execution_options(synchronize_session=False)
     )
 
     expired_result = await session.execute(
@@ -99,6 +101,7 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
         .where(Booking.status == BookingStatus.pending)
         .where(Booking.start_time <= current)
         .values(status=BookingStatus.expired)
+        .execution_options(synchronize_session=False)
     )
 
     return LifecycleSyncStats(
@@ -126,6 +129,7 @@ async def sync_parking_spot_statuses(
         .where(ParkingSpot.status != SpotStatus.available)
         .where(~ParkingSpot.id.in_(booked_spots_subquery))
         .values(status=SpotStatus.available)
+        .execution_options(synchronize_session=False)
     )
     if spot_ids:
         available_stmt = available_stmt.where(ParkingSpot.id.in_(spot_ids))
@@ -137,6 +141,7 @@ async def sync_parking_spot_statuses(
         .where(ParkingSpot.status != SpotStatus.booked)
         .where(ParkingSpot.id.in_(booked_spots_subquery))
         .values(status=SpotStatus.booked)
+        .execution_options(synchronize_session=False)
     )
     if spot_ids:
         booked_stmt = booked_stmt.where(ParkingSpot.id.in_(spot_ids))
