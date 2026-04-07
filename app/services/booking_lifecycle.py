@@ -143,8 +143,9 @@ async def sync_parking_spot_statuses(
 
 async def run_booking_lifecycle_sync(session: AsyncSession, now: datetime | None = None) -> LifecycleSyncStats:
     """Run full booking + spot synchronization in one transaction scope."""
-    stats = await sync_booking_statuses(session=session, now=now)
-    available_count, booked_count = await sync_parking_spot_statuses(session=session, now=now)
+    current = to_db_datetime(now or datetime.now(timezone.utc))
+    stats = await sync_booking_statuses(session=session, now=current)
+    available_count, booked_count = await sync_parking_spot_statuses(session=session, now=current)
     stats.spot_available = available_count
     stats.spot_booked = booked_count
     return stats
