@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
+import re
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,12 +12,45 @@ from app.core.config import settings
 from app.models.booking import Booking, BookingStatus
 from app.models.parking_spot import ParkingSpot, SpotStatus
 
-def _resolve_timezone() -> timezone | ZoneInfo:
+_FIXED_OFFSET_PATTERN = re.compile(r"^(?:UTC|GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$")
+
+
+def _parse_fixed_offset_timezone(value: str) -> tzinfo | None:
+    normalized = value.strip()
+    if normalized.upper() in {"UTC", "GMT", "Z"}:
+        return timezone.utc
+
+    match = _FIXED_OFFSET_PATTERN.match(normalized)
+    if not match:
+        return None
+
+    sign, hours_str, minutes_str = match.groups()
+    hours = int(hours_str)
+    minutes = int(minutes_str or 0)
+    if hours > 14 or minutes > 59:
+        return None
+
+    delta = timedelta(hours=hours, minutes=minutes)
+    if sign == "-":
+        delta = -delta
+    return timezone(delta)
+
+
+def _resolve_timezone() -> tzinfo:
     tz_name = settings.default_timezone
+    fixed_offset_tz = _parse_fixed_offset_timezone(tz_name)
+    if fixed_offset_tz is not None:
+        return fixed_offset_tz
+
     try:
         return ZoneInfo(tz_name)
-    except ZoneInfoNotFoundError as exc:
-        raise RuntimeError("Invalid server default_timezone setting") from exc
+    except ZoneInfoNotFoundError:
+        # Keep background sync operational even when tzdata is unavailable.
+        try:
+            return ZoneInfo("Europe/Moscow")
+        except ZoneInfoNotFoundError:
+            return timezone(timedelta(hours=3))
+
 
 def to_db_datetime(dt: datetime) -> datetime:
     if dt.tzinfo is None:
