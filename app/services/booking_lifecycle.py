@@ -5,19 +5,29 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.core.config import settings
 from app.models.booking import Booking, BookingStatus
 from app.models.parking_spot import ParkingSpot, SpotStatus
-from app.services.bookings import to_db_datetime
 
+def _resolve_timezone() -> timezone | ZoneInfo:
+    tz_name = settings.default_timezone
+    try:
+        return ZoneInfo(tz_name)
+    except ZoneInfoNotFoundError as exc:
+        raise RuntimeError("Invalid server default_timezone setting") from exc
+
+def to_db_datetime(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(_resolve_timezone()).replace(tzinfo=None)
 
 BOOKING_BLOCKING_STATUSES = (
     BookingStatus.pending,
     BookingStatus.confirmed,
     BookingStatus.active,
 )
-
 
 @dataclass(slots=True)
 class LifecycleSyncStats:
@@ -30,7 +40,6 @@ class LifecycleSyncStats:
     @property
     def total_booking_updates(self) -> int:
         return self.expired + self.completed + self.no_show
-
 
 async def sync_booking_statuses(session: AsyncSession, now: datetime | None = None) -> LifecycleSyncStats:
     """Apply server-driven booking lifecycle transitions based on current time."""
@@ -63,7 +72,6 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
         completed=completed_result.rowcount or 0,
         no_show=no_show_result.rowcount or 0,
     )
-
 
 async def sync_parking_spot_statuses(
     session: AsyncSession,
@@ -98,7 +106,6 @@ async def sync_parking_spot_statuses(
     booked_result = await session.execute(booked_stmt)
 
     return available_result.rowcount or 0, booked_result.rowcount or 0
-
 
 async def run_booking_lifecycle_sync(session: AsyncSession, now: datetime | None = None) -> LifecycleSyncStats:
     """Run full booking + spot synchronization in one transaction scope."""

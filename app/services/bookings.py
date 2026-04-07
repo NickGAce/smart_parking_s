@@ -194,8 +194,16 @@ def derive_initial_booking_status(start_time: datetime, end_time: datetime, now:
         return BookingStatus.active
     return BookingStatus.confirmed
 
+async def sync_booking_statuses(session, now: datetime | None = None):
+    """Backward-compatible wrapper to avoid import-time circular dependency."""
+    from app.services.booking_lifecycle import sync_booking_statuses as _sync_booking_statuses
+
+    return await _sync_booking_statuses(session=session, now=now)
 
 
+async def sync_parking_spot_statuses(session, spot_ids: list[int] | None = None, now: datetime | None = None):
+    """Backward-compatible wrapper to avoid import-time circular dependency."""
+    from app.services.booking_lifecycle import sync_parking_spot_statuses as _sync_parking_spot_statuses
 
-# Backward-compatible re-export for existing imports
-from app.services.booking_lifecycle import sync_booking_statuses, sync_parking_spot_statuses
+    return await _sync_parking_spot_statuses(session=session, spot_ids=spot_ids, now=now)
+
