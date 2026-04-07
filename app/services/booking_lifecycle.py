@@ -123,6 +123,8 @@ async def sync_parking_spot_statuses(
     available_stmt = (
         update(ParkingSpot)
         .where(ParkingSpot.status != SpotStatus.blocked)
+        .where(ParkingSpot.status != SpotStatus.available)
+        .where(~ParkingSpot.id.in_(booked_spots_subquery))
         .values(status=SpotStatus.available)
     )
     if spot_ids:
@@ -132,6 +134,7 @@ async def sync_parking_spot_statuses(
     booked_stmt = (
         update(ParkingSpot)
         .where(ParkingSpot.status != SpotStatus.blocked)
+        .where(ParkingSpot.status != SpotStatus.booked)
         .where(ParkingSpot.id.in_(booked_spots_subquery))
         .values(status=SpotStatus.booked)
     )
