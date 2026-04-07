@@ -4,12 +4,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException
 
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.booking import Booking, BookingStatus
-from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
 
 _FIXED_OFFSET_PATTERN = re.compile(r"^(?:UTC|GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$")
@@ -197,74 +194,16 @@ def derive_initial_booking_status(start_time: datetime, end_time: datetime, now:
         return BookingStatus.active
     return BookingStatus.confirmed
 
+async def sync_booking_statuses(session, now: datetime | None = None):
+    """Backward-compatible wrapper to avoid import-time circular dependency."""
+    from app.services.booking_lifecycle import sync_booking_statuses as _sync_booking_statuses
 
-async def sync_booking_statuses(
-    session: AsyncSession,
-    now: datetime | None = None,
-) -> int:
-    """Apply server-driven booking lifecycle transitions based on current time."""
-    current = to_db_datetime(now or datetime.now(timezone.utc))
-    no_show_cutoff = current - timedelta(minutes=settings.no_show_grace_minutes)
-    updates_total = 0
-
-    completed_result = await session.execute(
-        update(Booking)
-        .where(Booking.status == BookingStatus.active)
-        .where(Booking.end_time <= current)
-        .values(status=BookingStatus.completed)
-    )
-    updates_total += completed_result.rowcount or 0
-
-    no_show_result = await session.execute(
-        update(Booking)
-        .where(Booking.status == BookingStatus.confirmed)
-        .where(Booking.start_time <= no_show_cutoff)
-        .values(status=BookingStatus.no_show)
-    )
-    updates_total += no_show_result.rowcount or 0
-
-    expired_result = await session.execute(
-        update(Booking)
-        .where(Booking.status == BookingStatus.pending)
-        .where(Booking.start_time <= current)
-        .values(status=BookingStatus.expired)
-    )
-    updates_total += expired_result.rowcount or 0
-
-    return updates_total
+    return await _sync_booking_statuses(session=session, now=now)
 
 
-async def sync_parking_spot_statuses(
-    session: AsyncSession,
-    spot_ids: list[int] | None = None,
-    now: datetime | None = None,
-) -> None:
-    """Sync persisted parking spot status based on blocking bookings.
+async def sync_parking_spot_statuses(session, spot_ids: list[int] | None = None, now: datetime | None = None):
+    """Backward-compatible wrapper to avoid import-time circular dependency."""
+    from app.services.booking_lifecycle import sync_parking_spot_statuses as _sync_parking_spot_statuses
 
-    blocked spots are not changed.
-    """
-    current = to_db_datetime(now or datetime.now(timezone.utc))
-    booked_spots_subquery = select(Booking.parking_spot_id).where(Booking.status.in_(BOOKING_BLOCKING_STATUSES))
-    booked_spots_subquery = booked_spots_subquery.where(Booking.end_time > current)
-    if spot_ids:
-        booked_spots_subquery = booked_spots_subquery.where(Booking.parking_spot_id.in_(spot_ids))
-    booked_spots_subquery = booked_spots_subquery.distinct()
+    return await _sync_parking_spot_statuses(session=session, spot_ids=spot_ids, now=now)
 
-    available_stmt = (
-        update(ParkingSpot)
-        .where(ParkingSpot.status != SpotStatus.blocked)
-        .values(status=SpotStatus.available)
-    )
-    if spot_ids:
-        available_stmt = available_stmt.where(ParkingSpot.id.in_(spot_ids))
-    await session.execute(available_stmt)
-
-    booked_stmt = (
-        update(ParkingSpot)
-        .where(ParkingSpot.status != SpotStatus.blocked)
-        .where(ParkingSpot.id.in_(booked_spots_subquery))
-        .values(status=SpotStatus.booked)
-    )
-    if spot_ids:
-        booked_stmt = booked_stmt.where(ParkingSpot.id.in_(spot_ids))
-    await session.execute(booked_stmt)

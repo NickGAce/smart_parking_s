@@ -14,6 +14,7 @@ from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
 from app.schemas.booking import BookingCreate, BookingOut, BookingUpdate
 from app.schemas.pagination import BookingListResponse, PaginationMeta
+from app.services.booking_lifecycle import run_booking_lifecycle_sync, sync_parking_spot_statuses
 from app.services.bookings import (
     BOOKING_BLOCKING_STATUSES,
     derive_initial_booking_status,
@@ -21,7 +22,6 @@ from app.services.bookings import (
     normalize_client_datetime,
     server_now_utc_naive,
     sync_booking_statuses,
-    sync_parking_spot_statuses,
     to_client_datetime,
     transition_booking_status,
     validate_check_in_window,
@@ -148,8 +148,7 @@ async def list_bookings(
     client_timezone = request.headers.get("X-Timezone")
     server_now = server_now_utc_naive()
 
-    await sync_booking_statuses(session, now=server_now)
-    await sync_parking_spot_statuses(session, now=server_now)
+    await run_booking_lifecycle_sync(session, now=server_now)
     await session.commit()
 
     if from_time is not None:
@@ -237,8 +236,7 @@ async def get_booking(
     client_timezone = request.headers.get("X-Timezone")
     server_now = server_now_utc_naive()
 
-    await sync_booking_statuses(session, now=server_now)
-    await sync_parking_spot_statuses(session, now=server_now)
+    await run_booking_lifecycle_sync(session, now=server_now)
     await session.commit()
 
     booking = await _get_booking_or_404(session, booking_id)
