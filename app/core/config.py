@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     no_show_grace_minutes: int = 30
     booking_sync_enabled: bool = True
     booking_sync_interval_seconds: int = 60
-    booking_sync_run_on_startup: bool = True
+    booking_sync_run_on_startup: bool = False
 
 
 settings = Settings()
