@@ -778,3 +778,73 @@ def test_list_bookings_supports_statuses_filter():
         assert response.status_code == 200
         assert len(response.json()["items"]) == 1
         assert response.json()["items"][0]["status"] == BookingStatus.cancelled
+
+def test_create_booking_auto_assign_success():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        payload = {
+            "auto_assign": True,
+            "parking_lot_id": 1,
+            "start_time": (now + timedelta(minutes=10)).isoformat(),
+            "end_time": (now + timedelta(minutes=40)).isoformat(),
+            "recommendation_preferences": {
+                "max_results": 5,
+            },
+        }
+        response = client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {tokens['user']}"})
+        assert response.status_code == 201
+        body = response.json()
+        assert body["parking_spot_id"] == 1
+        assert body["assignment_mode"] == "auto"
+        assert "Auto-assigned spot" in body["assignment_explanation"]
+
+
+def test_create_booking_rejects_mixed_manual_and_auto_assign_payload():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        payload = {
+            "parking_spot_id": 1,
+            "auto_assign": True,
+            "parking_lot_id": 1,
+            "start_time": (now + timedelta(minutes=10)).isoformat(),
+            "end_time": (now + timedelta(minutes=40)).isoformat(),
+        }
+        response = client.post("/api/v1/bookings", json=payload, headers={"Authorization": f"Bearer {tokens['user']}"})
+        assert response.status_code == 422
+
+
+def test_create_booking_auto_assign_returns_409_when_no_candidates():
+    _, tokens = _setup_state()
+    now = datetime.utcnow()
+    with TestClient(app) as client:
+        manual_payload = {
+            "parking_spot_id": 1,
+            "start_time": (now + timedelta(minutes=10)).isoformat(),
+            "end_time": (now + timedelta(minutes=40)).isoformat(),
+            "type": BookingType.guest,
+        }
+        manual_create = client.post(
+            "/api/v1/bookings",
+            json=manual_payload,
+            headers={"Authorization": f"Bearer {tokens['another']}"},
+        )
+        assert manual_create.status_code == 201
+
+        auto_payload = {
+            "auto_assign": True,
+            "parking_lot_id": 1,
+            "start_time": (now + timedelta(minutes=15)).isoformat(),
+            "end_time": (now + timedelta(minutes=35)).isoformat(),
+            "recommendation_filters": {
+                "spot_types": ["regular"],
+            },
+        }
+        auto_response = client.post(
+            "/api/v1/bookings",
+            json=auto_payload,
+            headers={"Authorization": f"Bearer {tokens['user']}"},
+        )
+        assert auto_response.status_code == 409
+        assert "No suitable parking spot" in auto_response.json()["detail"]

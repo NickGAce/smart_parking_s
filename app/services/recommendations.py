@@ -2,7 +2,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import timedelta
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,9 +12,11 @@ from app.models.parking_zone import AccessLevel
 from app.models.user import UserRole
 from app.schemas.recommendation import (
     RecommendationExplainFactor,
+    RecommendationFilters,
     RecommendationPreferences,
     RecommendationRequest,
     RecommendationResponse,
+    RecommendationWeights,
     RecommendedSpot,
 )
 from app.services.bookings import BOOKING_BLOCKING_STATUSES
@@ -205,6 +207,35 @@ async def recommend_spots(
         total_candidates=len(ranked),
         recommended_spots=top,
     )
+
+
+
+
+async def pick_best_spot_for_booking(
+    session: AsyncSession,
+    *,
+    parking_lot_id: int,
+    from_time,
+    to_time,
+    role: UserRole,
+    filters: RecommendationFilters | None = None,
+    preferences: RecommendationPreferences | None = None,
+    weights: RecommendationWeights | None = None,
+) -> RecommendedSpot | None:
+    request = RecommendationRequest(
+        parking_lot_id=parking_lot_id,
+        from_time=from_time,
+        to_time=to_time,
+        filters=filters,
+        preferences=preferences,
+        weights=weights or RecommendationWeights(),
+    )
+
+    response = await recommend_spots(session=session, payload=request, role=role)
+    if not response.recommended_spots:
+        return None
+
+    return response.recommended_spots[0]
 
 
 def _is_spot_allowed_for_role(spot: ParkingSpot, role: UserRole, needs_accessible_spot: bool) -> bool:
