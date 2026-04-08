@@ -8,6 +8,10 @@ from sqlalchemy import delete
 # Добавляем корневую директорию проекта в sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+# Скрипт должен запускаться даже без заранее экспортированных переменных окружения.
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./smart_parking.db")
+os.environ.setdefault("JWT_SECRET", "local-dev-secret")
+
 from app.db.session import AsyncSessionLocal
 from app.models.booking import Booking
 from app.models.parking_lot import AccessMode, ParkingLot
