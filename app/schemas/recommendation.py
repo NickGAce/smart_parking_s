@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.parking_spot import SizeCategory, SpotType, VehicleType
 from app.models.user import UserRole
@@ -36,6 +36,8 @@ class RecommendationUserContext(BaseModel):
 
 
 class RecommendationRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     user_context: RecommendationUserContext | None = None
     parking_lot_id: int
     from_time: datetime = Field(alias="from")
@@ -72,6 +74,8 @@ class RecommendedSpot(BaseModel):
 
 
 class RecommendationResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     parking_lot_id: int
     from_time: datetime = Field(alias="from")
     to_time: datetime = Field(alias="to")
