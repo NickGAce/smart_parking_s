@@ -12,7 +12,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./smart_parking.db")
 os.environ.setdefault("JWT_SECRET", "local-dev-secret")
 
-from app.db.session import AsyncSessionLocal
+from app.db.base import Base
+from app.db.session import AsyncSessionLocal, engine
 from app.models.booking import Booking
 from app.models.parking_lot import AccessMode, ParkingLot
 from app.models.parking_spot import ParkingSpot, SizeCategory, SpotStatus, SpotType, VehicleType
@@ -70,9 +71,19 @@ ZONE_DEFINITIONS = {
 }
 
 
+
+
+async def ensure_schema_exists() -> None:
+    """Создаёт таблицы в локальной БД, если они ещё не созданы."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
 async def reseed_parking_data() -> dict[str, int]:
     if len(SPOT_BLUEPRINTS) != 25:
         raise ValueError("SPOT_BLUEPRINTS must contain exactly 25 spots")
+
+    await ensure_schema_exists()
 
     async with AsyncSessionLocal() as session:
         async with session.begin():
