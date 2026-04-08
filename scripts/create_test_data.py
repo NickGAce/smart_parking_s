@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from pydantic_core import ValidationError
@@ -16,6 +17,28 @@ from app.models.parking_lot import AccessMode, ParkingLot
 from app.models.parking_spot import ParkingSpot, SizeCategory, SpotStatus, SpotType, VehicleType
 from app.models.parking_zone import AccessLevel, ParkingZone, ZoneType
 from app.models.user import UserRole
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_project_env_file() -> None:
+    """Подгружает .env из корня проекта, даже если скрипт запущен не из корня."""
+    env_path = PROJECT_ROOT / ".env"
+    if not env_path.exists():
+        return
+
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        raw = line.strip()
+        if not raw or raw.startswith("#") or "=" not in raw:
+            continue
+        key, value = raw.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key, value)
+
+
+load_project_env_file()
 
 AsyncSessionLocal: Any = None
 engine: Any = None
