@@ -57,6 +57,7 @@ def test_reseed_parking_data_replaces_lot_spots_and_clears_bookings(monkeypatch)
             await session.commit()
 
         monkeypatch.setattr("scripts.create_test_data.AsyncSessionLocal", session_local)
+        monkeypatch.setattr("scripts.create_test_data.engine", engine)
 
         result = await reseed_parking_data()
         assert result == {"parking_lots": 1, "parking_spots": 25, "bookings": 0}

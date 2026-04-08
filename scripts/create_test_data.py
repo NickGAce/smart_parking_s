@@ -2,23 +2,23 @@ import asyncio
 import os
 import sys
 from dataclasses import dataclass
+from typing import Any
 
+from pydantic_core import ValidationError
 from sqlalchemy import delete
 
 # Добавляем корневую директорию проекта в sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Скрипт должен запускаться даже без заранее экспортированных переменных окружения.
-os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./smart_parking.db")
-os.environ.setdefault("JWT_SECRET", "local-dev-secret")
-
 from app.db.base import Base
-from app.db.session import AsyncSessionLocal, engine
 from app.models.booking import Booking
 from app.models.parking_lot import AccessMode, ParkingLot
 from app.models.parking_spot import ParkingSpot, SizeCategory, SpotStatus, SpotType, VehicleType
 from app.models.parking_zone import AccessLevel, ParkingZone, ZoneType
 from app.models.user import UserRole
+
+AsyncSessionLocal: Any = None
+engine: Any = None
 
 
 @dataclass(frozen=True)
@@ -71,11 +71,28 @@ ZONE_DEFINITIONS = {
 }
 
 
+def init_session_bindings() -> tuple[Any, Any]:
+    """Ленивая инициализация, чтобы использовать ту же БД, что и API."""
+    global AsyncSessionLocal, engine
+    if AsyncSessionLocal is not None and engine is not None:
+        return AsyncSessionLocal, engine
+
+    try:
+        from app.db.session import AsyncSessionLocal as session_local, engine as db_engine
+    except ValidationError as exc:
+        raise RuntimeError(
+            "Settings are not configured. Provide DATABASE_URL and JWT_SECRET "
+            "(for example via .env in project root) to target the same DB as API."
+        ) from exc
+
+    AsyncSessionLocal = session_local
+    engine = db_engine
+    return AsyncSessionLocal, engine
 
 
-async def ensure_schema_exists() -> None:
-    """Создаёт таблицы в локальной БД, если они ещё не созданы."""
-    async with engine.begin() as conn:
+async def ensure_schema_exists(db_engine: Any) -> None:
+    """Создаёт таблицы в целевой БД, если они ещё не созданы."""
+    async with db_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 
@@ -83,9 +100,10 @@ async def reseed_parking_data() -> dict[str, int]:
     if len(SPOT_BLUEPRINTS) != 25:
         raise ValueError("SPOT_BLUEPRINTS must contain exactly 25 spots")
 
-    await ensure_schema_exists()
+    session_factory, db_engine = init_session_bindings()
+    await ensure_schema_exists(db_engine)
 
-    async with AsyncSessionLocal() as session:
+    async with session_factory() as session:
         async with session.begin():
             # Порядок важен из-за внешних ключей
             await session.execute(delete(Booking))
