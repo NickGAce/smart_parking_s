@@ -49,8 +49,9 @@ class SpotScoreContext:
 async def recommend_spots(
     session: AsyncSession,
     payload: RecommendationRequest,
-    role: UserRole,
+    role: UserRole | str,
 ) -> RecommendationResponse:
+    normalized_role = _normalize_role(role)
     prefs = payload.preferences or RecommendationPreferences()
     filters = payload.filters
     weights = payload.weights
@@ -79,7 +80,7 @@ async def recommend_spots(
             parking_lot_id=payload.parking_lot_id,
             from_time=payload.from_time,
             to_time=payload.to_time,
-            requested_by_role=role.value,
+            requested_by_role=normalized_role.value,
             total_candidates=0,
             recommended_spots=[],
         )
@@ -118,12 +119,12 @@ async def recommend_spots(
         if overlap_counts.get(spot.id, 0) > 0:
             continue
 
-        if not _is_spot_allowed_for_role(spot, role, prefs.needs_accessible_spot):
+        if not _is_spot_allowed_for_role(spot, normalized_role, prefs.needs_accessible_spot):
             continue
 
         score_ctx = _build_score_context(
             spot=spot,
-            role=role,
+            role=normalized_role,
             preferences=prefs,
             nearby_conflicts=nearby_counts.get(spot.id, 0),
         )
@@ -203,7 +204,7 @@ async def recommend_spots(
         parking_lot_id=payload.parking_lot_id,
         from_time=payload.from_time,
         to_time=payload.to_time,
-        requested_by_role=role.value,
+        requested_by_role=normalized_role.value,
         total_candidates=len(ranked),
         recommended_spots=top,
     )
@@ -217,7 +218,7 @@ async def pick_best_spot_for_booking(
     parking_lot_id: int,
     from_time,
     to_time,
-    role: UserRole,
+    role: UserRole | str,
     filters: RecommendationFilters | None = None,
     preferences: RecommendationPreferences | None = None,
     weights: RecommendationWeights | None = None,
@@ -236,6 +237,13 @@ async def pick_best_spot_for_booking(
         return None
 
     return response.recommended_spots[0]
+
+
+def _normalize_role(role: UserRole | str) -> UserRole:
+    if isinstance(role, UserRole):
+        return role
+    return UserRole(role)
+
 
 
 def _is_spot_allowed_for_role(spot: ParkingSpot, role: UserRole, needs_accessible_spot: bool) -> bool:
