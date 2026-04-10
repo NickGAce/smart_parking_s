@@ -30,6 +30,7 @@ class Booking(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     type: Mapped["BookingType"] = mapped_column(Enum(BookingType), default=BookingType.guest)  # Используем строковый тип
     status: Mapped["BookingStatus"] = mapped_column(
         Enum(BookingStatus), default=BookingStatus.pending, nullable=False
