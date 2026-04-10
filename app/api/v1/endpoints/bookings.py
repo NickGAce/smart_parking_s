@@ -28,7 +28,8 @@ from app.services.bookings import (
     validate_check_out_window,
     validate_manual_no_show,
 )
-from app.services.parking_rules import validate_booking_against_lot_rules
+from app.services.parking_rules import get_parking_lot_with_rules, validate_booking_against_lot_rules
+from app.services.recommendations import pick_best_spot_for_booking
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -64,7 +65,12 @@ def _is_admin(user: User) -> bool:
     return user.role == UserRole.admin
 
 
-def _booking_to_out(booking: Booking, client_timezone: str | None) -> BookingOut:
+def _booking_to_out(
+    booking: Booking,
+    client_timezone: str | None,
+    assignment_mode: str = "manual",
+    assignment_explanation: str | None = None,
+) -> BookingOut:
     return BookingOut(
         id=booking.id,
         user_id=booking.user_id,
@@ -73,6 +79,8 @@ def _booking_to_out(booking: Booking, client_timezone: str | None) -> BookingOut
         status=booking.status,
         start_time=to_client_datetime(booking.start_time, client_timezone),
         end_time=to_client_datetime(booking.end_time, client_timezone),
+        assignment_mode=assignment_mode,
+        assignment_explanation=assignment_explanation,
     )
 
 
@@ -83,7 +91,7 @@ async def create_booking(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new booking for a parking spot if time slot is available."""
+    """Create booking in manual mode (explicit spot) or auto-assign mode."""
     client_timezone = request.headers.get("X-Timezone")
     server_now = server_now_utc_naive()
     start_time = normalize_client_datetime(payload.start_time, client_timezone)
@@ -94,7 +102,41 @@ async def create_booking(
 
     await sync_booking_statuses(session, now=server_now)
 
-    spot = await _get_spot_or_404(session, payload.parking_spot_id)
+    assignment_mode = "auto" if payload.auto_assign else "manual"
+    assignment_explanation: str | None = None
+
+    if payload.auto_assign:
+        parking_lot = await get_parking_lot_with_rules(session, payload.parking_lot_id)
+        if parking_lot is None:
+            raise HTTPException(status_code=404, detail="ParkingLot not found")
+
+        validate_booking_against_lot_rules(parking_lot, current_user, start_time, end_time)
+
+        best_spot = await pick_best_spot_for_booking(
+            session=session,
+            parking_lot_id=payload.parking_lot_id,
+            from_time=start_time,
+            to_time=end_time,
+            role=current_user.role,
+            filters=payload.recommendation_filters,
+            preferences=payload.recommendation_preferences,
+            weights=payload.recommendation_weights,
+        )
+        if best_spot is None:
+            raise HTTPException(
+                status_code=409,
+                detail="No suitable parking spot available for requested interval and constraints",
+            )
+
+        spot = await _get_spot_or_404(session, best_spot.spot_id)
+        selected_spot_id = best_spot.spot_id
+        assignment_explanation = (
+            f"Auto-assigned spot #{best_spot.spot_number} (id={best_spot.spot_id}) with score {best_spot.score}"
+        )
+    else:
+        spot = await _get_spot_or_404(session, payload.parking_spot_id)
+        selected_spot_id = payload.parking_spot_id
+
     if spot.status == SpotStatus.blocked:
         raise HTTPException(status_code=400, detail="Cannot book a blocked parking spot")
 
@@ -102,29 +144,39 @@ async def create_booking(
 
     conflict_result = await session.execute(
         select(Booking.id)
-        .where(Booking.parking_spot_id == payload.parking_spot_id)
+        .where(Booking.parking_spot_id == selected_spot_id)
         .where(Booking.status.in_(BOOKING_BLOCKING_STATUSES))
         .where(_overlap_filter(start_time, end_time))
         .limit(1)
     )
     if conflict_result.scalar_one_or_none() is not None:
-        raise HTTPException(status_code=409, detail="Booking time overlaps with an existing booking")
+        detail = (
+            "Auto-assigned parking spot became unavailable, please retry"
+            if payload.auto_assign
+            else "Booking time overlaps with an existing booking"
+        )
+        raise HTTPException(status_code=409, detail=detail)
 
     booking = Booking(
         start_time=start_time,
         end_time=end_time,
         type=payload.type,
-        parking_spot_id=payload.parking_spot_id,
+        parking_spot_id=selected_spot_id,
         user_id=current_user.id,
         status=derive_initial_booking_status(start_time=start_time, end_time=end_time, now=server_now),
     )
     session.add(booking)
     await session.flush()
-    await sync_parking_spot_statuses(session, spot_ids=[payload.parking_spot_id], now=server_now)
+    await sync_parking_spot_statuses(session, spot_ids=[selected_spot_id], now=server_now)
     await session.commit()
 
     await session.refresh(booking)
-    return _booking_to_out(booking, client_timezone)
+    return _booking_to_out(
+        booking,
+        client_timezone,
+        assignment_mode=assignment_mode,
+        assignment_explanation=assignment_explanation,
+    )
 
 
 @router.get("", response_model=BookingListResponse)
