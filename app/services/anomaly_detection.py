@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from sqlalchemy import and_, case, func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.booking import Booking, BookingStatus
@@ -57,18 +57,9 @@ class AnomalyDetectionService:
         user_id: int | None,
     ) -> list[AnomalyItem]:
         stmt = (
-            select(
-                Booking.user_id,
-                func.count(Booking.id).label("total"),
-                func.sum(case((Booking.status == BookingStatus.cancelled, 1), else_=0)).label("cancelled"),
-                func.sum(case((Booking.status == BookingStatus.no_show, 1), else_=0)).label("no_show"),
-                func.sum(
-                    case(((func.julianday(Booking.start_time) - func.julianday(Booking.created_at)) * 24 * 60 <= 60, 1), else_=0)
-                ).label("last_minute"),
-            )
+            select(Booking.user_id, Booking.status, Booking.start_time, Booking.created_at)
             .join(ParkingSpot, ParkingSpot.id == Booking.parking_spot_id)
             .where(and_(Booking.start_time >= period_from, Booking.start_time <= period_to))
-            .group_by(Booking.user_id)
         )
 
         if parking_lot_id is not None:
@@ -78,15 +69,31 @@ class AnomalyDetectionService:
 
         rows = (await self.session.execute(stmt)).all()
 
-        anomalies: list[AnomalyItem] = []
+        user_stats: dict[int, dict[str, int]] = {}
         for row in rows:
-            total = int(row.total or 0)
+            stats = user_stats.setdefault(
+                row.user_id,
+                {"total": 0, "cancelled": 0, "no_show": 0, "last_minute": 0},
+            )
+            stats["total"] += 1
+            if row.status == BookingStatus.cancelled:
+                stats["cancelled"] += 1
+            if row.status == BookingStatus.no_show:
+                stats["no_show"] += 1
+
+            lead_minutes = (row.start_time - row.created_at).total_seconds() / 60
+            if lead_minutes <= 60:
+                stats["last_minute"] += 1
+
+        anomalies: list[AnomalyItem] = []
+        for uid, stats in user_stats.items():
+            total = int(stats["total"])
             if total < 5:
                 continue
 
-            cancelled = int(row.cancelled or 0)
-            no_show = int(row.no_show or 0)
-            last_minute = int(row.last_minute or 0)
+            cancelled = int(stats["cancelled"])
+            no_show = int(stats["no_show"])
+            last_minute = int(stats["last_minute"])
 
             cancel_rate = cancelled / total
             no_show_rate = no_show / total
@@ -98,7 +105,7 @@ class AnomalyDetectionService:
                         anomaly_type="user.frequent_cancellations",
                         severity="high" if cancel_rate >= 0.5 else "medium",
                         reason=f"{cancelled} из {total} бронирований отменены ({cancel_rate:.0%}).",
-                        related_entity=RelatedEntity(entity_type="user", entity_id=row.user_id),
+                        related_entity=RelatedEntity(entity_type="user", entity_id=uid),
                         metrics={"total_bookings": total, "cancelled": cancelled, "cancellation_rate": round(cancel_rate, 3)},
                     )
                 )
@@ -108,7 +115,7 @@ class AnomalyDetectionService:
                         anomaly_type="user.frequent_no_show",
                         severity="high" if no_show_rate >= 0.35 else "medium",
                         reason=f"{no_show} из {total} бронирований завершились как no_show ({no_show_rate:.0%}).",
-                        related_entity=RelatedEntity(entity_type="user", entity_id=row.user_id),
+                        related_entity=RelatedEntity(entity_type="user", entity_id=uid),
                         metrics={"total_bookings": total, "no_show": no_show, "no_show_rate": round(no_show_rate, 3)},
                     )
                 )
@@ -118,7 +125,7 @@ class AnomalyDetectionService:
                         anomaly_type="user.last_minute_pattern",
                         severity="high" if last_minute_rate >= 0.7 else "medium",
                         reason=f"{last_minute} из {total} бронирований созданы <=60 минут до старта ({last_minute_rate:.0%}).",
-                        related_entity=RelatedEntity(entity_type="user", entity_id=row.user_id),
+                        related_entity=RelatedEntity(entity_type="user", entity_id=uid),
                         metrics={
                             "total_bookings": total,
                             "last_minute_bookings": last_minute,
