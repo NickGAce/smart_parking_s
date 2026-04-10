@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from sqlalchemy import case, cast, func, Integer, select
+from sqlalchemy import Integer, case, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.booking import Booking, BookingStatus
@@ -55,6 +55,35 @@ def resolve_period_window(
     raise ValueError("Unsupported period")
 
 
+def _dialect_name(session: AsyncSession) -> str:
+    bind = session.get_bind()
+    if bind is None:
+        return "sqlite"
+    return bind.dialect.name
+
+
+def _duration_minutes_expr(session: AsyncSession, start_col, end_col):
+    if _dialect_name(session) == "postgresql":
+        return func.extract("epoch", end_col - start_col) / 60.0
+    return (func.julianday(end_col) - func.julianday(start_col)) * 24.0 * 60.0
+
+
+def _overlap_seconds_expr(session: AsyncSession, from_time: datetime, to_time: datetime):
+    if _dialect_name(session) == "postgresql":
+        overlap_start = func.greatest(Booking.start_time, from_time)
+        overlap_end = func.least(Booking.end_time, to_time)
+        return case(
+            (overlap_end > overlap_start, func.extract("epoch", overlap_end - overlap_start)),
+            else_=0.0,
+        )
+
+    overlap_start = func.max(Booking.start_time, from_time)
+    overlap_end = func.min(Booking.end_time, to_time)
+    return case(
+        (overlap_end > overlap_start, (func.julianday(overlap_end) - func.julianday(overlap_start)) * 86400.0),
+        else_=0.0,
+    )
+
 
 async def get_total_spots(session: AsyncSession, filters: AnalyticsFilters) -> int:
     stmt = select(func.count(ParkingSpot.id))
@@ -73,20 +102,9 @@ async def get_occupancy_percent(session: AsyncSession, filters: AnalyticsFilters
     if spot_count == 0:
         return 0.0
 
-    overlap_start = func.max(Booking.start_time, filters.from_time)
-    overlap_end = func.min(Booking.end_time, filters.to_time)
-    occupied_seconds = (
-        func.sum(
-            case(
-                (overlap_end > overlap_start, (func.julianday(overlap_end) - func.julianday(overlap_start)) * 86400.0),
-                else_=0.0,
-            )
-        )
-        .label("occupied_seconds")
-    )
-
+    occupied_seconds_expr = _overlap_seconds_expr(session, filters.from_time, filters.to_time)
     stmt = (
-        select(occupied_seconds)
+        select(func.sum(occupied_seconds_expr).label("occupied_seconds"))
         .select_from(Booking)
         .join(ParkingSpot, Booking.parking_spot_id == ParkingSpot.id)
         .outerjoin(ParkingZone, ParkingSpot.zone_id == ParkingZone.id)
@@ -108,10 +126,11 @@ async def get_occupancy_percent(session: AsyncSession, filters: AnalyticsFilters
 
 
 async def get_booking_metrics(session: AsyncSession, filters: AnalyticsFilters) -> BookingMetrics:
+    duration_minutes = _duration_minutes_expr(session, Booking.start_time, Booking.end_time)
     stmt = (
         select(
             func.count(Booking.id).label("total"),
-            func.avg((func.julianday(Booking.end_time) - func.julianday(Booking.start_time)) * 24 * 60).label("avg_minutes"),
+            func.avg(duration_minutes).label("avg_minutes"),
             func.sum(case((Booking.status == BookingStatus.cancelled, 1), else_=0)).label("cancelled"),
             func.sum(case((Booking.status == BookingStatus.no_show, 1), else_=0)).label("no_show"),
             func.sum(case((Booking.status == BookingStatus.completed, 1), else_=0)).label("completed"),
@@ -158,15 +177,7 @@ async def get_booking_metrics(session: AsyncSession, filters: AnalyticsFilters) 
 async def get_occupancy_by_zone(session: AsyncSession, filters: AnalyticsFilters) -> list[dict[str, float | str]]:
     total_period_seconds = max((filters.to_time - filters.from_time).total_seconds(), 1)
 
-    overlap_start = func.max(Booking.start_time, filters.from_time)
-    overlap_end = func.min(Booking.end_time, filters.to_time)
-
-    occupied_seconds = func.sum(
-        case(
-            (overlap_end > overlap_start, (func.julianday(overlap_end) - func.julianday(overlap_start)) * 86400.0),
-            else_=0.0,
-        )
-    )
+    occupied_seconds = func.sum(_overlap_seconds_expr(session, filters.from_time, filters.to_time))
 
     stmt = (
         select(
@@ -205,14 +216,7 @@ async def get_occupancy_by_zone(session: AsyncSession, filters: AnalyticsFilters
 async def get_occupancy_by_spot_type(session: AsyncSession, filters: AnalyticsFilters) -> list[dict[str, float | str]]:
     total_period_seconds = max((filters.to_time - filters.from_time).total_seconds(), 1)
 
-    overlap_start = func.max(Booking.start_time, filters.from_time)
-    overlap_end = func.min(Booking.end_time, filters.to_time)
-    occupied_seconds = func.sum(
-        case(
-            (overlap_end > overlap_start, (func.julianday(overlap_end) - func.julianday(overlap_start)) * 86400.0),
-            else_=0.0,
-        )
-    )
+    occupied_seconds = func.sum(_overlap_seconds_expr(session, filters.from_time, filters.to_time))
 
     stmt = (
         select(
@@ -249,7 +253,11 @@ async def get_occupancy_by_spot_type(session: AsyncSession, filters: AnalyticsFi
 
 
 async def get_peak_hours(session: AsyncSession, filters: AnalyticsFilters, limit: int = 5) -> list[dict[str, int]]:
-    hour_bucket = cast(func.extract("hour", Booking.start_time), Integer)
+    if _dialect_name(session) == "postgresql":
+        hour_bucket = cast(func.extract("hour", Booking.start_time), Integer)
+    else:
+        hour_bucket = cast(func.strftime("%H", Booking.start_time), Integer)
+
     stmt = (
         select(hour_bucket.label("hour"), func.count(Booking.id).label("bookings"))
         .select_from(Booking)
