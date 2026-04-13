@@ -10,6 +10,7 @@ from app.schemas.auth import Token
 from app.models.user import User, UserRole
 from app.services.auth import register_user, authenticate
 from app.services.audit import build_source_metadata, log_audit_event
+from app.services.db_errors import is_duplicate_user_email_error
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -32,8 +33,7 @@ async def register(payload: UserCreate, request: Request, session: AsyncSession 
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        error_text = str(getattr(exc, "orig", exc)).lower()
-        if "users.email" in error_text or ("email" in error_text and "unique" in error_text):
+        if is_duplicate_user_email_error(exc):
             raise HTTPException(status_code=409, detail="Email already registered")
         raise
     await session.refresh(user)
