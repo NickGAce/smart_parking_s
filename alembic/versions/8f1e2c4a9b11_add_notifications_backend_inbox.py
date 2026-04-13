@@ -7,6 +7,7 @@ Create Date: 2026-04-13
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 revision = "8f1e2c4a9b11"
@@ -15,7 +16,7 @@ branch_labels = None
 depends_on = None
 
 
-notification_type_enum = sa.Enum(
+notification_type_enum = postgresql.ENUM(
     "booking_created",
     "booking_confirmed",
     "booking_cancelled",
@@ -24,9 +25,10 @@ notification_type_enum = sa.Enum(
     "booking_no_show",
     "parking_rules_violation",
     name="notificationtype",
+    create_type=False,
 )
 
-notification_status_enum = sa.Enum("unread", "read", name="notificationstatus")
+notification_status_enum = postgresql.ENUM("unread", "read", name="notificationstatus", create_type=False)
 
 
 def upgrade() -> None:
