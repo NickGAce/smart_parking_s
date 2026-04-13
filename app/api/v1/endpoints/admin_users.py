@@ -9,7 +9,6 @@ from app.models.user import User, UserRole
 from app.schemas.user import AdminUserCreate, UserOut, UserRoleUpdate
 from app.services.auth import register_user
 from app.services.audit import build_source_metadata, log_audit_event
-from app.services.db_errors import is_duplicate_user_email_error
 
 router = APIRouter(prefix="/admin/users", tags=["admin"])
 
@@ -21,8 +20,12 @@ async def create_user(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_roles(UserRole.admin)),
 ):
-    # Do not call `session.begin()` here: request dependencies may already
-    # autobegin a transaction and a second outer begin() raises InvalidRequestError.
+    # Проверка уникальности email (сохраняем внешний контракт endpoint)
+    res = await session.execute(select(User).where(User.email == payload.email))
+    if res.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    # Не используем session.begin(): сессия может быть уже в транзакции (autobegin)
     try:
         user = await register_user(session, payload.email, payload.password, payload.role)
         await log_audit_event(
@@ -37,7 +40,8 @@ async def create_user(
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()
-        if is_duplicate_user_email_error(exc):
+        error_text = str(getattr(exc, "orig", exc)).lower()
+        if "users.email" in error_text or ("email" in error_text and "unique" in error_text):
             raise HTTPException(status_code=409, detail="Email already registered")
         raise
     await session.refresh(user)
