@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     booking_sync_enabled: bool = True
     booking_sync_interval_seconds: int = 60
     booking_sync_run_on_startup: bool = False
+    booking_starts_soon_minutes: int = 30
 
 
 settings = Settings()

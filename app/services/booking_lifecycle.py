@@ -10,7 +10,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.core.config import settings
 from app.models.booking import Booking, BookingStatus
+from app.models.notification import NotificationType
 from app.models.parking_spot import ParkingSpot, SpotStatus
+from app.services.notifications import notification_service
 
 _FIXED_OFFSET_PATTERN = re.compile(r"^(?:UTC|GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$")
 
@@ -80,6 +82,17 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
     current = to_db_datetime(now or datetime.now(timezone.utc))
     no_show_cutoff = current - timedelta(minutes=settings.no_show_grace_minutes)
 
+    starts_soon_from = current
+    starts_soon_to = current + timedelta(minutes=settings.booking_starts_soon_minutes)
+    starts_soon_result = await session.execute(
+        select(Booking)
+        .where(Booking.status == BookingStatus.confirmed)
+        .where(Booking.start_time > starts_soon_from)
+        .where(Booking.start_time <= starts_soon_to)
+    )
+    for booking in starts_soon_result.scalars().all():
+        await notification_service.create_booking_starts_soon_if_missing(session, booking)
+
     completed_result = await session.execute(
         update(Booking)
         .where(Booking.status == BookingStatus.active)
@@ -88,6 +101,13 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
         .execution_options(synchronize_session=False)
     )
 
+    no_show_bookings = (
+        await session.execute(
+            select(Booking)
+            .where(Booking.status == BookingStatus.confirmed)
+            .where(Booking.start_time <= no_show_cutoff)
+        )
+    ).scalars().all()
     no_show_result = await session.execute(
         update(Booking)
         .where(Booking.status == BookingStatus.confirmed)
@@ -95,7 +115,22 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
         .values(status=BookingStatus.no_show)
         .execution_options(synchronize_session=False)
     )
+    for booking in no_show_bookings:
+        await notification_service.create_for_booking_event(
+            session=session,
+            booking=booking,
+            event_type=NotificationType.booking_no_show,
+            title="Booking marked as no-show",
+            message=f"Booking #{booking.id} was marked as no-show.",
+        )
 
+    expired_bookings = (
+        await session.execute(
+            select(Booking)
+            .where(Booking.status == BookingStatus.pending)
+            .where(Booking.start_time <= current)
+        )
+    ).scalars().all()
     expired_result = await session.execute(
         update(Booking)
         .where(Booking.status == BookingStatus.pending)
@@ -103,6 +138,14 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
         .values(status=BookingStatus.expired)
         .execution_options(synchronize_session=False)
     )
+    for booking in expired_bookings:
+        await notification_service.create_for_booking_event(
+            session=session,
+            booking=booking,
+            event_type=NotificationType.booking_expired,
+            title="Booking expired",
+            message=f"Booking #{booking.id} expired before confirmation.",
+        )
 
     return LifecycleSyncStats(
         expired=expired_result.rowcount or 0,
