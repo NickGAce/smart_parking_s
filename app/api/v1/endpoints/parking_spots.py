@@ -23,6 +23,7 @@ from app.services.bookings import (
     sync_parking_spot_statuses,
     to_db_datetime as _to_db_datetime,
 )
+from app.services.audit import build_source_metadata, log_audit_event
 
 router = APIRouter(prefix="/parking_spots", tags=["parking_spots"])
 
@@ -153,6 +154,7 @@ def _can_owner_manage_spot(user: User, spot: ParkingSpot, lot: ParkingLot | None
 @router.post("", response_model=ParkingSpotOut, status_code=201)
 async def create_parking_spot(
     payload: ParkingSpotCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.owner)),
 ):
@@ -178,6 +180,16 @@ async def create_parking_spot(
 
     session.add(parking_spot)
     try:
+        await session.flush()
+        await log_audit_event(
+            session,
+            action_type="parking_spot.create",
+            entity_type="parking_spot",
+            entity_id=parking_spot.id,
+            actor_user=current_user,
+            new_values=payload.model_dump(mode="json"),
+            source_metadata=build_source_metadata(request),
+        )
         await session.commit()
     except IntegrityError:
         await session.rollback()
@@ -312,6 +324,7 @@ async def get_parking_spot(
 async def update_parking_spot(
     parking_spot_id: int,
     payload: ParkingSpotUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.owner)),
 ):
@@ -350,8 +363,19 @@ async def update_parking_spot(
     else:
         data.pop("type", None)
 
+    old_values = {k: getattr(parking_spot, k) for k in data.keys()}
     for field, value in data.items():
         setattr(parking_spot, field, value)
+    await log_audit_event(
+        session,
+        action_type="parking_spot.update_status" if "status" in data else "parking_spot.update",
+        entity_type="parking_spot",
+        entity_id=parking_spot.id,
+        actor_user=current_user,
+        old_values=old_values,
+        new_values=data,
+        source_metadata=build_source_metadata(request),
+    )
 
     try:
         await session.commit()
@@ -369,6 +393,7 @@ async def update_parking_spot(
 @router.delete("/{parking_spot_id}", status_code=204)
 async def delete_parking_spot(
     parking_spot_id: int,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.owner)),
 ):
@@ -379,5 +404,18 @@ async def delete_parking_spot(
         if not _can_owner_manage_spot(current_user, parking_spot, lot):
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
+    await log_audit_event(
+        session,
+        action_type="parking_spot.delete",
+        entity_type="parking_spot",
+        entity_id=parking_spot.id,
+        actor_user=current_user,
+        old_values={
+            "spot_number": parking_spot.spot_number,
+            "status": parking_spot.status.value if hasattr(parking_spot.status, "value") else str(parking_spot.status),
+            "parking_lot_id": parking_spot.parking_lot_id,
+        },
+        source_metadata=build_source_metadata(request),
+    )
     await session.delete(parking_spot)
     await session.commit()
