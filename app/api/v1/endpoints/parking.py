@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from app.schemas.parking_lot import (
 )
 from app.schemas.pagination import PaginationMeta, ParkingLotListResponse
 from app.services.parking_rules import get_parking_lot_with_rules, replace_rules
+from app.services.audit import build_source_metadata, log_audit_event
 
 router = APIRouter(prefix="/parking", tags=["parking"])
 
@@ -38,6 +39,7 @@ def _can_access_parking_lot(user: User, parking_lot: ParkingLot) -> bool:
 @router.post("", response_model=ParkingLotOut, status_code=201)
 async def create_parking_lot(
     payload: ParkingLotCreate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.owner)),
 ):
@@ -55,6 +57,16 @@ async def create_parking_lot(
         max_advance_minutes=payload.max_advance_minutes,
     )
     session.add(parking_lot)
+    await session.flush()
+    await log_audit_event(
+        session,
+        action_type="parking_lot.create",
+        entity_type="parking_lot",
+        entity_id=parking_lot.id,
+        actor_user=current_user,
+        new_values=payload.model_dump(mode="json"),
+        source_metadata=build_source_metadata(request),
+    )
     await session.commit()
     await session.refresh(parking_lot)
     return parking_lot
@@ -110,6 +122,7 @@ async def get_parking_lot(
 async def update_parking_lot(
     parking_lot_id: int,
     payload: ParkingLotUpdate,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.owner)),
 ):
@@ -119,10 +132,21 @@ async def update_parking_lot(
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     data = payload.model_dump(exclude_unset=True)
+    old_values = {field: getattr(parking_lot, field) for field in data.keys()}
     if "allowed_user_roles" in data and data["allowed_user_roles"] is not None:
         data["allowed_user_roles"] = [role.value for role in data["allowed_user_roles"]]
     for field, value in data.items():
         setattr(parking_lot, field, value)
+    await log_audit_event(
+        session,
+        action_type="parking_lot.update",
+        entity_type="parking_lot",
+        entity_id=parking_lot.id,
+        actor_user=current_user,
+        old_values=old_values,
+        new_values=data,
+        source_metadata=build_source_metadata(request),
+    )
 
     await session.commit()
     await session.refresh(parking_lot)
@@ -197,6 +221,7 @@ async def update_parking_lot_rules(
 @router.delete("/{parking_lot_id}", status_code=204)
 async def delete_parking_lot(
     parking_lot_id: int,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(require_roles(UserRole.admin, UserRole.owner)),
 ):
@@ -205,5 +230,19 @@ async def delete_parking_lot(
     if not _can_access_parking_lot(current_user, parking_lot):
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
+    old_values = {
+        "name": parking_lot.name,
+        "address": parking_lot.address,
+        "total_spots": parking_lot.total_spots,
+    }
+    await log_audit_event(
+        session,
+        action_type="parking_lot.delete",
+        entity_type="parking_lot",
+        entity_id=parking_lot.id,
+        actor_user=current_user,
+        old_values=old_values,
+        source_metadata=build_source_metadata(request),
+    )
     await session.delete(parking_lot)
     await session.commit()

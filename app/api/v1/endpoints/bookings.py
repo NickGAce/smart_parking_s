@@ -30,6 +30,7 @@ from app.services.bookings import (
 )
 from app.services.parking_rules import get_parking_lot_with_rules, validate_booking_against_lot_rules
 from app.services.recommendations import pick_best_spot_for_booking
+from app.services.audit import build_source_metadata, log_audit_event
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -167,6 +168,21 @@ async def create_booking(
     )
     session.add(booking)
     await session.flush()
+    await log_audit_event(
+        session,
+        action_type="booking.create",
+        entity_type="booking",
+        entity_id=booking.id,
+        actor_user=current_user,
+        new_values={
+            "parking_spot_id": booking.parking_spot_id,
+            "status": booking.status.value,
+            "type": booking.type.value,
+            "start_time": booking.start_time.isoformat(),
+            "end_time": booking.end_time.isoformat(),
+        },
+        source_metadata=build_source_metadata(request),
+    )
     await sync_parking_spot_statuses(session, spot_ids=[selected_spot_id], now=server_now)
     await session.commit()
 
@@ -336,6 +352,7 @@ async def update_booking(
     if next_start >= next_end:
         raise HTTPException(status_code=400, detail="start_time must be earlier than end_time")
 
+    old_status = booking.status
     if payload.status is not None:
         if payload.status != BookingStatus.cancelled and not _is_admin(current_user):
             raise HTTPException(status_code=403, detail="Only admins can set this booking status")
@@ -363,6 +380,25 @@ async def update_booking(
         booking.start_time = next_start_payload
     if next_end_payload is not None:
         booking.end_time = next_end_payload
+    new_values = {
+        "start_time": booking.start_time.isoformat(),
+        "end_time": booking.end_time.isoformat(),
+        "type": booking.type.value,
+        "status": booking.status.value,
+    }
+    action_type = "booking.update"
+    if old_status != booking.status:
+        action_type = "booking.update_status.manual"
+    await log_audit_event(
+        session,
+        action_type=action_type,
+        entity_type="booking",
+        entity_id=booking.id,
+        actor_user=current_user,
+        old_values={"status": old_status.value},
+        new_values=new_values,
+        source_metadata=build_source_metadata(request),
+    )
 
     await sync_booking_statuses(session, now=server_now)
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
@@ -387,7 +423,18 @@ async def cancel_booking(
     if not _is_admin(current_user) and booking.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions to cancel this booking")
 
+    previous_status = booking.status
     transition_booking_status(booking, BookingStatus.cancelled)
+    await log_audit_event(
+        session,
+        action_type="booking.cancel",
+        entity_type="booking",
+        entity_id=booking.id,
+        actor_user=current_user,
+        old_values={"status": previous_status.value},
+        new_values={"status": BookingStatus.cancelled.value},
+        source_metadata=build_source_metadata(request),
+    )
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
     await session.commit()
 
@@ -408,7 +455,18 @@ async def check_in_booking(
     booking = await _get_booking_or_404(session, booking_id)
     ensure_can_manage_booking_operationally(current_user, booking)
     validate_check_in_window(booking, server_now)
+    previous_status = booking.status
     transition_booking_status(booking, BookingStatus.active)
+    await log_audit_event(
+        session,
+        action_type="booking.check_in",
+        entity_type="booking",
+        entity_id=booking.id,
+        actor_user=current_user,
+        old_values={"status": previous_status.value},
+        new_values={"status": BookingStatus.active.value},
+        source_metadata=build_source_metadata(request),
+    )
 
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
     await session.commit()
@@ -430,7 +488,18 @@ async def check_out_booking(
     booking = await _get_booking_or_404(session, booking_id)
     ensure_can_manage_booking_operationally(current_user, booking)
     validate_check_out_window(booking)
+    previous_status = booking.status
     transition_booking_status(booking, BookingStatus.completed)
+    await log_audit_event(
+        session,
+        action_type="booking.check_out",
+        entity_type="booking",
+        entity_id=booking.id,
+        actor_user=current_user,
+        old_values={"status": previous_status.value},
+        new_values={"status": BookingStatus.completed.value},
+        source_metadata=build_source_metadata(request),
+    )
 
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
     await session.commit()
@@ -452,7 +521,18 @@ async def mark_booking_no_show(
     booking = await _get_booking_or_404(session, booking_id)
     ensure_can_manage_booking_operationally(current_user, booking)
     validate_manual_no_show(booking, server_now)
+    previous_status = booking.status
     transition_booking_status(booking, BookingStatus.no_show)
+    await log_audit_event(
+        session,
+        action_type="booking.update_status.manual",
+        entity_type="booking",
+        entity_id=booking.id,
+        actor_user=current_user,
+        old_values={"status": previous_status.value},
+        new_values={"status": BookingStatus.no_show.value},
+        source_metadata=build_source_metadata(request),
+    )
 
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
     await session.commit()
