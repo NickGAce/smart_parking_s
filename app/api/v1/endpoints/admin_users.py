@@ -33,9 +33,12 @@ async def create_user(
             source_metadata=build_source_metadata(request),
         )
         await session.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         await session.rollback()
-        raise HTTPException(status_code=409, detail="Email already registered")
+        error_text = str(getattr(exc, "orig", exc)).lower()
+        if "users.email" in error_text or ("email" in error_text and "unique" in error_text):
+            raise HTTPException(status_code=409, detail="Email already registered")
+        raise
     await session.refresh(user)
     return user
 
