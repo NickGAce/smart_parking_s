@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,19 +9,24 @@ from app.db.session import get_session
 from app.schemas.analytics import (
     AnalyticsBookingsOut,
     AnalyticsFiltersOut,
+    AnalyticsOccupancyForecastOut,
     AnalyticsOccupancyOut,
     AnalyticsSummaryOut,
     OccupancyBySpotTypeOut,
+    OccupancyForecastBucketOut,
     OccupancyByZoneOut,
     PeakHourOut,
 )
 from app.services.analytics import (
     AnalyticsFilters,
+    OccupancyForecastFilters,
     get_booking_metrics,
+    get_occupancy_forecast,
     get_occupancy_by_spot_type,
     get_occupancy_by_zone,
     get_occupancy_percent,
     get_peak_hours,
+    resolve_forecast_window,
     resolve_period_window,
 )
 
@@ -127,4 +132,44 @@ async def analytics_bookings(
         cancellation_rate=booking_metrics.cancellation_rate,
         no_show_rate=booking_metrics.no_show_rate,
         status_breakdown=booking_metrics.status_breakdown,
+    )
+
+
+@router.get("/occupancy-forecast", response_model=AnalyticsOccupancyForecastOut)
+async def analytics_occupancy_forecast(
+    parking_lot_id: int | None = Query(default=None),
+    zone: str | None = Query(default=None),
+    target_date: date | None = Query(default=None),
+    from_time: datetime | None = Query(default=None, alias="from"),
+    to_time: datetime | None = Query(default=None, alias="to"),
+    history_days: int = Query(default=56, ge=1, le=365),
+    bucket_size_hours: int = Query(default=1, ge=1, le=24),
+    moving_average_window: int = Query(default=24, ge=0, le=200),
+    session: AsyncSession = Depends(get_session),
+    _=Depends(get_current_user),
+):
+    try:
+        target_from, target_to = resolve_forecast_window(target_date, from_time, to_time)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    filters = OccupancyForecastFilters(
+        parking_lot_id=parking_lot_id,
+        zone=zone,
+        target_from=target_from,
+        target_to=target_to,
+        history_days=history_days,
+        bucket_size_hours=bucket_size_hours,
+        moving_average_window=moving_average_window,
+    )
+
+    forecast = await get_occupancy_forecast(session, filters)
+    return AnalyticsOccupancyForecastOut(
+        parking_lot_id=parking_lot_id,
+        zone=zone,
+        history_days=history_days,
+        bucket_size_hours=bucket_size_hours,
+        target_from=target_from,
+        target_to=target_to,
+        forecast=[OccupancyForecastBucketOut(**bucket.__dict__) for bucket in forecast],
     )

@@ -50,3 +50,21 @@ class AnalyticsBookingsOut(BaseModel):
     cancellation_rate: float = Field(ge=0, le=1)
     no_show_rate: float = Field(ge=0, le=1)
     status_breakdown: dict[str, int]
+
+
+class OccupancyForecastBucketOut(BaseModel):
+    time_bucket: datetime
+    predicted_occupancy_percent: float = Field(ge=0, le=100)
+    confidence: str
+    comment: str
+    samples: int = Field(ge=0)
+
+
+class AnalyticsOccupancyForecastOut(BaseModel):
+    parking_lot_id: int | None = None
+    zone: str | None = None
+    history_days: int = Field(ge=1, le=365)
+    bucket_size_hours: int = Field(ge=1, le=24)
+    target_from: datetime
+    target_to: datetime
+    forecast: list[OccupancyForecastBucketOut]

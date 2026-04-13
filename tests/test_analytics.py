@@ -134,3 +134,63 @@ def test_analytics_occupancy_supports_zone_filter_and_peak_hours():
         assert payload["by_zone"] == [{"zone": "A", "occupancy_percent": 25.0}]
         assert payload["by_spot_type"][0]["spot_type"] in {"regular", "ev"}
         assert payload["peak_hours"][0] == {"hour": 8, "bookings": 1}
+
+
+def test_occupancy_forecast_returns_hourly_buckets_for_target_date():
+    tokens = _setup_state()
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/analytics/occupancy-forecast",
+            params={
+                "parking_lot_id": 1,
+                "target_date": "2026-01-02",
+                "history_days": 14,
+            },
+            headers={"Authorization": f"Bearer {tokens['owner']}"},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["target_from"] == "2026-01-02T00:00:00"
+        assert payload["target_to"] == "2026-01-03T00:00:00"
+        assert len(payload["forecast"]) == 24
+        assert {"time_bucket", "predicted_occupancy_percent", "confidence", "comment", "samples"}.issubset(
+            payload["forecast"][0].keys()
+        )
+
+
+def test_occupancy_forecast_supports_zone_filter():
+    tokens = _setup_state()
+
+    with TestClient(app) as client:
+        response_a = client.get(
+            "/api/v1/analytics/occupancy-forecast",
+            params={
+                "parking_lot_id": 1,
+                "zone": "A",
+                "target_date": "2026-01-02",
+                "history_days": 14,
+            },
+            headers={"Authorization": f"Bearer {tokens['owner']}"},
+        )
+        response_b = client.get(
+            "/api/v1/analytics/occupancy-forecast",
+            params={
+                "parking_lot_id": 1,
+                "zone": "B",
+                "target_date": "2026-01-02",
+                "history_days": 14,
+            },
+            headers={"Authorization": f"Bearer {tokens['owner']}"},
+        )
+
+        assert response_a.status_code == 200
+        assert response_b.status_code == 200
+
+        forecast_a = response_a.json()["forecast"]
+        forecast_b = response_b.json()["forecast"]
+
+        zone_a_9am = next(item for item in forecast_a if item["time_bucket"].endswith("09:00:00"))
+        zone_b_9am = next(item for item in forecast_b if item["time_bucket"].endswith("09:00:00"))
+        assert zone_a_9am["predicted_occupancy_percent"] > zone_b_9am["predicted_occupancy_percent"]
