@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import get_current_user
 from app.db.session import get_session
 from app.models.booking import Booking, BookingStatus
+from app.models.notification import NotificationType
 from app.models.parking_lot import ParkingLot
 from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
@@ -31,6 +32,7 @@ from app.services.bookings import (
 from app.services.parking_rules import get_parking_lot_with_rules, validate_booking_against_lot_rules
 from app.services.recommendations import pick_best_spot_for_booking
 from app.services.audit import build_source_metadata, log_audit_event
+from app.services.notifications import notification_service
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -183,6 +185,21 @@ async def create_booking(
         },
         source_metadata=build_source_metadata(request),
     )
+    await notification_service.create_for_booking_event(
+        session=session,
+        booking=booking,
+        event_type=NotificationType.booking_created,
+        title="Booking created",
+        message=f"Booking #{booking.id} was created.",
+    )
+    if booking.status in {BookingStatus.confirmed, BookingStatus.active}:
+        await notification_service.create_for_booking_event(
+            session=session,
+            booking=booking,
+            event_type=NotificationType.booking_confirmed,
+            title="Booking confirmed",
+            message=f"Booking #{booking.id} is confirmed.",
+        )
     await sync_parking_spot_statuses(session, spot_ids=[selected_spot_id], now=server_now)
     await session.commit()
 
@@ -399,6 +416,23 @@ async def update_booking(
         new_values=new_values,
         source_metadata=build_source_metadata(request),
     )
+    if old_status != booking.status:
+        if booking.status == BookingStatus.cancelled:
+            await notification_service.create_for_booking_event(
+                session=session,
+                booking=booking,
+                event_type=NotificationType.booking_cancelled,
+                title="Booking cancelled",
+                message=f"Booking #{booking.id} was cancelled.",
+            )
+        elif booking.status == BookingStatus.confirmed:
+            await notification_service.create_for_booking_event(
+                session=session,
+                booking=booking,
+                event_type=NotificationType.booking_confirmed,
+                title="Booking confirmed",
+                message=f"Booking #{booking.id} is confirmed.",
+            )
 
     await sync_booking_statuses(session, now=server_now)
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
@@ -434,6 +468,13 @@ async def cancel_booking(
         old_values={"status": previous_status.value},
         new_values={"status": BookingStatus.cancelled.value},
         source_metadata=build_source_metadata(request),
+    )
+    await notification_service.create_for_booking_event(
+        session=session,
+        booking=booking,
+        event_type=NotificationType.booking_cancelled,
+        title="Booking cancelled",
+        message=f"Booking #{booking.id} was cancelled.",
     )
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
     await session.commit()
@@ -532,6 +573,13 @@ async def mark_booking_no_show(
         old_values={"status": previous_status.value},
         new_values={"status": BookingStatus.no_show.value},
         source_metadata=build_source_metadata(request),
+    )
+    await notification_service.create_for_booking_event(
+        session=session,
+        booking=booking,
+        event_type=NotificationType.booking_no_show,
+        title="Booking marked as no-show",
+        message=f"Booking #{booking.id} was marked as no-show.",
     )
 
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
