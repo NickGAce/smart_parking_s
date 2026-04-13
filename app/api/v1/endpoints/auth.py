@@ -21,17 +21,17 @@ async def register(payload: UserCreate, request: Request, session: AsyncSession 
         raise HTTPException(status_code=409, detail="Email already registered")
 
     # Регистрируем пользователя с ролью "owner"
-    async with session.begin():
-        user = await register_user(session, payload.email, payload.password, UserRole.owner)
-        await log_audit_event(
-            session,
-            action_type="auth.register",
-            entity_type="user",
-            entity_id=None,
-            actor_user=user,
-            new_values={"email": payload.email, "role": UserRole.owner.value},
-            source_metadata=build_source_metadata(request),
-        )
+    user = await register_user(session, payload.email, payload.password, UserRole.owner)
+    await log_audit_event(
+        session,
+        action_type="auth.register",
+        entity_type="user",
+        entity_id=user.id,
+        actor_user=user,
+        new_values={"email": payload.email, "role": UserRole.owner.value},
+        source_metadata=build_source_metadata(request),
+    )
+    await session.commit()
     await session.refresh(user)
     return user
 
