@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
@@ -9,29 +10,32 @@ from app.schemas.auth import Token
 from app.models.user import User, UserRole
 from app.services.auth import register_user, authenticate
 from app.services.audit import build_source_metadata, log_audit_event
+from app.services.db_errors import is_duplicate_user_email_error
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserOut, status_code=201)
 async def register(payload: UserCreate, request: Request, session: AsyncSession = Depends(get_session)):
-    # проверка уникальности email
-    res = await session.execute(select(User).where(User.email == payload.email))
-    if res.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Email already registered")
-
-    # Регистрируем пользователя с ролью "owner"
-    async with session.begin():
+    # Do not call `session.begin()` here: request-scoped operations may already
+    # trigger autobegin and nested begin() can fail with InvalidRequestError.
+    try:
         user = await register_user(session, payload.email, payload.password, UserRole.owner)
         await log_audit_event(
             session,
             action_type="auth.register",
             entity_type="user",
-            entity_id=None,
+            entity_id=user.id,
             actor_user=user,
             new_values={"email": payload.email, "role": UserRole.owner.value},
             source_metadata=build_source_metadata(request),
         )
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        if is_duplicate_user_email_error(exc):
+            raise HTTPException(status_code=409, detail="Email already registered")
+        raise
     await session.refresh(user)
     return user
 
