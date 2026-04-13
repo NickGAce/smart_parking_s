@@ -16,7 +16,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserOut, status_code=201)
 async def register(payload: UserCreate, request: Request, session: AsyncSession = Depends(get_session)):
-    # Регистрируем пользователя с ролью "owner"
+    # Не используем `session.begin()` после чтений/зависимостей, чтобы избежать
+    # конфликта с SQLAlchemy autobegin в пределах одного запроса.
     try:
         user = await register_user(session, payload.email, payload.password, UserRole.owner)
         await log_audit_event(
