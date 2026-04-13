@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
@@ -15,23 +16,22 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserOut, status_code=201)
 async def register(payload: UserCreate, request: Request, session: AsyncSession = Depends(get_session)):
-    # проверка уникальности email
-    res = await session.execute(select(User).where(User.email == payload.email))
-    if res.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Email already registered")
-
     # Регистрируем пользователя с ролью "owner"
-    user = await register_user(session, payload.email, payload.password, UserRole.owner)
-    await log_audit_event(
-        session,
-        action_type="auth.register",
-        entity_type="user",
-        entity_id=user.id,
-        actor_user=user,
-        new_values={"email": payload.email, "role": UserRole.owner.value},
-        source_metadata=build_source_metadata(request),
-    )
-    await session.commit()
+    try:
+        user = await register_user(session, payload.email, payload.password, UserRole.owner)
+        await log_audit_event(
+            session,
+            action_type="auth.register",
+            entity_type="user",
+            entity_id=user.id,
+            actor_user=user,
+            new_values={"email": payload.email, "role": UserRole.owner.value},
+            source_metadata=build_source_metadata(request),
+        )
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Email already registered")
     await session.refresh(user)
     return user
 

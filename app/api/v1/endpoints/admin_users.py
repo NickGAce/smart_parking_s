@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_roles
@@ -19,23 +20,22 @@ async def create_user(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_roles(UserRole.admin)),
 ):
-    # проверка уникальности email
-    res = await session.execute(select(User).where(User.email == payload.email))
-    if res.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Email already registered")
-
     # Регистрируем пользователя с ролью, заданной администратором
-    user = await register_user(session, payload.email, payload.password, payload.role)
-    await log_audit_event(
-        session,
-        action_type="admin.user.create",
-        entity_type="user",
-        entity_id=user.id,
-        actor_user=admin,
-        new_values={"email": user.email, "role": user.role},
-        source_metadata=build_source_metadata(request),
-    )
-    await session.commit()
+    try:
+        user = await register_user(session, payload.email, payload.password, payload.role)
+        await log_audit_event(
+            session,
+            action_type="admin.user.create",
+            entity_type="user",
+            entity_id=user.id,
+            actor_user=admin,
+            new_values={"email": user.email, "role": user.role},
+            source_metadata=build_source_metadata(request),
+        )
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Email already registered")
     await session.refresh(user)
     return user
 
