@@ -21,8 +21,8 @@ async def create_user(
     session: AsyncSession = Depends(get_session),
     admin: User = Depends(require_roles(UserRole.admin)),
 ):
-    # Не используем `session.begin()` здесь: зависимости авторизации уже могут
-    # открыть транзакцию (autobegin), и повторный begin приведет к InvalidRequestError.
+    # Do not call `session.begin()` here: request dependencies may already
+    # autobegin a transaction and a second outer begin() raises InvalidRequestError.
     try:
         user = await register_user(session, payload.email, payload.password, payload.role)
         await log_audit_event(
