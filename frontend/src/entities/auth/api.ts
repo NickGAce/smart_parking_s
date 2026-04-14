@@ -1,5 +1,5 @@
-import type { AuthToken, LoginPayload, RegisterPayload, User } from '../../shared/types/auth';
 import { httpClient } from '../../shared/api/http-client';
+import type { AuthToken, LoginPayload, RegisterPayload, User } from '../../shared/types/auth';
 
 export const authApi = {
   login: async (payload: LoginPayload): Promise<AuthToken> => {
@@ -17,6 +17,7 @@ export const authApi = {
     const { data } = await httpClient.post<User>('/auth/register', payload);
     return data;
   },
+  // Backward compatibility while meApi is adopted incrementally.
   getMe: async (): Promise<User> => {
     const { data } = await httpClient.get<User>('/me');
     return data;

@@ -1,6 +1,7 @@
 import { type ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import { authApi } from '../../entities/auth/api';
+import { meApi } from '../../entities/me/api';
 import { tokenStorage } from '../../shared/api/token-storage';
 import type { LoginPayload, RegisterPayload, User } from '../../shared/types/auth';
 
@@ -27,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    void authApi
+    void meApi
       .getMe()
       .then(setUser)
       .catch(() => tokenStorage.clear())
@@ -37,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (payload: LoginPayload) => {
     const token = await authApi.login(payload);
     tokenStorage.set(token.access_token);
-    const me = await authApi.getMe();
+    const me = await meApi.getMe();
     setUser(me);
   };
 
