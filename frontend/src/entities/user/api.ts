@@ -1,15 +1,2 @@
-import { httpClient } from '../../shared/api/http-client';
-import type { User } from '../../shared/types/auth';
-
-export interface AdminCreateUserPayload {
-  email: string;
-  password: string;
-  role: User['role'];
-}
-
-export const userApi = {
-  createUser: async (payload: AdminCreateUserPayload): Promise<User> => {
-    const { data } = await httpClient.post<User>('/admin/users', payload);
-    return data;
-  },
-};
+export type { AdminCreateUserPayload } from '../admin-users/api';
+export { userApi } from '../admin-users/api';
