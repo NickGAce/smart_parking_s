@@ -1,12 +1,5 @@
-import { Paper, Stack, Typography } from '@mui/material';
+import { PagePlaceholder } from '../shared/ui/page-placeholder';
 
 export function ParkingLotsPage() {
-  return (
-    <Paper sx={{ p: 3 }}>
-      <Stack spacing={1.5}>
-        <Typography variant="h4">Parking lots</Typography>
-        <Typography color="text.secondary">Страница-заглушка для списка парковок.</Typography>
-      </Stack>
-    </Paper>
-  );
+  return <PagePlaceholder description="Parking lots list and create lot flow will be added next." />;
 }

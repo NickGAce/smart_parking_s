@@ -1,19 +1,11 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 
 import { AppLayout } from '../layouts/app-layout';
-import { AppShell, DEFAULT_ROLE_ROUTE } from '../../widgets/layout/app-shell';
+import { AppShell } from '../../widgets/layout/app-shell';
 import { useAuth } from '../../features/auth/use-auth';
-import { AdminPage } from '../../pages/admin-page';
-import { AnalyticsPage } from '../../pages/analytics-page';
-import { BookingsPage } from '../../pages/bookings-page';
-import { DashboardPage } from '../../pages/dashboard-page';
-import { LoginPage } from '../../pages/login-page';
 import { NotFoundPage } from '../../pages/not-found-page';
-import { NotificationsPage } from '../../pages/notifications-page';
-import { ParkingLotsPage } from '../../pages/parking-lots-page';
-import { ParkingSpotsPage } from '../../pages/parking-spots-page';
-import { RegisterPage } from '../../pages/register-page';
-import { PublicOnlyRoute, RequireAuth, RequireRoleAccess } from './route-guards';
+import { PublicOnlyRoute, RequireAuth, RequireRole, defaultRoleRoute } from './route-guards';
+import { routeConfig } from './route-config';
 
 function RoleHomeRedirect() {
   const { user } = useAuth();
@@ -22,8 +14,11 @@ function RoleHomeRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  return <Navigate to={DEFAULT_ROLE_ROUTE[user.role]} replace />;
+  return <Navigate to={defaultRoleRoute[user.role]} replace />;
 }
+
+const publicRoutes = routeConfig.filter((route) => route.isPublic);
+const protectedRoutes = routeConfig.filter((route) => !route.isPublic);
 
 export const appRouter = createBrowserRouter([
   {
@@ -31,10 +26,10 @@ export const appRouter = createBrowserRouter([
     children: [
       {
         element: <AppLayout />,
-        children: [
-          { path: '/login', element: <LoginPage /> },
-          { path: '/register', element: <RegisterPage /> },
-        ],
+        children: publicRoutes.map((route) => ({
+          path: route.path,
+          element: <route.component />,
+        })),
       },
     ],
   },
@@ -42,21 +37,13 @@ export const appRouter = createBrowserRouter([
     element: <RequireAuth />,
     children: [
       {
-        element: <RequireRoleAccess />,
+        element: <AppShell />,
         children: [
-          {
-            element: <AppShell />,
-            children: [
-              { path: '/', element: <RoleHomeRedirect /> },
-              { path: '/dashboard', element: <DashboardPage /> },
-              { path: '/parking-lots', element: <ParkingLotsPage /> },
-              { path: '/parking-spots', element: <ParkingSpotsPage /> },
-              { path: '/bookings', element: <BookingsPage /> },
-              { path: '/notifications', element: <NotificationsPage /> },
-              { path: '/analytics', element: <AnalyticsPage /> },
-              { path: '/admin', element: <AdminPage /> },
-            ],
-          },
+          { path: '/', element: <RoleHomeRedirect /> },
+          ...protectedRoutes.map((route) => ({
+            element: <RequireRole allowedRoles={route.roles} />,
+            children: [{ path: route.path, element: <route.component /> }],
+          })),
         ],
       },
     ],

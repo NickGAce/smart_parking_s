@@ -1,4 +1,6 @@
-import { Alert, CircularProgress, Stack, Typography } from '@mui/material';
+import { EmptyState } from './empty-state';
+import { ErrorState } from './error-state';
+import { LoadingState } from './loading-state';
 
 interface PageStateProps {
   isLoading?: boolean;
@@ -9,23 +11,15 @@ interface PageStateProps {
 
 export function PageState({ isLoading, errorText, emptyText, isEmpty }: PageStateProps) {
   if (isLoading) {
-    return (
-      <Stack direction="row" justifyContent="center" py={6}>
-        <CircularProgress />
-      </Stack>
-    );
+    return <LoadingState />;
   }
 
   if (errorText) {
-    return <Alert severity="error">{errorText}</Alert>;
+    return <ErrorState message={errorText} />;
   }
 
   if (isEmpty && emptyText) {
-    return (
-      <Typography color="text.secondary" py={3}>
-        {emptyText}
-      </Typography>
-    );
+    return <EmptyState title={emptyText} />;
   }
 
   return null;

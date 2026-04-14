@@ -1,12 +1,5 @@
-import { Paper, Stack, Typography } from '@mui/material';
+import { PagePlaceholder } from '../shared/ui/page-placeholder';
 
 export function AnalyticsPage() {
-  return (
-    <Paper sx={{ p: 3 }}>
-      <Stack spacing={1.5}>
-        <Typography variant="h4">Analytics</Typography>
-        <Typography color="text.secondary">Страница-заглушка для аналитики.</Typography>
-      </Stack>
-    </Paper>
-  );
+  return <PagePlaceholder description="Analytics charts and filters will be added next." />;
 }

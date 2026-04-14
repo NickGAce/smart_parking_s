@@ -16,7 +16,7 @@ export function AdminUsersPage() {
         e.preventDefault();
         mutation.mutate({ email, password, role });
       }}>
-        <Typography variant="h4">Admin: create user</Typography>
+        <Typography variant="h6">Create user</Typography>
         {mutation.isError && <Alert severity="error">Операция доступна только admin.</Alert>}
         {mutation.isSuccess && <Alert severity="success">Пользователь создан.</Alert>}
         <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

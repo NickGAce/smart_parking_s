@@ -1,12 +1,5 @@
-import { Paper, Stack, Typography } from '@mui/material';
+import { PagePlaceholder } from '../shared/ui/page-placeholder';
 
 export function NotificationsPage() {
-  return (
-    <Paper sx={{ p: 3 }}>
-      <Stack spacing={1.5}>
-        <Typography variant="h4">Notifications</Typography>
-        <Typography color="text.secondary">Страница-заглушка для уведомлений.</Typography>
-      </Stack>
-    </Paper>
-  );
+  return <PagePlaceholder description="Notifications inbox with read/unread management will be added next." />;
 }
