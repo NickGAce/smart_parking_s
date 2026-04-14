@@ -1,43 +1,132 @@
-import { AppBar, Box, Button, Container, Stack, Toolbar, Typography } from '@mui/material';
-import { Link as RouterLink, Outlet } from 'react-router-dom';
+import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import {
+  AppBar,
+  Avatar,
+  Box,
+  Button,
+  Chip,
+  Divider,
+  Drawer,
+  List,
+  ListItemButton,
+  ListItemText,
+  Stack,
+  Toolbar,
+  Typography,
+} from '@mui/material';
+import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
-import { useAuth } from '../../app/providers/auth-provider';
+import { DEFAULT_ROLE_ROUTE } from '../../app/router/route-guards';
+import { useAuth } from '../../features/auth/use-auth';
+import type { UserRole } from '../../shared/types/common';
 
-const links = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/parking/lots', label: 'Parking Lots' },
-  { to: '/parking/spots', label: 'Parking Spots' },
-  { to: '/bookings/my', label: 'My Bookings' },
-  { to: '/notifications', label: 'Notifications' },
-  { to: '/admin/users', label: 'Admin Users' },
-];
+const drawerWidth = 250;
+
+const roleNavigation: Record<UserRole, Array<{ to: string; label: string }>> = {
+  admin: [
+    { to: '/dashboard', label: 'Dashboard' },
+    { to: '/parking-lots', label: 'Parking lots' },
+    { to: '/parking-spots', label: 'Parking spots' },
+    { to: '/bookings', label: 'Bookings' },
+    { to: '/notifications', label: 'Notifications' },
+    { to: '/analytics', label: 'Analytics' },
+    { to: '/admin', label: 'Admin' },
+  ],
+  owner: [
+    { to: '/dashboard', label: 'Dashboard' },
+    { to: '/parking-lots', label: 'Parking lots' },
+    { to: '/parking-spots', label: 'Parking spots' },
+    { to: '/bookings', label: 'Bookings' },
+    { to: '/notifications', label: 'Notifications' },
+    { to: '/analytics', label: 'Analytics' },
+  ],
+  tenant: [
+    { to: '/dashboard', label: 'Dashboard' },
+    { to: '/bookings', label: 'Bookings' },
+    { to: '/notifications', label: 'Notifications' },
+  ],
+  guard: [
+    { to: '/dashboard', label: 'Dashboard' },
+    { to: '/parking-spots', label: 'Parking spots' },
+    { to: '/notifications', label: 'Notifications' },
+  ],
+  uk: [
+    { to: '/dashboard', label: 'Dashboard' },
+    { to: '/notifications', label: 'Notifications' },
+  ],
+};
 
 export function AppShell() {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  if (!user) {
+    return null;
+  }
+
+  const links = roleNavigation[user.role];
 
   return (
-    <Box>
-      <AppBar position="static">
-        <Toolbar sx={{ gap: 2 }}>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Smart Parking
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+        <Toolbar sx={{ justifyContent: 'space-between' }}>
+          <Typography variant="h6" noWrap>
+            Smart Parking SPA
           </Typography>
-          <Stack direction="row" spacing={1}>
-            {links.map((link) => (
-              <Button key={link.to} color="inherit" component={RouterLink} to={link.to}>
-                {link.label}
-              </Button>
-            ))}
-          </Stack>
-          <Typography variant="body2">{user?.email}</Typography>
-          <Button color="inherit" onClick={logout}>
+          <Button
+            color="inherit"
+            startIcon={<LogoutRoundedIcon />}
+            onClick={() => {
+              logout();
+              navigate('/login');
+            }}
+          >
             Logout
           </Button>
         </Toolbar>
       </AppBar>
-      <Container sx={{ py: 3 }}>
+
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: drawerWidth,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
+        }}
+      >
+        <Toolbar />
+        <Box sx={{ px: 2, py: 3 }}>
+          <Stack spacing={1}>
+            <Avatar>{user.email[0]?.toUpperCase() ?? 'U'}</Avatar>
+            <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
+              {user.email}
+            </Typography>
+            <Chip size="small" label={`role: ${user.role}`} />
+          </Stack>
+        </Box>
+        <Divider />
+        <List>
+          {links.map((link) => (
+            <ListItemButton
+              key={link.to}
+              component={RouterLink}
+              to={link.to}
+              selected={location.pathname.startsWith(link.to)}
+            >
+              <ListItemText primary={link.label} />
+            </ListItemButton>
+          ))}
+        </List>
+      </Drawer>
+
+      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+        <Toolbar />
         <Outlet />
-      </Container>
+      </Box>
     </Box>
   );
 }
+
+export const roleNavigationConfig = roleNavigation;
+export { DEFAULT_ROLE_ROUTE };

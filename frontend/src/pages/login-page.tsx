@@ -1,35 +1,89 @@
 import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
-import { useState } from 'react';
-import { Link as RouterLink, Navigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
-import { useAuth } from '../app/providers/auth-provider';
+import { DEFAULT_ROLE_ROUTE } from '../app/router/route-guards';
+import { useAuth } from '../features/auth/use-auth';
 import { useAuthActions } from '../features/auth/use-auth-actions';
+
+interface LoginLocationState {
+  from?: string;
+}
 
 export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, user, error, clearError } = useAuth();
   const { loginMutation } = useAuthActions();
 
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+  const returnTo = (location.state as LoginLocationState | null)?.from;
+
+  const alertText = useMemo(() => {
+    if (error?.type === 'unauthorized_session') {
+      return 'Сессия истекла или недействительна. Войдите снова.';
+    }
+
+    if (error?.type === 'invalid_credentials' || loginMutation.isError) {
+      return 'Неверный логин или пароль.';
+    }
+
+    if (error?.type === 'auth_error') {
+      return error.message;
+    }
+
+    return null;
+  }, [error, loginMutation.isError]);
+
+  useEffect(() => {
+    return () => clearError();
+  }, [clearError]);
+
+  if (isAuthenticated && user) {
+    return <Navigate to={DEFAULT_ROLE_ROUTE[user.role]} replace />;
   }
 
   return (
-    <Box maxWidth={420} mx="auto" mt={8}>
+    <Box maxWidth={440} mx="auto" mt={8}>
       <Paper sx={{ p: 3 }}>
-        <Stack spacing={2} component="form" onSubmit={(e) => {
-          e.preventDefault();
-          loginMutation.mutate({ username: email, password });
-        }}>
+        <Stack
+          spacing={2}
+          component="form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            loginMutation.mutate(
+              { username: email, password },
+              {
+                onSuccess: () => {
+                  navigate(returnTo || '/');
+                },
+              },
+            );
+          }}
+        >
           <Typography variant="h5">Login</Typography>
-          {loginMutation.isError && <Alert severity="error">Не удалось войти.</Alert>}
-          <TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <TextField label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          {alertText && <Alert severity="error">{alertText}</Alert>}
+          <TextField
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+          <TextField
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
           <Button type="submit" variant="contained" disabled={loginMutation.isPending}>
-            Sign in
+            {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
           </Button>
-          <Button component={RouterLink} to="/register">Create account</Button>
+          <Button component={RouterLink} to="/register">
+            Create account
+          </Button>
         </Stack>
       </Paper>
     </Box>

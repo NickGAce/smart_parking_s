@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 
-import { useAuth } from '../../app/providers/auth-provider';
 import type { LoginPayload, RegisterPayload } from '../../shared/types/auth';
+import { useAuth } from './use-auth';
 
 export function useAuthActions() {
   const auth = useAuth();
