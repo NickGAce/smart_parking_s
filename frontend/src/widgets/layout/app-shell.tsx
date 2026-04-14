@@ -1,4 +1,5 @@
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import {
   AppBar,
   Avatar,
@@ -7,73 +8,91 @@ import {
   Chip,
   Divider,
   Drawer,
+  IconButton,
   List,
   ListItemButton,
   ListItemText,
   Stack,
   Toolbar,
-  Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
+import { useMemo, useState } from 'react';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
-import { DEFAULT_ROLE_ROUTE } from '../../app/router/route-guards';
+import { getMenuByRole } from '../../app/router/route-config';
 import { useAuth } from '../../features/auth/use-auth';
-import type { UserRole } from '../../shared/types/common';
+import { PageHeader } from '../../shared/ui/page-header';
+import { findRouteByPathname } from '../../app/router/route-config';
 
-const drawerWidth = 250;
-
-const roleNavigation: Record<UserRole, Array<{ to: string; label: string }>> = {
-  admin: [
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/parking-lots', label: 'Parking lots' },
-    { to: '/parking-spots', label: 'Parking spots' },
-    { to: '/bookings', label: 'Bookings' },
-    { to: '/notifications', label: 'Notifications' },
-    { to: '/analytics', label: 'Analytics' },
-    { to: '/admin', label: 'Admin' },
-  ],
-  owner: [
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/parking-lots', label: 'Parking lots' },
-    { to: '/parking-spots', label: 'Parking spots' },
-    { to: '/bookings', label: 'Bookings' },
-    { to: '/notifications', label: 'Notifications' },
-    { to: '/analytics', label: 'Analytics' },
-  ],
-  tenant: [
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/bookings', label: 'Bookings' },
-    { to: '/notifications', label: 'Notifications' },
-  ],
-  guard: [
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/parking-spots', label: 'Parking spots' },
-    { to: '/notifications', label: 'Notifications' },
-  ],
-  uk: [
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/notifications', label: 'Notifications' },
-  ],
-};
+const drawerWidth = 260;
 
 export function AppShell() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   if (!user) {
     return null;
   }
 
-  const links = roleNavigation[user.role];
+  const links = getMenuByRole(user.role);
+  const routeMeta = findRouteByPathname(location.pathname);
+
+  const breadcrumbs = useMemo(() => {
+    if (!routeMeta) {
+      return [{ label: 'Home', to: '/' }, { label: 'Unknown page' }];
+    }
+
+    if (routeMeta.path === '/dashboard') {
+      return [{ label: 'Dashboard' }];
+    }
+
+    return [{ label: 'Dashboard', to: '/dashboard' }, { label: routeMeta.title }];
+  }, [routeMeta]);
+
+  const drawerContent = (
+    <>
+      <Toolbar />
+      <Box sx={{ px: 2, py: 3 }}>
+        <Stack spacing={1}>
+          <Avatar>{user.email[0]?.toUpperCase() ?? 'U'}</Avatar>
+          <Box sx={{ wordBreak: 'break-all', fontSize: 13 }}>{user.email}</Box>
+          <Chip size="small" label={`role: ${user.role}`} />
+        </Stack>
+      </Box>
+      <Divider />
+      <List>
+        {links.map((link) => (
+          <ListItemButton
+            key={link.path}
+            component={RouterLink}
+            to={link.path}
+            selected={location.pathname.startsWith(link.path)}
+            onClick={() => setMobileOpen(false)}
+          >
+            <ListItemText primary={link.menuLabel} />
+          </ListItemButton>
+        ))}
+      </List>
+    </>
+  );
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Typography variant="h6" noWrap>
-            Smart Parking SPA
-          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            {!isDesktop && (
+              <IconButton color="inherit" onClick={() => setMobileOpen(true)}>
+                <MenuRoundedIcon />
+              </IconButton>
+            )}
+            <Box sx={{ fontWeight: 600 }}>Smart Parking SPA</Box>
+          </Stack>
           <Button
             color="inherit"
             startIcon={<LogoutRoundedIcon />}
@@ -87,46 +106,35 @@ export function AppShell() {
         </Toolbar>
       </AppBar>
 
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: drawerWidth,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
-        }}
-      >
-        <Toolbar />
-        <Box sx={{ px: 2, py: 3 }}>
-          <Stack spacing={1}>
-            <Avatar>{user.email[0]?.toUpperCase() ?? 'U'}</Avatar>
-            <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-              {user.email}
-            </Typography>
-            <Chip size="small" label={`role: ${user.role}`} />
-          </Stack>
-        </Box>
-        <Divider />
-        <List>
-          {links.map((link) => (
-            <ListItemButton
-              key={link.to}
-              component={RouterLink}
-              to={link.to}
-              selected={location.pathname.startsWith(link.to)}
-            >
-              <ListItemText primary={link.label} />
-            </ListItemButton>
-          ))}
-        </List>
-      </Drawer>
+      <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
+        <Drawer
+          variant="temporary"
+          open={!isDesktop && mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          ModalProps={{ keepMounted: true }}
+          sx={{ display: { xs: 'block', md: 'none' }, '& .MuiDrawer-paper': { width: drawerWidth } }}
+        >
+          {drawerContent}
+        </Drawer>
+        <Drawer
+          variant="permanent"
+          open
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      </Box>
 
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
         <Toolbar />
-        <Outlet />
+        <PageHeader title={routeMeta?.title ?? 'Page'} breadcrumbs={breadcrumbs} />
+        <Box sx={{ maxWidth: 1200 }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );
 }
-
-export const roleNavigationConfig = roleNavigation;
-export { DEFAULT_ROLE_ROUTE };

@@ -2,23 +2,8 @@ import { CircularProgress, Stack, Typography } from '@mui/material';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../features/auth/use-auth';
+import { defaultRoleRoute } from './route-config';
 import type { UserRole } from '../../shared/types/common';
-
-export const DEFAULT_ROLE_ROUTE: Record<UserRole, string> = {
-  admin: '/admin',
-  owner: '/dashboard',
-  tenant: '/bookings',
-  guard: '/parking-spots',
-  uk: '/dashboard',
-};
-
-const ROLE_ALLOWED_PATHS: Record<UserRole, string[]> = {
-  admin: ['/dashboard', '/parking-lots', '/parking-spots', '/bookings', '/notifications', '/analytics', '/admin'],
-  owner: ['/dashboard', '/parking-lots', '/parking-spots', '/bookings', '/notifications', '/analytics'],
-  tenant: ['/dashboard', '/bookings', '/notifications'],
-  guard: ['/dashboard', '/parking-spots', '/notifications'],
-  uk: ['/dashboard', '/notifications'],
-};
 
 function FullscreenLoader() {
   return (
@@ -52,27 +37,24 @@ export function PublicOnlyRoute() {
   }
 
   if (isAuthenticated && user) {
-    return <Navigate to={DEFAULT_ROLE_ROUTE[user.role]} replace />;
+    return <Navigate to={defaultRoleRoute[user.role]} replace />;
   }
 
   return <Outlet />;
 }
 
-export function RequireRoleAccess() {
+export function RequireRole({ allowedRoles }: { allowedRoles?: UserRole[] }) {
   const { user } = useAuth();
-  const location = useLocation();
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  const isAllowed = ROLE_ALLOWED_PATHS[user.role].some((pathPrefix) => location.pathname.startsWith(pathPrefix));
-
-  if (!isAllowed) {
-    return <Navigate to={DEFAULT_ROLE_ROUTE[user.role]} replace />;
+  if (!allowedRoles || allowedRoles.includes(user.role)) {
+    return <Outlet />;
   }
 
-  return <Outlet />;
+  return <Navigate to="/403" replace />;
 }
 
-export const roleAllowedPaths = ROLE_ALLOWED_PATHS;
+export { defaultRoleRoute };

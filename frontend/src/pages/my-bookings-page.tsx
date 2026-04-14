@@ -1,14 +1,15 @@
-import { Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { Paper, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 
 import { useMyBookingsQuery } from '../features/bookings/use-my-bookings-query';
+import { bookingStatusMap } from '../shared/config/status-map';
 import { PageState } from '../shared/ui/page-state';
+import { StatusChip } from '../shared/ui/status-chip';
 
 export function MyBookingsPage() {
   const { data, isLoading, error } = useMyBookingsQuery();
 
   return (
     <>
-      <Typography variant="h4" gutterBottom>My bookings</Typography>
       <PageState
         isLoading={isLoading}
         errorText={error ? 'Не удалось загрузить бронирования.' : undefined}
@@ -20,7 +21,11 @@ export function MyBookingsPage() {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>ID</TableCell><TableCell>Spot</TableCell><TableCell>Start</TableCell><TableCell>End</TableCell><TableCell>Status</TableCell>
+                <TableCell>ID</TableCell>
+                <TableCell>Spot</TableCell>
+                <TableCell>Start</TableCell>
+                <TableCell>End</TableCell>
+                <TableCell>Status</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -30,7 +35,9 @@ export function MyBookingsPage() {
                   <TableCell>{booking.parking_spot_id}</TableCell>
                   <TableCell>{new Date(booking.start_time).toLocaleString()}</TableCell>
                   <TableCell>{new Date(booking.end_time).toLocaleString()}</TableCell>
-                  <TableCell><Chip label={booking.status} size="small" /></TableCell>
+                  <TableCell>
+                    <StatusChip status={booking.status} mapping={bookingStatusMap} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
