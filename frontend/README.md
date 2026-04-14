@@ -1,35 +1,41 @@
-# Smart Parking Frontend (SPA)
+# Smart Parking Frontend (Stage 1)
 
-Frontend приложение для интеллектуальной системы управления парковочными местами.
+Базовый каркас SPA на **React + TypeScript + Vite** для дальнейшей разработки экранов Smart Parking.
 
-## Stack
-- React + TypeScript + Vite
-- React Router
-- TanStack Query
-- Axios
-- Material UI
+## Что настроено
+- React Router (`RouterProvider`) с базовым роутером.
+- TanStack Query (`QueryClientProvider`).
+- Глобальная тема Material UI (`ThemeProvider` + `CssBaseline`).
+- Axios instance с базовым URL API (`/api/v1`) и заголовком `X-Timezone`.
+- Архитектурная структура каталогов под entities/features/widgets/pages.
 
-## Требования окружения
-- Node.js `16.20+` (рекомендуется LTS 18/20)
-
-## Запуск
-1. Установить зависимости:
-   ```bash
-   npm install
-   ```
-2. Запустить dev-сервер:
-   ```bash
-   npm run dev
-   ```
-3. Backend должен быть доступен на `http://localhost:8000`.
+## Структура
+- `src/app` — корневой слой приложения (layout, роутер, providers).
+- `src/shared` — общая инфраструктура (`api`, `config`, `types`, `ui`).
+- `src/entities` — доступ к API по доменным сущностям.
+- `src/features` — сценарные хуки/логика.
+- `src/widgets` — составные UI-блоки.
+- `src/pages` — страницы приложения.
 
 ## Переменные окружения
+Скопируй пример и при необходимости измени URL API:
+
+```bash
+cp .env.example .env
+```
+
 - `VITE_API_BASE_URL` (по умолчанию: `/api/v1`)
 
-## Архитектура
-- `src/app` — providers, маршрутизация.
-- `src/shared` — конфиг, API-клиент, типы, общие UI-компоненты.
-- `src/entities` — доступ к API по доменным сущностям.
-- `src/features` — реактовые хуки и прикладная логика по сценариям.
-- `src/pages` — экранные компоненты.
-- `src/widgets` — составные блоки интерфейса.
+## Локальный запуск
+```bash
+npm install
+npm run dev
+```
+
+По умолчанию dev-сервер Vite: `http://localhost:5173`.
+
+## Взаимодействие с backend
+В `vite.config.ts` включен proxy:
+- `/api/*` -> `http://localhost:8000`
+
+Это позволяет вызывать backend из frontend без CORS-настроек в режиме разработки.
