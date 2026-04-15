@@ -21,8 +21,10 @@ interface IntervalErrors {
   end?: string;
 }
 
-function toIso(value: string): string {
-  return new Date(value).toISOString();
+function toApiDateTime(value: string): string {
+  // Keep browser-local wall clock time (YYYY-MM-DDTHH:mm) so backend timezone normalization
+  // does not receive UTC-converted values and shift the booking window.
+  return value;
 }
 
 function validateInterval(startTimeLocal: string, endTimeLocal: string): IntervalErrors {
@@ -64,7 +66,7 @@ function getStatusErrorMessage(error: ApiError | null): string | null {
   }
 
   if (error.status === 400) {
-    return '400: Некорректные параметры запроса. Проверьте интервал/лот и повторите попытку.';
+    return `400: ${error.detail ?? 'Некорректные параметры запроса. Проверьте интервал/лот и повторите попытку.'}`;
   }
 
   if (error.status === 403) {
@@ -157,8 +159,8 @@ export function CreateBookingPage() {
     queryFn: () =>
       parkingSpotsApi.getSpots({
         parking_lot_id: parkingLotId as number,
-        from: toIso(startTimeLocal),
-        to: toIso(endTimeLocal),
+        from: toApiDateTime(startTimeLocal),
+        to: toApiDateTime(endTimeLocal),
         limit: 100,
         offset: 0,
       }),
@@ -195,8 +197,8 @@ export function CreateBookingPage() {
     }
 
     const payload: CreateBookingPayload = {
-      start_time: toIso(startTimeLocal),
-      end_time: toIso(endTimeLocal),
+      start_time: toApiDateTime(startTimeLocal),
+      end_time: toApiDateTime(endTimeLocal),
       parking_spot_id: selectedSpotId,
       auto_assign: false,
       parking_lot_id: parkingLotId as number,
@@ -215,8 +217,8 @@ export function CreateBookingPage() {
     }
 
     const payload: CreateBookingPayload = {
-      start_time: toIso(startTimeLocal),
-      end_time: toIso(endTimeLocal),
+      start_time: toApiDateTime(startTimeLocal),
+      end_time: toApiDateTime(endTimeLocal),
       auto_assign: true,
       parking_lot_id: parkingLotId as number,
       recommendation_filters: {
@@ -245,8 +247,8 @@ export function CreateBookingPage() {
     }
 
     const payload: CreateBookingPayload = {
-      start_time: toIso(startTimeLocal),
-      end_time: toIso(endTimeLocal),
+      start_time: toApiDateTime(startTimeLocal),
+      end_time: toApiDateTime(endTimeLocal),
       parking_spot_id: selectedSpotId,
       parking_lot_id: parkingLotId as number,
       auto_assign: false,
@@ -267,8 +269,8 @@ export function CreateBookingPage() {
     recommendationsMutation.mutate(
       getRecommendationPayload(
         parkingLotId as number,
-        toIso(startTimeLocal),
-        toIso(endTimeLocal),
+        toApiDateTime(startTimeLocal),
+        toApiDateTime(endTimeLocal),
         requiresCharger,
         preferCharger,
         maxResults,
