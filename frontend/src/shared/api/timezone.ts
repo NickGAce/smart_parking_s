@@ -10,17 +10,8 @@ function toFixedOffsetTimezone(): string {
 }
 
 export const getClientTimezone = (): string => {
-  const candidate = Intl.DateTimeFormat().resolvedOptions().timeZone?.trim();
-  if (!candidate) {
-    return toFixedOffsetTimezone();
-  }
-
-  // Backend supports IANA zone IDs and fixed offsets.
-  // Keep IANA as-is; fallback to fixed offset for unknown browser formats.
-  if (candidate.includes('/')) {
-    return candidate;
-  }
-
+  // Always send fixed UTC offset because backend environments may not have IANA
+  // timezone database available, which can cause "Invalid X-Timezone header".
   return toFixedOffsetTimezone();
 };
 
