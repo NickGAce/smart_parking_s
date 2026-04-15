@@ -1,15 +1,23 @@
-import { Paper, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
+import { Button, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 
 import { useMyBookingsQuery } from '../features/bookings/use-my-bookings-query';
+import { useNavigate } from 'react-router-dom';
+
 import { bookingStatusMap } from '../shared/config/status-map';
 import { PageState } from '../shared/ui/page-state';
 import { StatusChip } from '../shared/ui/status-chip';
 
 export function MyBookingsPage() {
+  const navigate = useNavigate();
   const { data, isLoading, error } = useMyBookingsQuery();
 
   return (
     <>
+      <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+        <Button variant="contained" onClick={() => navigate('/bookings/new')}>
+          Создать бронирование
+        </Button>
+      </Stack>
       <PageState
         isLoading={isLoading}
         errorText={error ? 'Не удалось загрузить бронирования.' : undefined}
