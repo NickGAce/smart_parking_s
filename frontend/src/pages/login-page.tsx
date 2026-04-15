@@ -2,7 +2,7 @@ import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/ma
 import { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 
-import { DEFAULT_ROLE_ROUTE } from '../app/router/route-guards';
+import { DEFAULT_ROLE_ROUTE } from '../app/router/role-routes';
 import { useAuth } from '../features/auth/use-auth';
 import { useAuthActions } from '../features/auth/use-auth-actions';
 

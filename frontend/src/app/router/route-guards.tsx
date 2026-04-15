@@ -2,7 +2,7 @@ import { CircularProgress, Stack, Typography } from '@mui/material';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../features/auth/use-auth';
-import { defaultRoleRoute } from './route-config';
+import { DEFAULT_ROLE_ROUTE, defaultRoleRoute } from './role-routes';
 import type { UserRole } from '../../shared/types/common';
 
 function FullscreenLoader() {
@@ -37,24 +37,24 @@ export function PublicOnlyRoute() {
   }
 
   if (isAuthenticated && user) {
-    return <Navigate to={defaultRoleRoute[user.role]} replace />;
+    return <Navigate to={DEFAULT_ROLE_ROUTE[user.role]} replace />;
   }
 
   return <Outlet />;
 }
 
-export function RequireRole({ allowedRoles }: { allowedRoles?: UserRole[] }) {
+export function RequireRole({ allowedRoles }: { allowedRoles: UserRole[] }) {
   const { user } = useAuth();
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!allowedRoles || allowedRoles.includes(user.role)) {
+  if (allowedRoles.length === 0 || allowedRoles.includes(user.role)) {
     return <Outlet />;
   }
 
   return <Navigate to="/403" replace />;
 }
 
-export { defaultRoleRoute };
+export { DEFAULT_ROLE_ROUTE, defaultRoleRoute };

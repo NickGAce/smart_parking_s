@@ -43,14 +43,14 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'Parking lots',
     component: ParkingLotsPage,
     menuLabel: 'Parking lots',
-    roles: ['admin', 'owner'],
+    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
     showInMenu: true,
   },
   {
     path: '/parking-lots/:lotId',
     title: 'Parking lot details',
     component: ParkingLotDetailsPage,
-    roles: ['admin', 'owner'],
+    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
     showInMenu: false,
   },
   {
@@ -110,14 +110,6 @@ export const routeConfig: AppRouteConfig[] = [
     showInMenu: true,
   },
 ];
-
-export const defaultRoleRoute: Record<UserRole, string> = {
-  admin: '/dashboard',
-  owner: '/dashboard',
-  tenant: '/my-bookings',
-  guard: '/booking-management',
-  uk: '/dashboard',
-};
 
 export function getMenuByRole(role: UserRole) {
   return routeConfig.filter((route) => route.showInMenu && route.menuLabel && route.roles?.includes(role));
