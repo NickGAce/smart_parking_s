@@ -43,14 +43,14 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'Parking lots',
     component: ParkingLotsPage,
     menuLabel: 'Parking lots',
-    roles: ['admin', 'owner'],
+    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
     showInMenu: true,
   },
   {
     path: '/parking-lots/:lotId',
     title: 'Parking lot details',
     component: ParkingLotDetailsPage,
-    roles: ['admin', 'owner'],
+    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
     showInMenu: false,
   },
   {
