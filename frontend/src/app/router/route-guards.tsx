@@ -57,4 +57,5 @@ export function RequireRole({ allowedRoles }: { allowedRoles?: UserRole[] }) {
   return <Navigate to="/403" replace />;
 }
 
+export const DEFAULT_ROLE_ROUTE = defaultRoleRoute;
 export { defaultRoleRoute };
