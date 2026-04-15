@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user, require_roles
 from app.db.session import get_session
@@ -77,7 +78,7 @@ async def _to_spot_out(
 
 
 async def _get_spot_or_404(session: AsyncSession, parking_spot_id: int) -> ParkingSpot:
-    res = await session.execute(select(ParkingSpot).where(ParkingSpot.id == parking_spot_id))
+    res = await session.execute(select(ParkingSpot).options(selectinload(ParkingSpot.zone)).where(ParkingSpot.id == parking_spot_id))
     parking_spot = res.scalar_one_or_none()
     if not parking_spot:
         raise HTTPException(status_code=404, detail="ParkingSpot not found")
@@ -245,7 +246,7 @@ async def list_parking_spots(
         from_time = server_now
         to_time = from_time
 
-    stmt = select(ParkingSpot).outerjoin(ParkingZone, ParkingZone.id == ParkingSpot.zone_id)
+    stmt = select(ParkingSpot).options(selectinload(ParkingSpot.zone)).outerjoin(ParkingZone, ParkingZone.id == ParkingSpot.zone_id)
     count_stmt = select(func.count(ParkingSpot.id)).outerjoin(ParkingZone, ParkingZone.id == ParkingSpot.zone_id)
     if _is_owner(current_user):
         stmt = stmt.join(ParkingLot, ParkingLot.id == ParkingSpot.parking_lot_id).where(
