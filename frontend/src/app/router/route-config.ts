@@ -5,6 +5,7 @@ import { AdminUsersPage } from '../../pages/admin-users-page';
 import { AnalyticsPage } from '../../pages/analytics-page';
 import { AuditLogsPage } from '../../pages/audit-logs-page';
 import { BookingManagementPage } from '../../pages/booking-management-page';
+import { CreateBookingPage } from '../../pages/create-booking-page';
 import { DashboardPage } from '../../pages/dashboard-page';
 import { ForbiddenPage } from '../../pages/forbidden-page';
 import { LoginPage } from '../../pages/login-page';
@@ -66,6 +67,15 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'My bookings',
     component: MyBookingsPage,
     menuLabel: 'My bookings',
+    roles: ['tenant'],
+    showInMenu: true,
+  },
+
+  {
+    path: '/bookings/new',
+    title: 'Create booking',
+    component: CreateBookingPage,
+    menuLabel: 'Create booking',
     roles: ['tenant'],
     showInMenu: true,
   },

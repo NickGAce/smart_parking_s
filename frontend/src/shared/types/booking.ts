@@ -12,6 +12,7 @@ export interface Booking {
   end_time: string;
   assignment_mode: 'manual' | 'auto' | string;
   assignment_explanation: string | null;
+  assignment_metadata?: Record<string, unknown> | null;
 }
 
 export interface RecommendationWeights {
