@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { parkingSpotsApi } from '../entities/parking-spots/api';
 import { recommendationsApi } from '../entities/recommendations/api';
+import { useCurrentUser } from '../features/auth/use-current-user';
 import { useCreateBookingMutation } from '../features/bookings/use-create-booking-mutation';
 import { IntervalPicker } from '../features/bookings/components/interval-picker';
 import { RecommendationList } from '../features/bookings/components/recommendation-list';
@@ -13,14 +14,17 @@ import { useParkingLotsQuery } from '../features/parking-lots/hooks';
 import type { Booking, CreateBookingPayload } from '../shared/types/booking';
 import type { ApiError } from '../shared/types/common';
 import type { RecommendationRequestPayload, RecommendationResult } from '../shared/types/recommendation';
+import type { SizeCategory, SpotType, UserRole, VehicleType } from '../shared/types/common';
 
 interface IntervalErrors {
   start?: string;
   end?: string;
 }
 
-function toIso(value: string): string {
-  return new Date(value).toISOString();
+function toApiDateTime(value: string): string {
+  // Keep browser-local wall clock time (YYYY-MM-DDTHH:mm) so backend timezone normalization
+  // does not receive UTC-converted values and shift the booking window.
+  return value;
 }
 
 function validateInterval(startTimeLocal: string, endTimeLocal: string): IntervalErrors {
@@ -62,7 +66,7 @@ function getStatusErrorMessage(error: ApiError | null): string | null {
   }
 
   if (error.status === 400) {
-    return '400: Некорректные параметры запроса. Проверьте интервал/лот и повторите попытку.';
+    return `400: ${error.detail ?? 'Некорректные параметры запроса. Проверьте интервал/лот и повторите попытку.'}`;
   }
 
   if (error.status === 403) {
@@ -81,6 +85,18 @@ function getStatusErrorMessage(error: ApiError | null): string | null {
   return error.message;
 }
 
+const SPOT_TYPE_OPTIONS: SpotType[] = ['regular', 'guest', 'disabled', 'ev', 'reserved', 'vip'];
+const VEHICLE_TYPE_OPTIONS: VehicleType[] = ['car', 'bike', 'truck'];
+const SIZE_CATEGORY_OPTIONS: SizeCategory[] = ['small', 'medium', 'large'];
+
+const NEXT_ROUTE_BY_ROLE: Record<UserRole, string> = {
+  admin: '/booking-management',
+  owner: '/booking-management',
+  tenant: '/my-bookings',
+  guard: '/booking-management',
+  uk: '/my-bookings',
+};
+
 function getRecommendationPayload(
   parkingLotId: number,
   startIso: string,
@@ -88,6 +104,9 @@ function getRecommendationPayload(
   requiresCharger: boolean,
   preferCharger: boolean,
   maxResults: number,
+  spotTypes: SpotType[],
+  vehicleType: VehicleType | '',
+  sizeCategory: SizeCategory | '',
 ): RecommendationRequestPayload {
   return {
     parking_lot_id: parkingLotId,
@@ -95,9 +114,13 @@ function getRecommendationPayload(
     to: endIso,
     filters: {
       requires_charger: requiresCharger,
+      spot_types: spotTypes.length ? spotTypes : undefined,
+      vehicle_type: vehicleType || undefined,
+      size_category: sizeCategory || undefined,
     },
     preferences: {
       prefer_charger: preferCharger,
+      preferred_spot_types: spotTypes.length ? spotTypes : undefined,
       max_results: maxResults,
     },
   };
@@ -105,6 +128,7 @@ function getRecommendationPayload(
 
 export function CreateBookingPage() {
   const navigate = useNavigate();
+  const { role = 'tenant' } = useCurrentUser();
 
   const [startTimeLocal, setStartTimeLocal] = useState('');
   const [endTimeLocal, setEndTimeLocal] = useState('');
@@ -116,6 +140,9 @@ export function CreateBookingPage() {
   const [requiresCharger, setRequiresCharger] = useState(false);
   const [preferCharger, setPreferCharger] = useState(false);
   const [maxResults, setMaxResults] = useState(5);
+  const [spotTypes, setSpotTypes] = useState<SpotType[]>([]);
+  const [vehicleType, setVehicleType] = useState<VehicleType | ''>('');
+  const [sizeCategory, setSizeCategory] = useState<SizeCategory | ''>('');
 
   const intervalErrors = useMemo(
     () => validateInterval(startTimeLocal, endTimeLocal),
@@ -132,8 +159,8 @@ export function CreateBookingPage() {
     queryFn: () =>
       parkingSpotsApi.getSpots({
         parking_lot_id: parkingLotId as number,
-        from: toIso(startTimeLocal),
-        to: toIso(endTimeLocal),
+        from: toApiDateTime(startTimeLocal),
+        to: toApiDateTime(endTimeLocal),
         limit: 100,
         offset: 0,
       }),
@@ -155,11 +182,11 @@ export function CreateBookingPage() {
       return;
     }
     const timeoutId = setTimeout(() => {
-      navigate('/my-bookings');
+      navigate(NEXT_ROUTE_BY_ROLE[role] ?? '/my-bookings');
     }, 1600);
 
     return () => clearTimeout(timeoutId);
-  }, [navigate, successBooking]);
+  }, [navigate, role, successBooking]);
 
   const bookingErrorMessage = getStatusErrorMessage(createBookingMutation.error ?? null);
   const recommendationErrorMessage = getStatusErrorMessage(recommendationsMutation.error ?? null);
@@ -170,8 +197,8 @@ export function CreateBookingPage() {
     }
 
     const payload: CreateBookingPayload = {
-      start_time: toIso(startTimeLocal),
-      end_time: toIso(endTimeLocal),
+      start_time: toApiDateTime(startTimeLocal),
+      end_time: toApiDateTime(endTimeLocal),
       parking_spot_id: selectedSpotId,
       auto_assign: false,
       parking_lot_id: parkingLotId as number,
@@ -190,15 +217,19 @@ export function CreateBookingPage() {
     }
 
     const payload: CreateBookingPayload = {
-      start_time: toIso(startTimeLocal),
-      end_time: toIso(endTimeLocal),
+      start_time: toApiDateTime(startTimeLocal),
+      end_time: toApiDateTime(endTimeLocal),
       auto_assign: true,
       parking_lot_id: parkingLotId as number,
       recommendation_filters: {
         requires_charger: requiresCharger,
+        spot_types: spotTypes.length ? spotTypes : undefined,
+        vehicle_type: vehicleType || undefined,
+        size_category: sizeCategory || undefined,
       },
       recommendation_preferences: {
         prefer_charger: preferCharger,
+        preferred_spot_types: spotTypes.length ? spotTypes : undefined,
         max_results: maxResults,
       },
     };
@@ -216,8 +247,8 @@ export function CreateBookingPage() {
     }
 
     const payload: CreateBookingPayload = {
-      start_time: toIso(startTimeLocal),
-      end_time: toIso(endTimeLocal),
+      start_time: toApiDateTime(startTimeLocal),
+      end_time: toApiDateTime(endTimeLocal),
       parking_spot_id: selectedSpotId,
       parking_lot_id: parkingLotId as number,
       auto_assign: false,
@@ -238,11 +269,14 @@ export function CreateBookingPage() {
     recommendationsMutation.mutate(
       getRecommendationPayload(
         parkingLotId as number,
-        toIso(startTimeLocal),
-        toIso(endTimeLocal),
+        toApiDateTime(startTimeLocal),
+        toApiDateTime(endTimeLocal),
         requiresCharger,
         preferCharger,
         maxResults,
+        spotTypes,
+        vehicleType,
+        sizeCategory,
       ),
     );
   };
@@ -259,6 +293,9 @@ export function CreateBookingPage() {
             <Alert severity="info">Metadata: {JSON.stringify(successBooking.assignment_metadata, null, 2)}</Alert>
           )}
           <Button variant="contained" onClick={() => navigate('/my-bookings')}>Перейти в My bookings</Button>
+          <Button variant="outlined" onClick={() => navigate(NEXT_ROUTE_BY_ROLE[role] ?? '/my-bookings')}>
+            Перейти к списку бронирований
+          </Button>
         </Stack>
       </Paper>
     );
@@ -352,6 +389,47 @@ export function CreateBookingPage() {
               >
                 <MenuItem value="no">No</MenuItem>
                 <MenuItem value="yes">Yes</MenuItem>
+              </TextField>
+            </Stack>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <TextField
+                select
+                label="Vehicle type"
+                value={vehicleType}
+                onChange={(event) => setVehicleType(event.target.value as VehicleType | '')}
+                sx={{ maxWidth: 220 }}
+              >
+                <MenuItem value="">Any</MenuItem>
+                {VEHICLE_TYPE_OPTIONS.map((option) => (
+                  <MenuItem key={option} value={option}>{option}</MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Size category"
+                value={sizeCategory}
+                onChange={(event) => setSizeCategory(event.target.value as SizeCategory | '')}
+                sx={{ maxWidth: 220 }}
+              >
+                <MenuItem value="">Any</MenuItem>
+                {SIZE_CATEGORY_OPTIONS.map((option) => (
+                  <MenuItem key={option} value={option}>{option}</MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Spot types"
+                SelectProps={{ multiple: true }}
+                value={spotTypes}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setSpotTypes(Array.isArray(next) ? (next as SpotType[]) : String(next).split(',') as SpotType[]);
+                }}
+                sx={{ minWidth: 260 }}
+              >
+                {SPOT_TYPE_OPTIONS.map((option) => (
+                  <MenuItem key={option} value={option}>{option}</MenuItem>
+                ))}
               </TextField>
             </Stack>
 

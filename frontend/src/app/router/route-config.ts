@@ -67,7 +67,7 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'My bookings',
     component: MyBookingsPage,
     menuLabel: 'My bookings',
-    roles: ['tenant'],
+    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
     showInMenu: true,
   },
 
@@ -76,7 +76,7 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'Create booking',
     component: CreateBookingPage,
     menuLabel: 'Create booking',
-    roles: ['tenant'],
+    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
     showInMenu: true,
   },
   {

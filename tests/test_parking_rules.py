@@ -189,3 +189,87 @@ def test_booking_validation_rejects_outside_working_hours():
         )
         assert response.status_code == 400
         assert "working hours" in response.json()["detail"]
+
+
+def test_update_rules_rejects_duplicate_working_days():
+    tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.put(
+            "/api/v1/parking/1/rules",
+            json={
+                "access_mode": "mixed",
+                "allowed_user_roles": [],
+                "min_booking_minutes": 30,
+                "max_booking_minutes": 240,
+                "booking_step_minutes": 30,
+                "max_advance_minutes": 10080,
+                "working_hours": [
+                    {"day_of_week": 0, "open_time": "09:00:00", "close_time": "18:00:00", "is_closed": False},
+                    {"day_of_week": 0, "open_time": "10:00:00", "close_time": "17:00:00", "is_closed": False},
+                ],
+                "exceptions": [],
+            },
+            headers={"Authorization": f"Bearer {tokens['owner']}"},
+        )
+        assert response.status_code == 422
+        assert "duplicate day_of_week" in response.text
+
+
+def test_update_rules_rejects_duplicate_exception_dates():
+    tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.put(
+            "/api/v1/parking/1/rules",
+            json={
+                "access_mode": "mixed",
+                "allowed_user_roles": [],
+                "min_booking_minutes": 30,
+                "max_booking_minutes": 240,
+                "booking_step_minutes": 30,
+                "max_advance_minutes": 10080,
+                "working_hours": [],
+                "exceptions": [
+                    {"date": "2030-01-01", "is_closed": True},
+                    {"date": "2030-01-01", "is_closed": False, "open_time": "09:00:00", "close_time": "12:00:00"},
+                ],
+            },
+            headers={"Authorization": f"Bearer {tokens['owner']}"},
+        )
+        assert response.status_code == 422
+        assert "duplicate date" in response.text
+
+
+def test_update_rules_twice_with_same_weekdays_does_not_raise_500():
+    tokens = _setup_state()
+    payload = {
+        "access_mode": "mixed",
+        "allowed_user_roles": [],
+        "min_booking_minutes": 30,
+        "max_booking_minutes": 240,
+        "booking_step_minutes": 30,
+        "max_advance_minutes": 10080,
+        "working_hours": [
+            {"day_of_week": 0, "open_time": "09:00:00", "close_time": "18:00:00", "is_closed": False},
+            {"day_of_week": 1, "open_time": "09:00:00", "close_time": "18:00:00", "is_closed": False},
+            {"day_of_week": 2, "open_time": "09:00:00", "close_time": "18:00:00", "is_closed": False},
+            {"day_of_week": 3, "open_time": "09:00:00", "close_time": "18:00:00", "is_closed": False},
+            {"day_of_week": 4, "open_time": "09:00:00", "close_time": "18:00:00", "is_closed": False},
+            {"day_of_week": 5, "open_time": "09:00:00", "close_time": "18:00:00", "is_closed": False},
+            {"day_of_week": 6, "open_time": "09:00:00", "close_time": "18:00:00", "is_closed": False},
+        ],
+        "exceptions": [],
+    }
+    with TestClient(app) as client:
+        first = client.put(
+            "/api/v1/parking/1/rules",
+            json=payload,
+            headers={"Authorization": f"Bearer {tokens['owner']}"},
+        )
+        assert first.status_code == 200
+
+        second = client.put(
+            "/api/v1/parking/1/rules",
+            json=payload,
+            headers={"Authorization": f"Bearer {tokens['owner']}"},
+        )
+        assert second.status_code == 200

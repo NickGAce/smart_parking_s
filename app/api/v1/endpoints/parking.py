@@ -191,6 +191,12 @@ async def update_parking_lot_rules(
     if not _can_access_parking_lot(current_user, parking_lot):
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
+    # Avoid unique constraint collisions during flush:
+    # force deletion of existing children before inserting replacement rows.
+    parking_lot.working_hours.clear()
+    parking_lot.schedule_exceptions.clear()
+    await session.flush()
+
     replace_rules(
         parking_lot=parking_lot,
         access_mode=payload.access_mode,

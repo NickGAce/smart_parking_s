@@ -98,6 +98,13 @@ class ParkingLotRulesUpdate(BaseModel):
     def validate_booking_range(self):
         if self.min_booking_minutes > self.max_booking_minutes:
             raise ValueError("min_booking_minutes must be <= max_booking_minutes")
+        working_days = [item.day_of_week for item in self.working_hours]
+        if len(working_days) != len(set(working_days)):
+            raise ValueError("working_hours must not contain duplicate day_of_week values")
+
+        exception_dates = [item.date for item in self.exceptions]
+        if len(exception_dates) != len(set(exception_dates)):
+            raise ValueError("exceptions must not contain duplicate date values")
         return self
 
 
