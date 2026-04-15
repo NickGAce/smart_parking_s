@@ -4,7 +4,8 @@ import { AppLayout } from '../layouts/app-layout';
 import { AppShell } from '../../widgets/layout/app-shell';
 import { useAuth } from '../../features/auth/use-auth';
 import { NotFoundPage } from '../../pages/not-found-page';
-import { PublicOnlyRoute, RequireAuth, RequireRole, defaultRoleRoute } from './route-guards';
+import { PublicOnlyRoute, RequireAuth, RequireRole } from './route-guards';
+import { defaultRoleRoute } from './role-routes';
 import { routeConfig } from './route-config';
 
 function RoleHomeRedirect() {
@@ -41,7 +42,7 @@ export const appRouter = createBrowserRouter([
         children: [
           { path: '/', element: <RoleHomeRedirect /> },
           ...protectedRoutes.map((route) => ({
-            element: <RequireRole allowedRoles={route.roles} />,
+            element: <RequireRole allowedRoles={route.roles ?? []} />,
             children: [{ path: route.path, element: <route.component /> }],
           })),
         ],

@@ -111,14 +111,6 @@ export const routeConfig: AppRouteConfig[] = [
   },
 ];
 
-export const defaultRoleRoute: Record<UserRole, string> = {
-  admin: '/dashboard',
-  owner: '/dashboard',
-  tenant: '/my-bookings',
-  guard: '/booking-management',
-  uk: '/dashboard',
-};
-
 export function getMenuByRole(role: UserRole) {
   return routeConfig.filter((route) => route.showInMenu && route.menuLabel && route.roles?.includes(role));
 }
