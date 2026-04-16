@@ -113,7 +113,7 @@ export function BookingManagementPage() {
     const statuses = new Set(query.statuses ?? []);
     if (checked) statuses.add(status);
     else statuses.delete(status);
-    applyQuery({ statuses: Array.from(statuses) }, true);
+    applyQuery({ statuses: Array.from(statuses), status: undefined }, true);
   };
 
   return (
@@ -130,7 +130,7 @@ export function BookingManagementPage() {
           <Grid item xs={12} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel id="booking-status">status</InputLabel>
-              <Select labelId="booking-status" label="status" value={query.status ?? ''} onChange={(e) => applyQuery({ status: (e.target.value as BookingStatus) || undefined }, true)}>
+              <Select labelId="booking-status" label="status" value={query.status ?? ''} onChange={(e) => applyQuery({ status: (e.target.value as BookingStatus) || undefined, statuses: undefined }, true)}>
                 <MenuItem value="">all</MenuItem>
                 {bookingStatuses.map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
               </Select>
