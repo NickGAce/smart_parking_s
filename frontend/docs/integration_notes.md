@@ -27,3 +27,22 @@ Notifications inbox реализован на базе:
 Badge непрочитанных в app shell считается без отдельного endpoint через `GET /notifications?status=unread&limit=1&offset=0` и `meta.total`.
 
 Ограничение интеграции: backend пока не предоставляет realtime-канал (WebSocket/SSE), поэтому inbox обновляется только polling-моделью.
+
+## Admin screens: users + audit logs
+
+Реализованы admin-only экраны:
+
+- `/admin-users`
+  - create user через `POST /admin/users`
+  - update role через `PATCH /admin/users/{user_id}`
+  - обработка duplicate email (`409`) и validation ошибок (`422`)
+- `/audit-logs`
+  - таблица audit событий
+  - server-side фильтры: `actor_user_id`, `action_type`, `entity_type`, `from`, `to`
+  - server-side pagination (`limit`, `offset`)
+
+### Backend ограничения (важно)
+
+- **Нет `GET /admin/users`**: frontend не показывает список пользователей и не может предоставить выбор пользователя из каталога.
+- Изменение роли доступно только по ручному вводу `user_id` (known id).
+- Это осознанное поведение: SPA не выдумывает отсутствующие API-методы и использует только поддержанные backend сценарии.
