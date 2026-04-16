@@ -5,7 +5,6 @@ import { useAnalyticsDashboard } from '../features/analytics/use-analytics-dashb
 import type { AnalyticsDashboardFilters } from '../features/analytics/use-analytics-dashboard';
 import { useCurrentUser } from '../features/auth/use-current-user';
 import { useParkingLotsQuery } from '../features/parking-lots/use-parking-lots-query';
-import { PageHeader } from '../shared/ui/page-header';
 import { DashboardFilters } from '../widgets/analytics/dashboard-filters';
 import { AnomaliesSection } from '../widgets/analytics/sections/anomalies-section';
 import { BookingsMetricsSection } from '../widgets/analytics/sections/bookings-metrics-section';
@@ -39,10 +38,6 @@ export function AnalyticsPage() {
 
   return (
     <Stack spacing={2}>
-      <PageHeader
-        title="Analytics dashboard"
-        breadcrumbs={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Analytics' }]}
-      />
 
       <Alert severity="info">
         Dashboard агрегируется на клиенте через отдельные endpoints: summary, occupancy, bookings, forecast, anomalies.

@@ -1,41 +1,72 @@
-# Smart Parking Frontend (Stage 1)
+# Smart Parking Frontend
 
-Базовый каркас SPA на **React + TypeScript + Vite** для дальнейшей разработки экранов Smart Parking.
+Demo/prototype-ready SPA на **React + TypeScript + Vite + MUI + TanStack Query**.
 
-## Что настроено
-- React Router (`RouterProvider`) с базовым роутером.
-- TanStack Query (`QueryClientProvider`).
-- Глобальная тема Material UI (`ThemeProvider` + `CssBaseline`).
-- Axios instance с базовым URL API (`/api/v1`) и заголовком `X-Timezone`.
-- Архитектурная структура каталогов под entities/features/widgets/pages.
+## Возможности
 
-## Структура
-- `src/app` — корневой слой приложения (layout, роутер, providers).
-- `src/shared` — общая инфраструктура (`api`, `config`, `types`, `ui`).
-- `src/entities` — доступ к API по доменным сущностям.
-- `src/features` — сценарные хуки/логика.
-- `src/widgets` — составные UI-блоки.
-- `src/pages` — страницы приложения.
+- Аутентификация и восстановление сессии.
+- Protected routing + role-based guards.
+- Экраны парковок и парковочных мест (список, детали, управление по ролям).
+- Booking flows: создание, мой список, management-панель.
+- Notifications inbox с polling и unread badge.
+- Analytics dashboard из нескольких backend endpoint'ов.
+- Admin screens: users (create/update role), audit logs.
 
-## Переменные окружения
-Скопируй пример и при необходимости измени URL API:
+## Установка
+
+```bash
+cd frontend
+npm install
+```
+
+## Запуск
+
+### Development
+
+```bash
+npm run dev
+```
+
+По умолчанию: `http://localhost:5173`.
+
+### Production build
+
+```bash
+npm run build
+npm run preview
+```
+
+## ENV
+
+Скопируй шаблон:
 
 ```bash
 cp .env.example .env
 ```
 
-- `VITE_API_BASE_URL` (по умолчанию: `/api/v1`)
+Основная переменная:
 
-## Локальный запуск
-```bash
-npm install
-npm run dev
-```
+- `VITE_API_BASE_URL` — базовый URL backend API (по умолчанию `/api/v1`).
 
-По умолчанию dev-сервер Vite: `http://localhost:5173`.
+## Backend proxy в dev
 
-## Взаимодействие с backend
-В `vite.config.ts` включен proxy:
-- `/api/*` -> `http://localhost:8000`
+`vite.config.ts` содержит proxy:
 
-Это позволяет вызывать backend из frontend без CORS-настроек в режиме разработки.
+- `/api/*` → `http://localhost:8000`
+
+Это упрощает локальную интеграцию без отдельной CORS-конфигурации.
+
+## Структура проекта
+
+- `src/app` — bootstrap, providers, router, layout shell.
+- `src/shared` — инфраструктура (`api`, `types`, `config`, reusable UI).
+- `src/entities` — доменные API-клиенты.
+- `src/features` — бизнес-логика и query/mutation hooks.
+- `src/widgets` — составные UI-блоки.
+- `src/pages` — route-level страницы.
+- `docs/` — интеграционные ограничения и архитектурные заметки.
+
+## Документация
+
+- `docs/integration_notes.md` — backend gaps и ограничения интеграции.
+- `docs/frontend_architecture.md` — архитектурная карта SPA.

@@ -2,11 +2,10 @@ import DoneOutlinedIcon from '@mui/icons-material/DoneOutlined';
 import {
   Alert,
   Box,
+  Stack,
   Button,
   Chip,
   Paper,
-  Stack,
-  TablePagination,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
@@ -19,7 +18,10 @@ import {
   useNotificationsQuery,
 } from '../features/notifications/use-notifications-query';
 import { EmptyState } from '../shared/ui/empty-state';
-import { ErrorState } from '../shared/ui/error-state';
+import { ApiErrorAlert } from '../shared/ui/api-error-alert';
+import { FiltersToolbar } from '../shared/ui/filters-toolbar';
+import { LoadingState } from '../shared/ui/loading-state';
+import { PaginationControls } from '../shared/ui/pagination-controls';
 import type { NotificationStatus } from '../shared/types/common';
 
 const ROWS_PER_PAGE_OPTIONS = [5, 10, 20];
@@ -66,7 +68,7 @@ export function NotificationsPage() {
         Realtime канал отсутствует, поэтому используется polling.
       </Alert>
 
-      <Paper sx={{ p: 2 }}>
+      <FiltersToolbar direction={{ xs: 'column', sm: 'row' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ sm: 'center' }}>
           <ToggleButtonGroup size="small" color="primary" value={filter} exclusive onChange={onFilterChange}>
             <ToggleButton value="all">all</ToggleButton>
@@ -77,16 +79,14 @@ export function NotificationsPage() {
             {filter === 'all' ? `Всего уведомлений: ${totalItems}` : `Фильтр: ${filter}`}
           </Typography>
         </Stack>
-      </Paper>
+      </FiltersToolbar>
 
       {listQuery.isLoading && (
-        <Paper sx={{ p: 2 }}>
-          <Typography color="text.secondary">Загружаем уведомления...</Typography>
-        </Paper>
+        <LoadingState message="Загружаем уведомления..." />
       )}
 
       {listQuery.isError && (
-        <ErrorState message="Не удалось загрузить inbox уведомлений. Попробуйте обновить страницу." />
+        <ApiErrorAlert message="Не удалось загрузить inbox уведомлений. Попробуйте обновить страницу." />
       )}
 
       {!listQuery.isLoading && !listQuery.isError && items.length === 0 && (
@@ -164,14 +164,13 @@ export function NotificationsPage() {
               </Box>
             ))}
           </Stack>
-          <TablePagination
-            component="div"
+          <PaginationControls
             count={totalItems}
             page={page}
             rowsPerPage={rowsPerPage}
-            onPageChange={(_, nextPage) => setPage(nextPage)}
-            onRowsPerPageChange={(event) => {
-              setRowsPerPage(Number(event.target.value));
+            onPageChange={setPage}
+            onRowsPerPageChange={(nextRows) => {
+              setRowsPerPage(nextRows);
               setPage(0);
             }}
             rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}

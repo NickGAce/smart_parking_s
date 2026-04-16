@@ -1,7 +1,6 @@
 import {
   Alert,
   Box,
-  Button,
   Chip,
   Grid,
   Paper,
@@ -10,16 +9,17 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
 } from '@mui/material';
 import { useMemo, useState } from 'react';
-import type { ChangeEvent } from 'react';
 
 import { useAuditLogsQuery } from '../features/audit/use-audit-logs-query';
-import { PageHeader } from '../shared/ui/page-header';
+import { ApiErrorAlert } from '../shared/ui/api-error-alert';
+import { FiltersToolbar } from '../shared/ui/filters-toolbar';
+import { LoadingState } from '../shared/ui/loading-state';
+import { PaginationControls } from '../shared/ui/pagination-controls';
 import type { AuditLogsQuery } from '../shared/types/audit';
 
 const DEFAULT_LIMIT = 10;
@@ -95,17 +95,12 @@ export function AuditLogsPage() {
 
   return (
     <Stack spacing={2}>
-      <PageHeader
-        title="Audit logs"
-        breadcrumbs={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Audit logs' }]}
-      />
-
       <Alert severity="info">
         Админ-экран интегрирован напрямую с <code>GET /audit-logs</code>: фильтры actor/action/entity,
         time range и пагинация выполняются сервером.
       </Alert>
 
-      <Paper sx={{ p: 2 }}>
+      <FiltersToolbar onReset={clearFilters}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={2}>
             <TextField
@@ -172,20 +167,15 @@ export function AuditLogsPage() {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          <Grid item xs={12} md={2}>
-            <Button fullWidth variant="outlined" onClick={clearFilters}>Сбросить фильтры</Button>
-          </Grid>
         </Grid>
-      </Paper>
+      </FiltersToolbar>
 
       {listQuery.isError && (
-        <Alert severity="error">Не удалось загрузить audit logs. Проверьте фильтры и права admin.</Alert>
+        <ApiErrorAlert message="Не удалось загрузить audit logs. Проверьте фильтры и права admin." />
       )}
 
       {listQuery.isLoading && (
-        <Paper sx={{ p: 2 }}>
-          <Typography color="text.secondary">Загрузка audit logs...</Typography>
-        </Paper>
+        <LoadingState message="Загрузка audit logs..." />
       )}
 
       {listQuery.data && (
@@ -254,14 +244,13 @@ export function AuditLogsPage() {
             </TableBody>
           </Table>
 
-          <TablePagination
-            component="div"
+          <PaginationControls
             count={totalRows}
             page={page}
             rowsPerPage={rowsPerPage}
-            onPageChange={(_, nextPage) => setPage(nextPage)}
-            onRowsPerPageChange={(event: ChangeEvent<HTMLInputElement>) => {
-              setRowsPerPage(Number(event.target.value));
+            onPageChange={setPage}
+            onRowsPerPageChange={(nextRows) => {
+              setRowsPerPage(nextRows);
               setPage(0);
             }}
             rowsPerPageOptions={ROW_OPTIONS}
