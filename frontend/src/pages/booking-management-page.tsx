@@ -88,7 +88,19 @@ export function BookingManagementPage() {
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const query = useMemo(() => parseQuery(searchParams), [searchParams]);
 
-  const listQuery = useBookingsQuery(query);
+  const requestQuery = useMemo(() => {
+    if ((query.statuses?.length ?? 0) === 0) {
+      return query;
+    }
+
+    return {
+      ...query,
+      offset: 0,
+      limit: 1000,
+    } satisfies BookingsQuery;
+  }, [query]);
+
+  const listQuery = useBookingsQuery(requestQuery);
 
   const filteredItems = useMemo(() => {
     const selected = query.statuses ?? [];
@@ -98,6 +110,17 @@ export function BookingManagementPage() {
 
     return listQuery.data.items.filter((booking) => selected.includes(booking.status));
   }, [listQuery.data, query.statuses]);
+
+  const visibleItems = useMemo(() => {
+    if ((query.statuses?.length ?? 0) === 0) {
+      return filteredItems;
+    }
+
+    const offset = query.offset ?? 0;
+    const limit = query.limit ?? DEFAULT_LIMIT;
+
+    return filteredItems.slice(offset, offset + limit);
+  }, [filteredItems, query.limit, query.offset, query.statuses]);
 
   const applyQuery = (patch: Partial<BookingsQuery>, resetOffset = false) => {
     const next: BookingsQuery = {
@@ -194,7 +217,7 @@ export function BookingManagementPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredItems.map((booking) => (
+              {visibleItems.map((booking) => (
                 <TableRow key={booking.id} hover>
                   <TableCell>{booking.id}</TableCell>
                   <TableCell>{booking.user_id}</TableCell>
@@ -209,8 +232,8 @@ export function BookingManagementPage() {
           <TablePagination
             component="div"
             count={(query.statuses?.length ?? 0) > 0 ? filteredItems.length : listQuery.data.meta.total}
-            page={Math.floor(listQuery.data.meta.offset / listQuery.data.meta.limit)}
-            rowsPerPage={listQuery.data.meta.limit}
+            page={Math.floor((query.offset ?? 0) / (query.limit ?? DEFAULT_LIMIT))}
+            rowsPerPage={query.limit ?? DEFAULT_LIMIT}
             onPageChange={(_, page) => applyQuery({ offset: page * (query.limit ?? DEFAULT_LIMIT) })}
             onRowsPerPageChange={(e) => applyQuery({ limit: Number(e.target.value), offset: 0 })}
             rowsPerPageOptions={[5, 10, 20, 50]}
