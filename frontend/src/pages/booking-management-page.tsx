@@ -96,7 +96,7 @@ export function BookingManagementPage() {
     return {
       ...query,
       offset: 0,
-      limit: 1000,
+      limit: 100,
     } satisfies BookingsQuery;
   }, [query]);
 
