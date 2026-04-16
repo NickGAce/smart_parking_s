@@ -31,6 +31,7 @@ import type { BookingStatus, SortOrder } from '../shared/types/common';
 import type { BookingsQuery } from '../shared/types/booking';
 
 const DEFAULT_LIMIT = 10;
+const BACKEND_MAX_LIMIT = 100;
 
 type SortBy = NonNullable<BookingsQuery['sort_by']>;
 
@@ -46,6 +47,14 @@ const parseBooleanParam = (value: string | null): boolean | undefined => {
   return undefined;
 };
 
+const normalizeLimit = (value: number | undefined): number => {
+  if (!value || value <= 0) {
+    return DEFAULT_LIMIT;
+  }
+
+  return Math.min(value, BACKEND_MAX_LIMIT);
+};
+
 function parseQuery(searchParams: URLSearchParams): BookingsQuery {
   const statuses = [...searchParams.getAll('statuses[]'), ...searchParams.getAll('statuses')] as BookingStatus[];
 
@@ -57,7 +66,7 @@ function parseQuery(searchParams: URLSearchParams): BookingsQuery {
     status: (searchParams.get('status') as BookingStatus) ?? undefined,
     statuses: statuses.length ? statuses : undefined,
     mine: parseBooleanParam(searchParams.get('mine')),
-    limit: parseNumberParam(searchParams.get('limit')) ?? DEFAULT_LIMIT,
+    limit: normalizeLimit(parseNumberParam(searchParams.get('limit'))),
     offset: parseNumberParam(searchParams.get('offset')) ?? 0,
     sort_by: (searchParams.get('sort_by') as SortBy) ?? 'start_time',
     sort_order: (searchParams.get('sort_order') as SortOrder) ?? 'desc',
@@ -95,7 +104,7 @@ export function BookingManagementPage() {
     return {
       ...query,
       offset: 0,
-      limit: 500,
+      limit: BACKEND_MAX_LIMIT,
     } satisfies BookingsQuery;
   }, [query]);
 
