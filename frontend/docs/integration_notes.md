@@ -1,60 +1,96 @@
-# Frontend integration notes
+# Frontend integration notes (demo/prototype)
 
-## Role `uk`
+Документ фиксирует **реальные ограничения backend**, которые напрямую влияют на frontend-реализацию.
 
-Backend documentation currently does not provide a complete permission matrix for role `uk`.
-To keep the SPA stable and secure, `uk` is treated as a **restricted role**:
+## 1) Нет reference-data endpoint
 
-- default post-login route: `/dashboard`
-- allowed navigation routes: `/dashboard`, `/notifications`
-- all other protected routes redirect to role default route
+Backend не предоставляет единый endpoint для справочников (role labels, status dictionaries, enum metadata, доступные transitions, и т.д.).
 
-When backend clarification appears, this matrix should be updated in route guards and navigation config.
+Последствия для frontend:
 
-## Notifications inbox (polling integration)
+- часть справочных значений хранится в клиентских маппингах/константах;
+- возможна рассинхронизация display-labels при изменениях backend перечислений;
+- нет централизованной «feature discoverability» для новых enum значений.
 
-Notifications inbox реализован на базе:
+Рекомендация backend: добавить `GET /reference-data` (или набор специализированных reference endpoints).
 
-- `GET /notifications` (list + filter + pagination)
-- `PATCH /notifications/{notification_id}/read` (mark as read)
+## 2) Нет standardized error envelope
 
-Текущая стратегия обновления:
+Ошибки приходят в неоднородном виде (разные структуры `detail`/validation payload между endpoint'ами).
 
-- polling: `refetchInterval = 60_000ms`
-- `refetchOnWindowFocus = true` для быстрого восстановления актуальности при возврате в таб
-- polling не запускается в фоне (`refetchIntervalInBackground = false`)
+Последствия:
 
-Badge непрочитанных в app shell считается без отдельного endpoint через `GET /notifications?status=unread&limit=1&offset=0` и `meta.total`.
+- frontend вынужден делать адаптацию ошибок и fallback-парсинг;
+- одинаковые сценарии ошибок отображаются не полностью унифицированно;
+- повышается риск потерять полезный контекст в UI.
 
-Ограничение интеграции: backend пока не предоставляет realtime-канал (WebSocket/SSE), поэтому inbox обновляется только polling-моделью.
+Рекомендация backend: унифицировать error envelope (код, message, details, trace/request id).
 
-## Admin screens: users + audit logs
+## 3) Нет capabilities endpoint
 
-Реализованы admin-only экраны:
+Нет endpoint, который бы отдавал матрицу возможностей текущего пользователя/роли на уровне действий.
 
-- `/admin-users`
-  - create user через `POST /admin/users`
-  - update role через `PATCH /admin/users/{user_id}`
-  - обработка duplicate email (`409`) и validation ошибок (`422`)
-- `/audit-logs`
-  - таблица audit событий
-  - server-side фильтры: `actor_user_id`, `action_type`, `entity_type`, `from`, `to`
-  - server-side pagination (`limit`, `offset`)
+Последствия:
 
-### Backend ограничения (важно)
+- frontend опирается на статическую route-role матрицу и локальные guard-правила;
+- сложнее безопасно и прозрачно скрывать/показывать action-level controls;
+- любое изменение role policy требует manual sync в SPA.
 
-- **Нет `GET /admin/users`**: frontend не показывает список пользователей и не может предоставить выбор пользователя из каталога.
-- Изменение роли доступно только по ручному вводу `user_id` (known id).
-- Это осознанное поведение: SPA не выдумывает отсутствующие API-методы и использует только поддержанные backend сценарии.
+Рекомендация backend: добавить `GET /auth/capabilities` (или эквивалент) с явным action matrix.
 
-## Analytics dashboard orchestration
+## 4) Implicit lifecycle side effects на read endpoint'ах
 
-SPA dashboard `/analytics` использует отдельные backend endpoint'ы:
+Логика lifecycle бронирований может «догоняться» при чтении (read-triggered sync semantics).
 
-- `GET /analytics/summary`
-- `GET /analytics/occupancy`
-- `GET /analytics/bookings`
-- `GET /analytics/occupancy-forecast`
-- `GET /analytics/anomalies`
+Последствия:
 
-Ограничение интеграции: backend не предоставляет единый aggregated endpoint для dashboard, поэтому frontend выполняет несколько запросов и агрегирует секции клиентом (chatty API limitation).
+- некоторые чтения фактически изменяют видимое состояние данных;
+- frontend для критичных экранов использует более агрессивную invalidation/refetch стратегию;
+- нужен аккуратный UX-текст, чтобы объяснять «почему статус мог смениться после refresh/read».
+
+Рекомендация backend: либо документировать side effects формально, либо вынести синхронизацию в явный async pipeline.
+
+## 5) Роль `uk` недодокументирована
+
+По роли `uk` нет полного и стабильного permission matrix в backend-документации.
+
+Текущее frontend-решение:
+
+- роль считается restricted;
+- дефолтный маршрут: `/dashboard`;
+- при попытке открыть недоступный protected route — редирект на role default route.
+
+Требуется backend-уточнение: конечная матрица прав и ожидаемые бизнес-сценарии для `uk`.
+
+## 6) Нет realtime notifications
+
+Inbox работает через polling (TanStack Query `refetchInterval`) и `refetchOnWindowFocus`.
+
+Последствия:
+
+- новые уведомления приходят с задержкой до интервала polling;
+- нет push-UX для критичных событий.
+
+Рекомендация backend: WebSocket/SSE канал для near-realtime обновлений.
+
+## 7) Частично chatty API для аналитики
+
+Dashboard собирается из нескольких endpoint'ов, единого aggregated endpoint нет.
+
+Последствия:
+
+- несколько параллельных запросов на загрузку одного экрана;
+- больше edge-cases по loading/error partial states.
+
+Рекомендация backend: агрегированный endpoint (или BFF-style aggregation).
+
+## 8) Admin users ограничены отсутствием list endpoint
+
+Есть создание и изменение роли, но нет получения каталога пользователей.
+
+Последствия:
+
+- экран admin users не может предоставить полноценный user directory;
+- update role работает только по known `user_id`.
+
+Рекомендация backend: `GET /admin/users` с фильтрами/пагинацией.

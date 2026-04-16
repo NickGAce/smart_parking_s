@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   Dialog,
-  DialogActions,
   DialogContent,
   DialogTitle,
   Drawer,
@@ -22,7 +21,6 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -50,7 +48,11 @@ import {
 } from '../features/parking-spots/hooks';
 import { ParkingSpotForm } from '../features/parking-spots/parking-spot-form';
 import { effectiveStatusMap } from '../shared/config/status-map';
-import { PageHeader } from '../shared/ui/page-header';
+import { ApiErrorAlert } from '../shared/ui/api-error-alert';
+import { ConfirmDialog } from '../shared/ui/confirm-dialog';
+import { FiltersToolbar } from '../shared/ui/filters-toolbar';
+import { LoadingState } from '../shared/ui/loading-state';
+import { PaginationControls } from '../shared/ui/pagination-controls';
 import { StatusChip } from '../shared/ui/status-chip';
 import type { SortOrder } from '../shared/types/common';
 import type { ParkingSpot, ParkingSpotsQuery } from '../shared/types/parking';
@@ -139,8 +141,6 @@ export function ParkingSpotsPage() {
 
   return (
     <Stack spacing={2}>
-      <PageHeader title="Parking spots" breadcrumbs={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Parking spots' }]} />
-
       <Alert severity="info">
         <b>UX-пояснение:</b> <code>effective_status</code> — вычисляемый статус для выбранного интервала from/to (учёт блокировки и активных пересечений бронирования).{' '}
         <code>status</code> — базовый (raw) статус spot в модели.
@@ -150,7 +150,7 @@ export function ParkingSpotsPage() {
         <Alert severity="info">Роль с read-only доступом: можно просматривать каталог и детали, но CRUD для parking spots отключен.</Alert>
       )}
 
-      <Paper sx={{ p: 2 }}>
+      <FiltersToolbar>
         <Grid container spacing={2}>
           <Grid item xs={12} md={3}><TextField label="from" type="datetime-local" fullWidth size="small" value={query.from ?? ''} InputLabelProps={{ shrink: true }} onChange={(e) => applyQuery({ from: e.target.value || undefined }, true)} /></Grid>
           <Grid item xs={12} md={3}><TextField label="to" type="datetime-local" fullWidth size="small" value={query.to ?? ''} InputLabelProps={{ shrink: true }} onChange={(e) => applyQuery({ to: e.target.value || undefined }, true)} /></Grid>
@@ -250,9 +250,10 @@ export function ParkingSpotsPage() {
             </Button>
           </Grid>
         </Grid>
-      </Paper>
+      </FiltersToolbar>
 
-      {listQuery.isError && <Alert severity="error">{parkingApiErrorMessage(listQuery.error, 'Не удалось загрузить parking spots.')}</Alert>}
+      {listQuery.isError && <ApiErrorAlert message={parkingApiErrorMessage(listQuery.error, 'Не удалось загрузить parking spots.')} />}
+      {listQuery.isLoading && <LoadingState message="Загрузка parking spots..." />}
 
       {listQuery.data && (
         <Paper>
@@ -286,14 +287,12 @@ export function ParkingSpotsPage() {
               ))}
             </TableBody>
           </Table>
-          <TablePagination
-            component="div"
+          <PaginationControls
             count={listQuery.data.meta.total}
             page={Math.floor(listQuery.data.meta.offset / listQuery.data.meta.limit)}
             rowsPerPage={listQuery.data.meta.limit}
-            onPageChange={(_, page) => applyQuery({ offset: page * (query.limit ?? DEFAULT_LIMIT) })}
-            onRowsPerPageChange={(e) => applyQuery({ limit: Number(e.target.value), offset: 0 })}
-            rowsPerPageOptions={[5, 10, 20, 50]}
+            onPageChange={(page) => applyQuery({ offset: page * (query.limit ?? DEFAULT_LIMIT) })}
+            onRowsPerPageChange={(rowsPerPage) => applyQuery({ limit: rowsPerPage, offset: 0 })}
           />
         </Paper>
       )}
@@ -331,36 +330,27 @@ export function ParkingSpotsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(deletingSpot)} onClose={() => setDeletingSpot(null)}>
-        <DialogTitle>Удалить parking spot?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Вы действительно хотите удалить spot #{deletingSpot?.spot_number} (ID {deletingSpot?.id})? Это действие нельзя отменить.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeletingSpot(null)}>Отмена</Button>
-          <Button
-            color="error"
-            variant="contained"
-            disabled={deleteMutation.isPending}
-            onClick={() => {
-              if (!deletingSpot) {
-                return;
-              }
-              deleteMutation.mutate(deletingSpot.id, { onSuccess: () => setDeletingSpot(null) });
-            }}
-          >
-            Удалить
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDialog
+        open={Boolean(deletingSpot)}
+        title="Удалить parking spot?"
+        description={`Вы действительно хотите удалить spot #${deletingSpot?.spot_number} (ID ${deletingSpot?.id})? Это действие нельзя отменить.`}
+        danger
+        pending={deleteMutation.isPending}
+        confirmLabel="Удалить"
+        onCancel={() => setDeletingSpot(null)}
+        onConfirm={() => {
+          if (!deletingSpot) {
+            return;
+          }
+          deleteMutation.mutate(deletingSpot.id, { onSuccess: () => setDeletingSpot(null) });
+        }}
+      />
 
       <Drawer anchor="right" open={drawerSpotId !== null} onClose={() => setDrawerSpotId(null)}>
         <Box sx={{ width: 420, p: 2 }}>
           <Typography variant="h6" sx={{ mb: 1 }}>Parking spot details</Typography>
-          {detailsQuery.isLoading && <Typography color="text.secondary">Loading...</Typography>}
-          {detailsQuery.isError && <Alert severity="error">{parkingApiErrorMessage(detailsQuery.error, 'Не удалось загрузить детали spot.')}</Alert>}
+          {detailsQuery.isLoading && <LoadingState message="Loading..." />}
+          {detailsQuery.isError && <ApiErrorAlert message={parkingApiErrorMessage(detailsQuery.error, 'Не удалось загрузить детали spot.')} />}
           {detailsQuery.data && (
             <Stack spacing={1}>
               <Typography><b>ID:</b> {detailsQuery.data.id}</Typography>

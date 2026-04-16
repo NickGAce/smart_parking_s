@@ -1,17 +1,12 @@
-import { CircularProgress, Stack, Typography } from '@mui/material';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../features/auth/use-auth';
 import { DEFAULT_ROLE_ROUTE, defaultRoleRoute } from './role-routes';
 import type { UserRole } from '../../shared/types/common';
+import { LoadingState } from '../../shared/ui/loading-state';
 
 function FullscreenLoader() {
-  return (
-    <Stack alignItems="center" justifyContent="center" minHeight="100vh" spacing={2}>
-      <CircularProgress />
-      <Typography color="text.secondary">Проверка сессии...</Typography>
-    </Stack>
-  );
+  return <LoadingState message="Проверка сессии..." fullScreen />;
 }
 
 export function RequireAuth() {
@@ -44,17 +39,16 @@ export function PublicOnlyRoute() {
 }
 
 export function RequireRole({ allowedRoles }: { allowedRoles: UserRole[] }) {
+  const location = useLocation();
   const { user } = useAuth();
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
   if (allowedRoles.length === 0 || allowedRoles.includes(user.role)) {
     return <Outlet />;
   }
 
-  return <Navigate to="/403" replace />;
+  return <Navigate to={defaultRoleRoute[user.role]} replace />;
 }
-
-export { DEFAULT_ROLE_ROUTE, defaultRoleRoute };

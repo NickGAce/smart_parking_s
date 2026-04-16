@@ -14,7 +14,6 @@ import { useMemo, useState } from 'react';
 import { useCreateUserMutation } from '../features/admin-users/use-create-user-mutation';
 import { useUpdateUserRoleMutation } from '../features/admin-users/use-update-user-role-mutation';
 import { adaptApiError } from '../shared/api/error-adapter';
-import { PageHeader } from '../shared/ui/page-header';
 import type { UserRole } from '../shared/types/common';
 
 const roleOptions: UserRole[] = ['admin', 'owner', 'tenant', 'guard', 'uk'];
@@ -58,10 +57,6 @@ export function AdminUsersPage() {
 
   return (
     <Stack spacing={2}>
-      <PageHeader
-        title="Admin users"
-        breadcrumbs={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Admin users' }]}
-      />
 
       <Alert severity="info">
         Backend поддерживает только <code>POST /admin/users</code> и <code>PATCH /admin/users/{'{user_id}'}</code>. 

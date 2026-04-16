@@ -8,7 +8,6 @@ import { parkingApiErrorMessage } from '../features/parking-lots/error-messages'
 import { useParkingLotQuery, useParkingLotRulesQuery, useReplaceParkingLotRulesMutation, useUpdateParkingLotMutation } from '../features/parking-lots/hooks';
 import { ParkingLotForm } from '../features/parking-lots/parking-lot-form';
 import { RulesEditor } from '../features/parking-lots/rules-editor';
-import { PageHeader } from '../shared/ui/page-header';
 
 export function ParkingLotDetailsPage() {
   const { lotId } = useParams();
@@ -40,10 +39,6 @@ export function ParkingLotDetailsPage() {
 
   return (
     <Stack spacing={2}>
-      <PageHeader
-        title={`Parking lot #${parkingLotId}`}
-        breadcrumbs={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Parking lots', to: '/parking-lots' }, { label: `Lot #${parkingLotId}` }]}
-      />
 
       <Stack direction="row" spacing={1}>
         <Button startIcon={<ArrowBackIcon />} component={RouterLink} to="/parking-lots">К списку</Button>

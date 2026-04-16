@@ -7,15 +7,12 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
-  CircularProgress,
   Dialog,
   DialogContent,
   DialogTitle,
   FormControl,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   Stack,
   Table,
@@ -23,7 +20,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  TablePagination,
+  Paper,
   Typography,
 } from '@mui/material';
 import { useState } from 'react';
@@ -33,7 +30,10 @@ import { parkingApiErrorMessage } from '../features/parking-lots/error-messages'
 import { useCreateParkingLotMutation, useParkingLotsQuery } from '../features/parking-lots/hooks';
 import { ParkingLotForm } from '../features/parking-lots/parking-lot-form';
 import { useCurrentUser } from '../features/auth/use-current-user';
-import { PageHeader } from '../shared/ui/page-header';
+import { FiltersToolbar } from '../shared/ui/filters-toolbar';
+import { LoadingState } from '../shared/ui/loading-state';
+import { PaginationControls } from '../shared/ui/pagination-controls';
+import { StatusChip } from '../shared/ui/status-chip';
 import type { SortOrder } from '../shared/types/common';
 import type { ParkingLotsQuery } from '../shared/types/parking';
 
@@ -50,13 +50,17 @@ export function ParkingLotsPage() {
 
   return (
     <Stack spacing={2}>
-      <PageHeader title="Parking lots" breadcrumbs={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Parking lots' }]} />
-
       {!canManage && (
         <Alert severity="info">Режим только чтение для вашей роли. Просмотр разрешен, управление отключено.</Alert>
       )}
 
-      <Paper sx={{ p: 2 }}>
+      <FiltersToolbar
+        actions={(
+          <Button startIcon={<AddCircleOutlineIcon />} variant="contained" disabled={!canManage} onClick={() => setCreateOpen(true)}>
+            Создать парковку
+          </Button>
+        )}
+      >
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
           <Stack direction="row" spacing={2}>
             <FormControl size="small" sx={{ minWidth: 140 }}>
@@ -84,14 +88,10 @@ export function ParkingLotsPage() {
               </Select>
             </FormControl>
           </Stack>
-
-          <Button startIcon={<AddCircleOutlineIcon />} variant="contained" disabled={!canManage} onClick={() => setCreateOpen(true)}>
-            Создать парковку
-          </Button>
         </Stack>
-      </Paper>
+      </FiltersToolbar>
 
-      {lotsQuery.isLoading && <CircularProgress />}
+      {lotsQuery.isLoading && <LoadingState message="Загрузка парковок..." />}
       {lotsQuery.isError && <Alert severity="error">{parkingApiErrorMessage(lotsQuery.error, 'Не удалось загрузить список парковок.')}</Alert>}
 
       {lotsQuery.data && lotsQuery.data.items.length === 0 && (
@@ -122,7 +122,7 @@ export function ParkingLotsPage() {
                     <TableCell>{lot.name}</TableCell>
                     <TableCell>{lot.address}</TableCell>
                     <TableCell>{lot.total_spots}</TableCell>
-                    <TableCell><Chip size="small" label={lot.access_mode} /></TableCell>
+                    <TableCell><StatusChip status={lot.access_mode} mapping={{ [lot.access_mode]: { label: lot.access_mode, color: 'default' } }} /></TableCell>
                     <TableCell align="right">
                       <Button component={RouterLink} to={`/parking-lots/${lot.id}`} startIcon={<VisibilityOutlinedIcon />} size="small">Открыть</Button>
                       <Button component={RouterLink} to={`/parking-lots/${lot.id}?mode=edit`} startIcon={<EditOutlinedIcon />} size="small" disabled={!canManage}>Редактировать</Button>
@@ -131,14 +131,12 @@ export function ParkingLotsPage() {
                 ))}
               </TableBody>
             </Table>
-            <TablePagination
-              component="div"
+            <PaginationControls
               count={lotsQuery.data.meta.total}
               page={Math.floor(lotsQuery.data.meta.offset / lotsQuery.data.meta.limit)}
-              onPageChange={(_, page) => setQuery((prev) => ({ ...prev, offset: page * (prev.limit ?? 10) }))}
               rowsPerPage={lotsQuery.data.meta.limit}
-              onRowsPerPageChange={(e) => setQuery((prev) => ({ ...prev, limit: Number(e.target.value), offset: 0 }))}
-              rowsPerPageOptions={[5, 10, 20, 50]}
+              onPageChange={(page) => setQuery((prev) => ({ ...prev, offset: page * (prev.limit ?? 10) }))}
+              onRowsPerPageChange={(rowsPerPage) => setQuery((prev) => ({ ...prev, limit: rowsPerPage, offset: 0 }))}
             />
           </Paper>
 
@@ -150,7 +148,7 @@ export function ParkingLotsPage() {
                     <Typography variant="h6">{lot.name}</Typography>
                     <Typography variant="body2" color="text.secondary">{lot.address}</Typography>
                     <Typography variant="body2">Мест: {lot.total_spots}</Typography>
-                    <Chip label={lot.access_mode} size="small" sx={{ width: 'fit-content' }} />
+                    <StatusChip status={lot.access_mode} mapping={{ [lot.access_mode]: { label: lot.access_mode, color: 'default' } }} />
                     <Stack direction="row" spacing={1}>
                       <Button component={RouterLink} to={`/parking-lots/${lot.id}`} size="small">Открыть</Button>
                       <Button component={RouterLink} to={`/parking-lots/${lot.id}?mode=edit`} size="small" disabled={!canManage}>Редактировать</Button>
