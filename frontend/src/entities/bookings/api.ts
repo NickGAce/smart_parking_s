@@ -10,7 +10,7 @@ const mapBookingsQueryParams = (params?: BookingsQuery) => {
 
   return {
     ...rest,
-    ...(statuses?.length ? { 'statuses[]': statuses } : {}),
+    ...(statuses?.length ? { statuses, 'statuses[]': statuses } : {}),
   };
 };
 
