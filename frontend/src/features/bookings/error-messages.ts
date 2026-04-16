@@ -17,3 +17,34 @@ export function bookingApiErrorMessage(error: ApiError | Error | null | undefine
 
   return error.message || fallback;
 }
+
+const lifecycleErrorHints: Array<{ matchesAny: string[]; message: string }> = [
+  {
+    matchesAny: ['check-in window', 'check in window', 'window is closed', 'not open yet'],
+    message: 'Не открылось окно check-in: операция доступна только в разрешённый временной интервал.',
+  },
+  {
+    matchesAny: ['too late', 'booking ended', 'window closed'],
+    message: 'Слишком поздно для операции: бронирование уже вышло за допустимое время.',
+  },
+  {
+    matchesAny: ['not active', 'not confirmed', 'invalid status'],
+    message: 'Операция недоступна: booking сейчас не в статусе active / confirmed.',
+  },
+  {
+    matchesAny: ['grace period', 'too early for no-show', 'grace period not passed'],
+    message: 'Grace period ещё не прошёл: mark no-show станет доступен позже.',
+  },
+];
+
+export function bookingLifecycleErrorMessage(error: ApiError | Error | null | undefined, fallback: string): string {
+  const baseMessage = bookingApiErrorMessage(error, fallback);
+  const normalized = baseMessage.toLowerCase();
+
+  const hint = lifecycleErrorHints.find((item) => item.matchesAny.some((match) => normalized.includes(match)));
+  if (hint) {
+    return hint.message;
+  }
+
+  return baseMessage;
+}

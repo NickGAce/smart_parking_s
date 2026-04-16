@@ -14,8 +14,15 @@ import {
 import { useEffect, useState } from 'react';
 
 import { useCurrentUser } from '../../auth/use-current-user';
-import { bookingApiErrorMessage } from '../error-messages';
-import { useBookingQuery, useCancelBookingMutation, useUpdateBookingMutation } from '../hooks';
+import { bookingApiErrorMessage, bookingLifecycleErrorMessage } from '../error-messages';
+import {
+  useBookingQuery,
+  useCancelBookingMutation,
+  useCheckInBookingMutation,
+  useCheckOutBookingMutation,
+  useMarkNoShowBookingMutation,
+  useUpdateBookingMutation,
+} from '../hooks';
 import { bookingStatuses } from '../constants';
 import { bookingActionAvailabilityMap, canCancelBooking, canChangeStatus as canChangeStatusAction, canEditBooking, getAvailableBookingActions } from '../../../shared/config/booking-actions';
 import { bookingStatusMap } from '../../../shared/config/status-map';
@@ -34,9 +41,12 @@ const asInputDateTime = (value: string) => value.slice(0, 16);
 
 export function BookingDetailsPanel({ bookingId, onClose }: Props) {
   const { role } = useCurrentUser();
-  const detailsQuery = useBookingQuery(bookingId ?? 0);
+  const detailsQuery = useBookingQuery(bookingId ?? 0, { refetchIntervalMs: 15_000 });
   const updateMutation = useUpdateBookingMutation(bookingId ?? 0);
   const cancelMutation = useCancelBookingMutation(bookingId ?? 0);
+  const checkInMutation = useCheckInBookingMutation();
+  const checkOutMutation = useCheckOutBookingMutation();
+  const markNoShowMutation = useMarkNoShowBookingMutation();
 
   const booking = detailsQuery.data;
 
@@ -66,7 +76,12 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
   const canEdit = booking ? canEditBooking(booking.status, role) : false;
   const canChangeStatus = booking ? canChangeStatusAction(booking.status, role) : false;
   const canCancel = booking ? canCancelBooking(booking.status, role) : false;
+  const canCheckIn = Boolean(booking && ['confirmed', 'active'].includes(booking.status));
+  const canCheckOut = Boolean(booking && booking.status === 'active');
+  const canMarkNoShow = Boolean(booking && ['confirmed', 'active'].includes(booking.status));
   const availableActions = booking ? getAvailableBookingActions(booking.status, role) : [];
+  const isLifecyclePending = checkInMutation.isPending || checkOutMutation.isPending || markNoShowMutation.isPending;
+  const lifecycleError = checkInMutation.error ?? checkOutMutation.error ?? markNoShowMutation.error;
   const hasEditableChanges = Boolean(
     booking && (
       booking.start_time !== (startTime ? new Date(startTime).toISOString() : booking.start_time)
@@ -104,6 +119,40 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
               <Typography><b>Explanation:</b> {booking.assignment_explanation ?? '—'}</Typography>
               <Typography><b>Available actions (role-aware):</b> {availableActions.join(', ')}</Typography>
               <Typography><b>Status action map:</b> {bookingActionAvailabilityMap[booking.status].join(', ')}</Typography>
+              <Alert severity="info">
+                Текущий статус может измениться из-за background sync. Кнопки операций проверяются backend на каждом запросе.
+              </Alert>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Button
+                  variant="contained"
+                  color="success"
+                  disabled={!canCheckIn || isLifecyclePending}
+                  onClick={() => booking && checkInMutation.mutate(booking.id)}
+                >
+                  Check-in
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={!canCheckOut || isLifecyclePending}
+                  onClick={() => booking && checkOutMutation.mutate(booking.id)}
+                >
+                  Check-out
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  disabled={!canMarkNoShow || isLifecyclePending}
+                  onClick={() => booking && markNoShowMutation.mutate(booking.id)}
+                >
+                  Mark no-show
+                </Button>
+              </Stack>
+              {lifecycleError && (
+                <Alert severity="error">
+                  {bookingLifecycleErrorMessage(lifecycleError, 'Lifecycle операция отклонена backend. Обновите данные и попробуйте снова.')}
+                </Alert>
+              )}
 
               <TextField label="start_time" type="datetime-local" InputLabelProps={{ shrink: true }} value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={!canEdit || updateMutation.isPending} />
               <TextField label="end_time" type="datetime-local" InputLabelProps={{ shrink: true }} value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!canEdit || updateMutation.isPending} />
