@@ -7,10 +7,11 @@ const mapBookingsQueryParams = (params?: BookingsQuery) => {
   }
 
   const { statuses, ...rest } = params;
+  const uniqueStatuses = statuses?.length ? Array.from(new Set(statuses)) : undefined;
 
   return {
     ...rest,
-    ...(statuses?.length ? { statuses, 'statuses[]': statuses } : {}),
+    ...(uniqueStatuses?.length ? { 'statuses[]': uniqueStatuses } : {}),
   };
 };
 
