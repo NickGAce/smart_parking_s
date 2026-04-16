@@ -1,0 +1,11 @@
+import type { AnalyticsQuery, ForecastQuery } from '../../shared/types/analytics';
+
+export const analyticsQueryKeys = {
+  all: ['analytics'] as const,
+  summary: (params?: AnalyticsQuery) => [...analyticsQueryKeys.all, 'summary', params ?? {}] as const,
+  occupancy: (params?: AnalyticsQuery) => [...analyticsQueryKeys.all, 'occupancy', params ?? {}] as const,
+  bookings: (params?: AnalyticsQuery) => [...analyticsQueryKeys.all, 'bookings', params ?? {}] as const,
+  forecast: (params?: ForecastQuery) => [...analyticsQueryKeys.all, 'forecast', params ?? {}] as const,
+  anomalies: (params?: { from?: string; to?: string; parking_lot_id?: number; user_id?: number }) =>
+    [...analyticsQueryKeys.all, 'anomalies', params ?? {}] as const,
+};
