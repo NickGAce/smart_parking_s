@@ -49,7 +49,7 @@ function writeQuery(params: Omit<BookingsQuery, 'mine'>): URLSearchParams {
   if (params.from) query.set('from', params.from);
   if (params.to) query.set('to', params.to);
   if (params.status) query.set('status', params.status);
-  (params.statuses ?? []).forEach((status) => query.append('statuses[]', status));
+  (params.statuses ?? []).forEach((status) => query.append('statuses', status));
 
   return query;
 }
@@ -113,7 +113,7 @@ export function MyBookingsPage() {
             <FormControlLabel
               key={status}
               control={<Checkbox size="small" checked={(query.statuses ?? []).includes(status)} onChange={(e) => updateStatuses(status, e.target.checked)} />}
-              label={`statuses[]: ${status}`}
+              label={`statuses: ${status}`}
             />
           ))}
         </Stack>

@@ -73,7 +73,7 @@ function writeQuery(params: BookingsQuery): URLSearchParams {
     }
 
     if (Array.isArray(value)) {
-      value.forEach((entry) => query.append(key === 'statuses' ? 'statuses[]' : key, String(entry)));
+      value.forEach((entry) => query.append(key, String(entry)));
       return;
     }
 
@@ -195,7 +195,7 @@ export function BookingManagementPage() {
             <FormControlLabel
               key={status}
               control={<Checkbox size="small" checked={(query.statuses ?? []).includes(status)} onChange={(e) => updateStatuses(status, e.target.checked)} />}
-              label={`statuses[]: ${status}`}
+              label={`statuses: ${status}`}
             />
           ))}
         </Stack>
