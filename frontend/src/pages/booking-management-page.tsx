@@ -96,7 +96,7 @@ export function BookingManagementPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const query = useMemo(() => parseQuery(searchParams), [searchParams]);
-  const requestQuery = useMemo(() => {
+  const requestQuery: BookingsQuery = useMemo(() => {
     if ((query.statuses?.length ?? 0) === 0) {
       return query;
     }
@@ -105,7 +105,7 @@ export function BookingManagementPage() {
       ...query,
       offset: 0,
       limit: BACKEND_MAX_LIMIT,
-    } satisfies BookingsQuery;
+    };
   }, [query]);
 
   const listQuery = useBookingsQuery(requestQuery);
