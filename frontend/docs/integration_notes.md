@@ -46,3 +46,15 @@ Badge непрочитанных в app shell считается без отде
 - **Нет `GET /admin/users`**: frontend не показывает список пользователей и не может предоставить выбор пользователя из каталога.
 - Изменение роли доступно только по ручному вводу `user_id` (known id).
 - Это осознанное поведение: SPA не выдумывает отсутствующие API-методы и использует только поддержанные backend сценарии.
+
+## Analytics dashboard orchestration
+
+SPA dashboard `/analytics` использует отдельные backend endpoint'ы:
+
+- `GET /analytics/summary`
+- `GET /analytics/occupancy`
+- `GET /analytics/bookings`
+- `GET /analytics/occupancy-forecast`
+- `GET /analytics/anomalies`
+
+Ограничение интеграции: backend не предоставляет единый aggregated endpoint для dashboard, поэтому frontend выполняет несколько запросов и агрегирует секции клиентом (chatty API limitation).
