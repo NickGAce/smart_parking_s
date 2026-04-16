@@ -47,7 +47,7 @@ const parseBooleanParam = (value: string | null): boolean | undefined => {
 };
 
 function parseQuery(searchParams: URLSearchParams): BookingsQuery {
-  const statuses = searchParams.getAll('statuses') as BookingStatus[];
+  const statuses = [...searchParams.getAll('statuses[]'), ...searchParams.getAll('statuses')] as BookingStatus[];
 
   return {
     parking_lot_id: parseNumberParam(searchParams.get('parking_lot_id')),
@@ -73,7 +73,7 @@ function writeQuery(params: BookingsQuery): URLSearchParams {
     }
 
     if (Array.isArray(value)) {
-      value.forEach((entry) => query.append(key, String(entry)));
+      value.forEach((entry) => query.append(key === 'statuses' ? 'statuses[]' : key, String(entry)));
       return;
     }
 
@@ -104,7 +104,7 @@ export function BookingManagementPage() {
     const statuses = new Set(query.statuses ?? []);
     if (checked) statuses.add(status);
     else statuses.delete(status);
-    applyQuery({ statuses: Array.from(statuses) }, true);
+    applyQuery({ statuses: Array.from(statuses), status: undefined }, true);
   };
 
   return (
@@ -170,6 +170,10 @@ export function BookingManagementPage() {
           ))}
         </Stack>
       </Paper>
+
+      {listQuery.isError && (
+        <Alert severity="error">Не удалось загрузить бронирования для management-экрана.</Alert>
+      )}
 
       {listQuery.data && (
         <Paper>

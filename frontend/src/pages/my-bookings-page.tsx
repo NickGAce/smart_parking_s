@@ -31,7 +31,7 @@ import type { BookingStatus } from '../shared/types/common';
 import type { BookingsQuery } from '../shared/types/booking';
 
 function parseQuery(searchParams: URLSearchParams): Omit<BookingsQuery, 'mine'> {
-  const statuses = searchParams.getAll('statuses') as BookingStatus[];
+  const statuses = [...searchParams.getAll('statuses[]'), ...searchParams.getAll('statuses')] as BookingStatus[];
 
   return {
     from: searchParams.get('from') ?? undefined,
@@ -49,7 +49,7 @@ function writeQuery(params: Omit<BookingsQuery, 'mine'>): URLSearchParams {
   if (params.from) query.set('from', params.from);
   if (params.to) query.set('to', params.to);
   if (params.status) query.set('status', params.status);
-  (params.statuses ?? []).forEach((status) => query.append('statuses', status));
+  (params.statuses ?? []).forEach((status) => query.append('statuses[]', status));
 
   return query;
 }

@@ -1,9 +1,23 @@
 import { httpClient } from '../../shared/api/http-client';
 import type { Booking, BookingListResponse, BookingsQuery, CreateBookingPayload, UpdateBookingPayload } from '../../shared/types/booking';
 
+const mapBookingsQueryParams = (params?: BookingsQuery) => {
+  if (!params) {
+    return undefined;
+  }
+
+  const { statuses, ...rest } = params;
+  const uniqueStatuses = statuses?.length ? Array.from(new Set(statuses)) : undefined;
+
+  return {
+    ...rest,
+    ...(uniqueStatuses?.length ? { 'statuses[]': uniqueStatuses } : {}),
+  };
+};
+
 export const bookingsApi = {
   getBookings: async (params?: BookingsQuery): Promise<BookingListResponse> => {
-    const { data } = await httpClient.get<BookingListResponse>('/bookings', { params });
+    const { data } = await httpClient.get<BookingListResponse>('/bookings', { params: mapBookingsQueryParams(params) });
     return data;
   },
   getMyBookings: async (): Promise<BookingListResponse> => {

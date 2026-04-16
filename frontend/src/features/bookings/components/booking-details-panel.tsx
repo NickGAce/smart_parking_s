@@ -17,7 +17,7 @@ import { useCurrentUser } from '../../auth/use-current-user';
 import { bookingApiErrorMessage } from '../error-messages';
 import { useBookingQuery, useCancelBookingMutation, useUpdateBookingMutation } from '../hooks';
 import { bookingStatuses } from '../constants';
-import { canCancelBooking, canChangeStatus as canChangeStatusAction, canEditBooking } from '../../../shared/config/booking-actions';
+import { bookingActionAvailabilityMap, canCancelBooking, canChangeStatus as canChangeStatusAction, canEditBooking, getAvailableBookingActions } from '../../../shared/config/booking-actions';
 import { bookingStatusMap } from '../../../shared/config/status-map';
 import { StatusChip } from '../../../shared/ui/status-chip';
 import type { BookingStatus } from '../../../shared/types/common';
@@ -66,6 +66,15 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
   const canEdit = booking ? canEditBooking(booking.status, role) : false;
   const canChangeStatus = booking ? canChangeStatusAction(booking.status, role) : false;
   const canCancel = booking ? canCancelBooking(booking.status, role) : false;
+  const availableActions = booking ? getAvailableBookingActions(booking.status, role) : [];
+  const hasEditableChanges = Boolean(
+    booking && (
+      booking.start_time !== (startTime ? new Date(startTime).toISOString() : booking.start_time)
+      || booking.end_time !== (endTime ? new Date(endTime).toISOString() : booking.end_time)
+      || booking.type !== bookingType
+      || booking.status !== nextStatus
+    ),
+  );
 
   return (
     <Drawer anchor="right" open={bookingId !== null} onClose={onClose}>
@@ -93,6 +102,8 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
               <Typography><b>Assignment mode:</b> {booking.assignment_mode}</Typography>
               <Typography><b>Assignment metadata:</b> {booking.assignment_metadata ? JSON.stringify(booking.assignment_metadata) : '—'}</Typography>
               <Typography><b>Explanation:</b> {booking.assignment_explanation ?? '—'}</Typography>
+              <Typography><b>Available actions (role-aware):</b> {availableActions.join(', ')}</Typography>
+              <Typography><b>Status action map:</b> {bookingActionAvailabilityMap[booking.status].join(', ')}</Typography>
 
               <TextField label="start_time" type="datetime-local" InputLabelProps={{ shrink: true }} value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={!canEdit || updateMutation.isPending} />
               <TextField label="end_time" type="datetime-local" InputLabelProps={{ shrink: true }} value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!canEdit || updateMutation.isPending} />
@@ -120,7 +131,7 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
               <Stack direction="row" spacing={1}>
                 <Button
                   variant="contained"
-                  disabled={updateMutation.isPending || (!canEdit && !canChangeStatus)}
+                  disabled={updateMutation.isPending || (!canEdit && !canChangeStatus) || !hasEditableChanges}
                   onClick={() => updateMutation.mutate(updatePayload)}
                 >
                   PATCH /bookings/{booking.id}
