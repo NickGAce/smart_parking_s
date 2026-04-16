@@ -13,7 +13,7 @@ export function useBookingsQuery(params?: BookingsQuery) {
 }
 
 export function useMyBookingsQuery(params?: Omit<BookingsQuery, 'mine'>) {
-  const query = { ...params, mine: true } satisfies BookingsQuery;
+  const query: BookingsQuery = { ...params, mine: true };
   return useQuery({
     queryKey: bookingsQueryKeys.mine(query),
     queryFn: () => bookingApi.getBookings(query),
