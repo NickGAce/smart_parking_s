@@ -3,6 +3,7 @@ import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import {
   AppBar,
   Avatar,
+  Badge,
   Box,
   Button,
   Chip,
@@ -22,6 +23,7 @@ import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-rout
 
 import { getMenuByRole } from '../../app/router/route-config';
 import { useAuth } from '../../features/auth/use-auth';
+import { useUnreadNotificationsCountQuery } from '../../features/notifications/use-notifications-query';
 import { PageHeader } from '../../shared/ui/page-header';
 import { findRouteByPathname } from '../../app/router/route-config';
 
@@ -34,12 +36,9 @@ export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+  const unreadCountQuery = useUnreadNotificationsCountQuery();
 
-  if (!user) {
-    return null;
-  }
-
-  const links = getMenuByRole(user.role);
+  const links = user ? getMenuByRole(user.role) : [];
   const routeMeta = findRouteByPathname(location.pathname);
 
   const breadcrumbs = useMemo(() => {
@@ -53,6 +52,10 @@ export function AppShell() {
 
     return [{ label: 'Dashboard', to: '/dashboard' }, { label: routeMeta.title }];
   }, [routeMeta]);
+
+  if (!user) {
+    return null;
+  }
 
   const drawerContent = (
     <>
@@ -74,7 +77,22 @@ export function AppShell() {
             selected={location.pathname.startsWith(link.path)}
             onClick={() => setMobileOpen(false)}
           >
-            <ListItemText primary={link.menuLabel} />
+            <ListItemText
+              primary={
+                link.path === '/notifications' ? (
+                  <Badge
+                    color="error"
+                    badgeContent={unreadCountQuery.data ?? 0}
+                    max={99}
+                    invisible={!unreadCountQuery.data}
+                  >
+                    {link.menuLabel}
+                  </Badge>
+                ) : (
+                  link.menuLabel
+                )
+              }
+            />
           </ListItemButton>
         ))}
       </List>
