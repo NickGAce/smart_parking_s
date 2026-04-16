@@ -62,6 +62,15 @@ export function MyBookingsPage() {
 
   const { data, isLoading, error } = useMyBookingsQuery(query);
 
+  const filteredItems = useMemo(() => {
+    const selected = query.statuses ?? [];
+    if (!data || selected.length === 0) {
+      return data?.items ?? [];
+    }
+
+    return data.items.filter((booking) => selected.includes(booking.status));
+  }, [data, query.statuses]);
+
   const updateStatuses = (status: BookingStatus, checked: boolean) => {
     const statuses = new Set(query.statuses ?? []);
     if (checked) {
@@ -114,11 +123,11 @@ export function MyBookingsPage() {
       <PageState
         isLoading={isLoading}
         errorText={error ? 'Не удалось загрузить бронирования.' : undefined}
-        isEmpty={!isLoading && !error && (data?.items.length ?? 0) === 0}
+        isEmpty={!isLoading && !error && filteredItems.length === 0}
         emptyText="У вас пока нет бронирований."
       />
 
-      {data && data.items.length > 0 && (
+      {data && filteredItems.length > 0 && (
         <Paper>
           <Table>
             <TableHead>
@@ -131,7 +140,7 @@ export function MyBookingsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {data.items.map((booking) => (
+              {filteredItems.map((booking) => (
                 <TableRow key={booking.id} hover>
                   <TableCell>{booking.id}</TableCell>
                   <TableCell>{booking.parking_spot_id}</TableCell>

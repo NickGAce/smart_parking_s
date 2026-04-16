@@ -90,6 +90,15 @@ export function BookingManagementPage() {
 
   const listQuery = useBookingsQuery(query);
 
+  const filteredItems = useMemo(() => {
+    const selected = query.statuses ?? [];
+    if (!listQuery.data || selected.length === 0) {
+      return listQuery.data?.items ?? [];
+    }
+
+    return listQuery.data.items.filter((booking) => selected.includes(booking.status));
+  }, [listQuery.data, query.statuses]);
+
   const applyQuery = (patch: Partial<BookingsQuery>, resetOffset = false) => {
     const next: BookingsQuery = {
       ...query,
@@ -185,7 +194,7 @@ export function BookingManagementPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {listQuery.data.items.map((booking) => (
+              {filteredItems.map((booking) => (
                 <TableRow key={booking.id} hover>
                   <TableCell>{booking.id}</TableCell>
                   <TableCell>{booking.user_id}</TableCell>
@@ -199,7 +208,7 @@ export function BookingManagementPage() {
           </Table>
           <TablePagination
             component="div"
-            count={listQuery.data.meta.total}
+            count={(query.statuses?.length ?? 0) > 0 ? filteredItems.length : listQuery.data.meta.total}
             page={Math.floor(listQuery.data.meta.offset / listQuery.data.meta.limit)}
             rowsPerPage={listQuery.data.meta.limit}
             onPageChange={(_, page) => applyQuery({ offset: page * (query.limit ?? DEFAULT_LIMIT) })}
