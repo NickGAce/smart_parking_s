@@ -31,7 +31,7 @@ import type { BookingStatus } from '../shared/types/common';
 import type { BookingsQuery } from '../shared/types/booking';
 
 function parseQuery(searchParams: URLSearchParams): Omit<BookingsQuery, 'mine'> {
-  const statuses = searchParams.getAll('statuses') as BookingStatus[];
+  const statuses = [...searchParams.getAll('statuses[]'), ...searchParams.getAll('statuses')] as BookingStatus[];
 
   return {
     from: searchParams.get('from') ?? undefined,
@@ -61,6 +61,14 @@ export function MyBookingsPage() {
   const query = useMemo(() => parseQuery(searchParams), [searchParams]);
 
   const { data, isLoading, error } = useMyBookingsQuery(query);
+  const filteredItems = useMemo(() => {
+    const selectedStatuses = query.statuses ?? [];
+    if (!data || selectedStatuses.length === 0) {
+      return data?.items ?? [];
+    }
+
+    return data.items.filter((booking) => selectedStatuses.includes(booking.status));
+  }, [data, query.statuses]);
 
   const updateStatuses = (status: BookingStatus, checked: boolean) => {
     const statuses = new Set(query.statuses ?? []);
@@ -70,7 +78,7 @@ export function MyBookingsPage() {
       statuses.delete(status);
     }
 
-    setSearchParams(writeQuery({ ...query, statuses: Array.from(statuses) }));
+    setSearchParams(writeQuery({ ...query, statuses: Array.from(statuses), status: undefined }));
   };
 
   return (
@@ -89,7 +97,7 @@ export function MyBookingsPage() {
           <Grid item xs={12} md={3}>
             <FormControl fullWidth size="small">
               <InputLabel id="my-bookings-status">status</InputLabel>
-              <Select labelId="my-bookings-status" label="status" value={query.status ?? ''} onChange={(e) => setSearchParams(writeQuery({ ...query, status: (e.target.value as BookingStatus) || undefined }))}>
+              <Select labelId="my-bookings-status" label="status" value={query.status ?? ''} onChange={(e) => setSearchParams(writeQuery({ ...query, status: (e.target.value as BookingStatus) || undefined, statuses: undefined }))}>
                 <MenuItem value="">all</MenuItem>
                 {bookingStatuses.map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
               </Select>
@@ -105,7 +113,7 @@ export function MyBookingsPage() {
             <FormControlLabel
               key={status}
               control={<Checkbox size="small" checked={(query.statuses ?? []).includes(status)} onChange={(e) => updateStatuses(status, e.target.checked)} />}
-              label={`statuses[]: ${status}`}
+              label={`statuses: ${status}`}
             />
           ))}
         </Stack>
@@ -114,11 +122,11 @@ export function MyBookingsPage() {
       <PageState
         isLoading={isLoading}
         errorText={error ? 'Не удалось загрузить бронирования.' : undefined}
-        isEmpty={!isLoading && !error && (data?.items.length ?? 0) === 0}
+        isEmpty={!isLoading && !error && filteredItems.length === 0}
         emptyText="У вас пока нет бронирований."
       />
 
-      {data && data.items.length > 0 && (
+      {data && filteredItems.length > 0 && (
         <Paper>
           <Table>
             <TableHead>
@@ -131,7 +139,7 @@ export function MyBookingsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {data.items.map((booking) => (
+              {filteredItems.map((booking) => (
                 <TableRow key={booking.id} hover>
                   <TableCell>{booking.id}</TableCell>
                   <TableCell>{booking.parking_spot_id}</TableCell>

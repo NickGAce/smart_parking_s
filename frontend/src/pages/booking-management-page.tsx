@@ -31,6 +31,7 @@ import type { BookingStatus, SortOrder } from '../shared/types/common';
 import type { BookingsQuery } from '../shared/types/booking';
 
 const DEFAULT_LIMIT = 10;
+const BACKEND_MAX_LIMIT = 100;
 
 type SortBy = NonNullable<BookingsQuery['sort_by']>;
 
@@ -46,8 +47,16 @@ const parseBooleanParam = (value: string | null): boolean | undefined => {
   return undefined;
 };
 
+const normalizeLimit = (value: number | undefined): number => {
+  if (!value || value <= 0) {
+    return DEFAULT_LIMIT;
+  }
+
+  return Math.min(value, BACKEND_MAX_LIMIT);
+};
+
 function parseQuery(searchParams: URLSearchParams): BookingsQuery {
-  const statuses = searchParams.getAll('statuses') as BookingStatus[];
+  const statuses = [...searchParams.getAll('statuses[]'), ...searchParams.getAll('statuses')] as BookingStatus[];
 
   return {
     parking_lot_id: parseNumberParam(searchParams.get('parking_lot_id')),
@@ -57,7 +66,7 @@ function parseQuery(searchParams: URLSearchParams): BookingsQuery {
     status: (searchParams.get('status') as BookingStatus) ?? undefined,
     statuses: statuses.length ? statuses : undefined,
     mine: parseBooleanParam(searchParams.get('mine')),
-    limit: parseNumberParam(searchParams.get('limit')) ?? DEFAULT_LIMIT,
+    limit: normalizeLimit(parseNumberParam(searchParams.get('limit'))),
     offset: parseNumberParam(searchParams.get('offset')) ?? 0,
     sort_by: (searchParams.get('sort_by') as SortBy) ?? 'start_time',
     sort_order: (searchParams.get('sort_order') as SortOrder) ?? 'desc',
@@ -87,8 +96,38 @@ export function BookingManagementPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const query = useMemo(() => parseQuery(searchParams), [searchParams]);
+  const requestQuery = useMemo(() => {
+    if ((query.statuses?.length ?? 0) === 0) {
+      return query;
+    }
 
-  const listQuery = useBookingsQuery(query);
+    return {
+      ...query,
+      offset: 0,
+      limit: BACKEND_MAX_LIMIT,
+    } satisfies BookingsQuery;
+  }, [query]);
+
+  const listQuery = useBookingsQuery(requestQuery);
+  const filteredItems = useMemo(() => {
+    const selectedStatuses = query.statuses ?? [];
+    if (!listQuery.data || selectedStatuses.length === 0) {
+      return listQuery.data?.items ?? [];
+    }
+
+    return listQuery.data.items.filter((booking) => selectedStatuses.includes(booking.status));
+  }, [listQuery.data, query.statuses]);
+
+  const visibleItems = useMemo(() => {
+    if ((query.statuses?.length ?? 0) === 0) {
+      return filteredItems;
+    }
+
+    const offset = query.offset ?? 0;
+    const limit = query.limit ?? DEFAULT_LIMIT;
+
+    return filteredItems.slice(offset, offset + limit);
+  }, [filteredItems, query.limit, query.offset, query.statuses]);
 
   const applyQuery = (patch: Partial<BookingsQuery>, resetOffset = false) => {
     const next: BookingsQuery = {
@@ -104,7 +143,7 @@ export function BookingManagementPage() {
     const statuses = new Set(query.statuses ?? []);
     if (checked) statuses.add(status);
     else statuses.delete(status);
-    applyQuery({ statuses: Array.from(statuses) }, true);
+    applyQuery({ statuses: Array.from(statuses), status: undefined }, true);
   };
 
   return (
@@ -121,7 +160,7 @@ export function BookingManagementPage() {
           <Grid item xs={12} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel id="booking-status">status</InputLabel>
-              <Select labelId="booking-status" label="status" value={query.status ?? ''} onChange={(e) => applyQuery({ status: (e.target.value as BookingStatus) || undefined }, true)}>
+              <Select labelId="booking-status" label="status" value={query.status ?? ''} onChange={(e) => applyQuery({ status: (e.target.value as BookingStatus) || undefined, statuses: undefined }, true)}>
                 <MenuItem value="">all</MenuItem>
                 {bookingStatuses.map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
               </Select>
@@ -165,11 +204,15 @@ export function BookingManagementPage() {
             <FormControlLabel
               key={status}
               control={<Checkbox size="small" checked={(query.statuses ?? []).includes(status)} onChange={(e) => updateStatuses(status, e.target.checked)} />}
-              label={`statuses[]: ${status}`}
+              label={`statuses: ${status}`}
             />
           ))}
         </Stack>
       </Paper>
+
+      {listQuery.isError && (
+        <Alert severity="error">Не удалось загрузить бронирования для management-экрана.</Alert>
+      )}
 
       {listQuery.data && (
         <Paper>
@@ -185,7 +228,7 @@ export function BookingManagementPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {listQuery.data.items.map((booking) => (
+              {visibleItems.map((booking) => (
                 <TableRow key={booking.id} hover>
                   <TableCell>{booking.id}</TableCell>
                   <TableCell>{booking.user_id}</TableCell>
@@ -199,9 +242,9 @@ export function BookingManagementPage() {
           </Table>
           <TablePagination
             component="div"
-            count={listQuery.data.meta.total}
-            page={Math.floor(listQuery.data.meta.offset / listQuery.data.meta.limit)}
-            rowsPerPage={listQuery.data.meta.limit}
+            count={(query.statuses?.length ?? 0) > 0 ? filteredItems.length : listQuery.data.meta.total}
+            page={Math.floor((query.offset ?? 0) / (query.limit ?? DEFAULT_LIMIT))}
+            rowsPerPage={query.limit ?? DEFAULT_LIMIT}
             onPageChange={(_, page) => applyQuery({ offset: page * (query.limit ?? DEFAULT_LIMIT) })}
             onRowsPerPageChange={(e) => applyQuery({ limit: Number(e.target.value), offset: 0 })}
             rowsPerPageOptions={[5, 10, 20, 50]}
