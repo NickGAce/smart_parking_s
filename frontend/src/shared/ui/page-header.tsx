@@ -30,7 +30,7 @@ export function PageHeader({ title, breadcrumbs }: { title: string; breadcrumbs:
           ),
         )}
       </Breadcrumbs>
-      <Typography variant="h4">{title}</Typography>
+      <Typography variant="pageTitle">{title}</Typography>
     </Stack>
   );
 }

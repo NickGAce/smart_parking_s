@@ -20,7 +20,7 @@ export function PageSection({ title, subtitle, actions, children }: PageSectionP
           mb={2}
         >
           <Stack spacing={0.75}>
-            {title && <Typography variant="h6">{title}</Typography>}
+            {title && <Typography variant="sectionTitle">{title}</Typography>}
             {subtitle && (
               <Typography variant="body2" color="text.secondary">
                 {subtitle}
