@@ -14,6 +14,7 @@ import {
   ListItemButton,
   ListItemText,
   Stack,
+  Typography,
   Toolbar,
   useMediaQuery,
   useTheme,
@@ -24,6 +25,7 @@ import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-rout
 import { getMenuByRole } from '../../app/router/route-config';
 import { useAuth } from '../../features/auth/use-auth';
 import { useUnreadNotificationsCountQuery } from '../../features/notifications/use-notifications-query';
+import { userRoleLabels } from '../../shared/config/display-labels';
 import { PageHeader } from '../../shared/ui/page-header';
 import { findRouteByPathname } from '../../app/router/route-config';
 
@@ -62,9 +64,9 @@ export function AppShell() {
       <Toolbar />
       <Box sx={{ px: 2, py: 3 }}>
         <Stack spacing={1}>
-          <Avatar>{user.email[0]?.toUpperCase() ?? 'U'}</Avatar>
+          <Avatar sx={{ bgcolor: 'primary.main' }}>{user.email[0]?.toUpperCase() ?? 'П'}</Avatar>
           <Box sx={{ wordBreak: 'break-all', fontSize: 13 }}>{user.email}</Box>
-          <Chip size="small" label={`role: ${user.role}`} />
+          <Chip size="small" label={`Роль: ${userRoleLabels[user.role]}`} />
         </Stack>
       </Box>
       <Divider />
@@ -101,18 +103,20 @@ export function AppShell() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
+      <AppBar position="fixed" color="inherit" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <Stack direction="row" spacing={1} alignItems="center">
             {!isDesktop && (
-              <IconButton color="inherit" onClick={() => setMobileOpen(true)}>
+              <IconButton color="primary" onClick={() => setMobileOpen(true)} aria-label="Открыть меню">
                 <MenuRoundedIcon />
               </IconButton>
             )}
-            <Box sx={{ fontWeight: 600 }}>Smart Parking • Demo</Box>
+            <Typography variant="subtitle1" fontWeight={700} color="text.primary">
+              Smart Parking
+            </Typography>
           </Stack>
           <Button
-            color="inherit"
+            color="primary"
             startIcon={<LogoutRoundedIcon />}
             onClick={() => {
               logout();
@@ -148,8 +152,8 @@ export function AppShell() {
 
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
         <Toolbar />
-        <PageHeader title={routeMeta?.title ?? 'Page'} breadcrumbs={breadcrumbs} />
-        <Box sx={{ maxWidth: 1200 }}>
+        <PageHeader title={routeMeta?.title ?? 'Страница'} breadcrumbs={breadcrumbs} />
+        <Box sx={{ maxWidth: 1280 }}>
           <Outlet />
         </Box>
       </Box>
