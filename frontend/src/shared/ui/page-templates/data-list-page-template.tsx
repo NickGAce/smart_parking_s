@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import { Box, Stack, type SxProps, type Theme } from '@mui/material';
+import { Box, Stack, Typography, type SxProps, type Theme } from '@mui/material';
 
 import { ContentCard } from '../content-card';
-import { EntityHeader } from '../entity-header';
 import { PageContentLayout } from '../page-content-layout';
 import { PageState } from '../page-state';
+import { ToolbarActions } from '../toolbar-actions';
 
 interface DataListPageTemplateProps {
   title: ReactNode;
@@ -37,20 +37,26 @@ export function DataListPageTemplate({
   emptyText,
   stateSx,
 }: DataListPageTemplateProps) {
-  const stateNode = <PageState isLoading={isLoading} errorText={errorText} isEmpty={isEmpty} emptyText={emptyText} />;
+  const hasState = Boolean(isLoading || errorText || isEmpty);
 
   return (
     <PageContentLayout maxWidth={1280} spacing={2.5}>
-      <EntityHeader title={title} subtitle={subtitle} meta={headerMeta} actions={headerActions} />
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }} gap={1.5}>
+        <Stack spacing={0.5}>
+          {headerMeta ? <Typography variant="tableLabel" color="text.secondary">{headerMeta}</Typography> : null}
+          <Typography variant="sectionTitle">{title}</Typography>
+          {subtitle ? <Typography variant="body2" color="text.secondary">{subtitle}</Typography> : null}
+        </Stack>
+        {headerActions ? <ToolbarActions>{headerActions}</ToolbarActions> : null}
+      </Stack>
       {topBanner}
       {kpiStrip ? <Box>{kpiStrip}</Box> : null}
       {filters ? <Box>{filters}</Box> : null}
-      {stateNode ? (
+      {hasState ? (
         <Stack spacing={2}>
-          {!isLoading && !errorText && !isEmpty ? dataView : null}
-          {(isLoading || errorText || isEmpty) && (
-            <ContentCard sx={{ p: { xs: 3, md: 5 }, ...stateSx }}>{stateNode}</ContentCard>
-          )}
+          <ContentCard sx={{ p: { xs: 3, md: 5 }, ...stateSx }}>
+            <PageState isLoading={isLoading} errorText={errorText} isEmpty={isEmpty} emptyText={emptyText} />
+          </ContentCard>
         </Stack>
       ) : (
         dataView

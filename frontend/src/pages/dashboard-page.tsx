@@ -13,7 +13,7 @@ export function DashboardPage() {
     <DashboardPageTemplate
       title="Обзор системы"
       subtitle="Оперативная сводка по аккаунту, парковкам и ближайшим действиям."
-      meta="Dashboard"
+      meta="Панель проекта"
       heroExtra={<Alert severity="info">Текущий пользователь: {user?.email} ({user ? userRoleLabels[user.role] : '—'}).</Alert>}
       kpis={(
         <>
@@ -35,7 +35,7 @@ export function DashboardPage() {
         <Stack spacing={2}>
           <SectionHeader title="События и алерты" subtitle="Последние важные уведомления и операционные задачи." />
           <Alert severity="warning">Пока показывается базовый плейсхолдер; подключение live-ленты — следующий шаг.</Alert>
-          <Typography variant="body2" color="text.secondary">Рекомендуется начать миграцию с уведомлений и бронирований для максимальной полезности блока.</Typography>
+          <Typography variant="body2" color="text.secondary">Рекомендуем следующими подключить виджеты уведомлений и бронирований.</Typography>
         </Stack>
       )}
     />

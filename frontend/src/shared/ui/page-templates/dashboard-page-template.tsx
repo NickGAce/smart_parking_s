@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import { Grid, Stack } from '@mui/material';
+import { Grid, Stack, Typography } from '@mui/material';
 
 import { ContentCard } from '../content-card';
-import { EntityHeader } from '../entity-header';
 import { PageContentLayout } from '../page-content-layout';
+import { ToolbarActions } from '../toolbar-actions';
 
 interface DashboardPageTemplateProps {
   title: ReactNode;
@@ -28,21 +28,24 @@ export function DashboardPageTemplate({
 }: DashboardPageTemplateProps) {
   return (
     <PageContentLayout maxWidth={1280} spacing={2.5}>
-      <ContentCard>
-        <Stack spacing={2}>
-          <EntityHeader title={title} subtitle={subtitle} meta={meta} actions={heroActions} />
-          {heroExtra}
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }} gap={1.5}>
+        <Stack spacing={0.5}>
+          {meta ? <Typography variant="tableLabel" color="text.secondary">{meta}</Typography> : null}
+          <Typography variant="sectionTitle">{title}</Typography>
+          {subtitle ? <Typography color="text.secondary">{subtitle}</Typography> : null}
         </Stack>
-      </ContentCard>
+        {heroActions ? <ToolbarActions>{heroActions}</ToolbarActions> : null}
+      </Stack>
+      {heroExtra ? <ContentCard sx={{ p: { xs: 1.5, md: 2 } }}>{heroExtra}</ContentCard> : null}
 
       {kpis ? <Grid container spacing={2}>{kpis}</Grid> : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={8}>
-          <ContentCard>{analytics}</ContentCard>
+          {analytics ? <ContentCard>{analytics}</ContentCard> : null}
         </Grid>
         <Grid item xs={12} lg={4}>
-          <ContentCard>{activity}</ContentCard>
+          {activity ? <ContentCard>{activity}</ContentCard> : null}
         </Grid>
       </Grid>
     </PageContentLayout>

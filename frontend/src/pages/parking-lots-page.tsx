@@ -60,8 +60,8 @@ export function ParkingLotsPage() {
   return (
     <>
       <DataListPageTemplate
-        title="Парковки"
-        subtitle="Единый список парковок с быстрым доступом к просмотру и редактированию."
+        title="Каталог парковок"
+        subtitle="Список парковок с быстрым доступом к просмотру и редактированию."
         headerMeta={`Всего объектов: ${totalLots}`}
         topBanner={!canManage ? <Alert severity="info">Режим только чтение для вашей роли. Просмотр разрешен, управление отключено.</Alert> : null}
         kpiStrip={(
@@ -118,55 +118,55 @@ export function ParkingLotsPage() {
           <ContentCard padded={false}>
             <Box sx={{ display: { xs: 'none', md: 'block' } }}>
               <Box sx={{ p: 2.5 }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Название</TableCell>
-                  <TableCell>Адрес</TableCell>
-                  <TableCell>Мест</TableCell>
-                  <TableCell>Режим доступа</TableCell>
-                  <TableCell align="right">Действия</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {lotsQuery.data.items.map((lot) => (
-                  <TableRow key={lot.id}>
-                    <TableCell>{lot.id}</TableCell>
-                    <TableCell>{lot.name}</TableCell>
-                    <TableCell>{lot.address}</TableCell>
-                    <TableCell>{lot.total_spots}</TableCell>
-                    <TableCell>
-                      <StatusChip
-                        status={lot.access_mode}
-                        mapping={{ [lot.access_mode]: { label: accessModeLabels[lot.access_mode], color: 'default' } }}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button component={RouterLink} to={`/parking-lots/${lot.id}`} startIcon={<VisibilityOutlinedIcon />} size="small">
-                        Открыть
-                      </Button>
-                      <Button
-                        component={RouterLink}
-                        to={`/parking-lots/${lot.id}?mode=edit`}
-                        startIcon={<EditOutlinedIcon />}
-                        size="small"
-                        disabled={!canManage}
-                      >
-                        Редактировать
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <PaginationControls
-              count={lotsQuery.data.meta.total}
-              page={Math.floor(lotsQuery.data.meta.offset / lotsQuery.data.meta.limit)}
-              rowsPerPage={lotsQuery.data.meta.limit}
-              onPageChange={(page) => setQuery((prev) => ({ ...prev, offset: page * (prev.limit ?? 10) }))}
-              onRowsPerPageChange={(rowsPerPage) => setQuery((prev) => ({ ...prev, limit: rowsPerPage, offset: 0 }))}
-            />
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ID</TableCell>
+                      <TableCell>Название</TableCell>
+                      <TableCell>Адрес</TableCell>
+                      <TableCell>Мест</TableCell>
+                      <TableCell>Режим доступа</TableCell>
+                      <TableCell align="right">Действия</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {lotsQuery.data.items.map((lot) => (
+                      <TableRow key={lot.id}>
+                        <TableCell>{lot.id}</TableCell>
+                        <TableCell>{lot.name}</TableCell>
+                        <TableCell>{lot.address}</TableCell>
+                        <TableCell>{lot.total_spots}</TableCell>
+                        <TableCell>
+                          <StatusChip
+                            status={lot.access_mode}
+                            mapping={{ [lot.access_mode]: { label: accessModeLabels[lot.access_mode], color: 'default' } }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Button component={RouterLink} to={`/parking-lots/${lot.id}`} startIcon={<VisibilityOutlinedIcon />} size="small">
+                            Открыть
+                          </Button>
+                          <Button
+                            component={RouterLink}
+                            to={`/parking-lots/${lot.id}?mode=edit`}
+                            startIcon={<EditOutlinedIcon />}
+                            size="small"
+                            disabled={!canManage}
+                          >
+                            Редактировать
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <PaginationControls
+                  count={lotsQuery.data.meta.total}
+                  page={Math.floor(lotsQuery.data.meta.offset / lotsQuery.data.meta.limit)}
+                  rowsPerPage={lotsQuery.data.meta.limit}
+                  onPageChange={(page) => setQuery((prev) => ({ ...prev, offset: page * (prev.limit ?? 10) }))}
+                  onRowsPerPageChange={(rowsPerPage) => setQuery((prev) => ({ ...prev, limit: rowsPerPage, offset: 0 }))}
+                />
               </Box>
             </Box>
 

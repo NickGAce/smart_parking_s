@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Stack } from '@mui/material';
+import { Box, Stack } from '@mui/material';
 
 import { ContentCard } from '../content-card';
 import { EntityHeader } from '../entity-header';
@@ -33,16 +33,9 @@ export function FormPageTemplate({
       {helperText ? <ContentCard sx={{ p: { xs: 1.5, md: 2 } }}>{helperText}</ContentCard> : null}
       <Stack spacing={2.5}>{formSections}</Stack>
       {stickyActions ? (
-        <ContentCard
-          sx={{
-            position: 'sticky',
-            bottom: 12,
-            zIndex: 5,
-            boxShadow: (theme) => theme.foundation.shadows.md,
-          }}
-        >
+        <Box sx={{ position: 'sticky', bottom: 12, zIndex: 5 }}>
           {stickyActions}
-        </ContentCard>
+        </Box>
       ) : null}
     </PageContentLayout>
   );
