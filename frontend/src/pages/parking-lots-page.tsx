@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  Grid,
   InputLabel,
   MenuItem,
   Select,
@@ -65,10 +66,14 @@ export function ParkingLotsPage() {
         headerMeta={`Всего объектов: ${totalLots}`}
         topBanner={!canManage ? <Alert severity="info">Режим только чтение для вашей роли. Просмотр разрешен, управление отключено.</Alert> : null}
         kpiStrip={(
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-            <MetricCard label="Парковок в каталоге" value={totalLots} helperText="С учетом пагинации и выбранной сортировки." />
-            <MetricCard label="Мест на текущей странице" value={totalSpots} helperText="Сумма total_spots по видимым парковкам." />
-          </Stack>
+          <Grid container spacing={1.5}>
+            <Grid item xs={12} md={6}>
+              <MetricCard label="Парковок в каталоге" value={totalLots} helperText="С учетом пагинации и выбранной сортировки." />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <MetricCard label="Мест на текущей странице" value={totalSpots} helperText="Сумма total_spots по видимым парковкам." />
+            </Grid>
+          </Grid>
         )}
         filters={(
           <FiltersToolbar
@@ -115,7 +120,7 @@ export function ParkingLotsPage() {
         isEmpty={Boolean(lotsQuery.data && lotsQuery.data.items.length === 0)}
         emptyText="Парковки не найдены. Создайте первую парковку или измените параметры списка."
         dataView={lotsQuery.data && lotsQuery.data.items.length > 0 ? (
-          <ContentCard padded={false}>
+          <ContentCard padded={false} sx={{ borderRadius: (theme) => theme.foundation.radius.xs }}>
             <Box sx={{ display: { xs: 'none', md: 'block' } }}>
               <Box sx={{ p: 2.5 }}>
                 <Table>

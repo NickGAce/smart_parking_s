@@ -40,7 +40,7 @@ export function DataListPageTemplate({
   const hasState = Boolean(isLoading || errorText || isEmpty);
 
   return (
-    <PageContentLayout maxWidth={1280} spacing={2.5}>
+    <PageContentLayout maxWidth="100%" spacing={2.5}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }} gap={1.5}>
         <Stack spacing={0.5}>
           {headerMeta ? <Typography variant="tableLabel" color="text.secondary">{headerMeta}</Typography> : null}
@@ -54,7 +54,7 @@ export function DataListPageTemplate({
       {filters ? <Box>{filters}</Box> : null}
       {hasState ? (
         <Stack spacing={2}>
-          <ContentCard sx={{ p: { xs: 3, md: 5 }, ...stateSx }}>
+          <ContentCard sx={{ p: { xs: 3, md: 5 }, borderRadius: (theme) => theme.foundation.radius.xs, ...stateSx }}>
             <PageState isLoading={isLoading} errorText={errorText} isEmpty={isEmpty} emptyText={emptyText} />
           </ContentCard>
         </Stack>

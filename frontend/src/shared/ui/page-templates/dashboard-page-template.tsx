@@ -27,7 +27,7 @@ export function DashboardPageTemplate({
   activity,
 }: DashboardPageTemplateProps) {
   return (
-    <PageContentLayout maxWidth={1280} spacing={2.5}>
+    <PageContentLayout maxWidth="100%" spacing={2.5}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }} gap={1.5}>
         <Stack spacing={0.5}>
           {meta ? <Typography variant="tableLabel" color="text.secondary">{meta}</Typography> : null}
@@ -36,16 +36,16 @@ export function DashboardPageTemplate({
         </Stack>
         {heroActions ? <ToolbarActions>{heroActions}</ToolbarActions> : null}
       </Stack>
-      {heroExtra ? <ContentCard sx={{ p: { xs: 1.5, md: 2 } }}>{heroExtra}</ContentCard> : null}
+      {heroExtra ? <ContentCard sx={{ p: { xs: 1.5, md: 2 }, borderRadius: (theme) => theme.foundation.radius.xs }}>{heroExtra}</ContentCard> : null}
 
       {kpis ? <Grid container spacing={2}>{kpis}</Grid> : null}
 
       <Grid container spacing={2}>
         <Grid item xs={12} lg={8}>
-          {analytics ? <ContentCard>{analytics}</ContentCard> : null}
+          {analytics ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs }}>{analytics}</ContentCard> : null}
         </Grid>
         <Grid item xs={12} lg={4}>
-          {activity ? <ContentCard>{activity}</ContentCard> : null}
+          {activity ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs }}>{activity}</ContentCard> : null}
         </Grid>
       </Grid>
     </PageContentLayout>
