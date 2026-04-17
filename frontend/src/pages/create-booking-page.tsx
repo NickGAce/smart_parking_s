@@ -1,4 +1,4 @@
-import { Alert, Button, FormControlLabel, MenuItem, Paper, Radio, RadioGroup, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Button, FormControlLabel, MenuItem, Radio, RadioGroup, Stack, TextField, Typography } from '@mui/material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,9 @@ import { IntervalPicker } from '../features/bookings/components/interval-picker'
 import { RecommendationList } from '../features/bookings/components/recommendation-list';
 import { AvailabilityTable } from '../features/bookings/components/availability-table';
 import { useParkingLotsQuery } from '../features/parking-lots/hooks';
+import { ActionBar } from '../shared/ui/action-bar';
+import { FormSection } from '../shared/ui/form-section';
+import { FormPageTemplate } from '../shared/ui/page-templates';
 import type { Booking, CreateBookingPayload } from '../shared/types/booking';
 import type { ApiError } from '../shared/types/common';
 import type { RecommendationRequestPayload, RecommendationResult } from '../shared/types/recommendation';
@@ -283,178 +286,135 @@ export function CreateBookingPage() {
 
   if (successBooking) {
     return (
-      <Paper sx={{ p: 3 }}>
-        <Stack spacing={1.5}>
-          <Alert severity="success">
-            Бронирование #{successBooking.id} успешно создано. Режим назначения: {successBooking.assignment_mode}.
-          </Alert>
-          {successBooking.assignment_explanation && <Alert severity="info">{successBooking.assignment_explanation}</Alert>}
-          {successBooking.assignment_metadata && (
-            <Alert severity="info">Metadata: {JSON.stringify(successBooking.assignment_metadata, null, 2)}</Alert>
-          )}
-          <Button variant="contained" onClick={() => navigate('/my-bookings')}>Перейти в My bookings</Button>
-          <Button variant="outlined" onClick={() => navigate(NEXT_ROUTE_BY_ROLE[role] ?? '/my-bookings')}>
-            Перейти к списку бронирований
-          </Button>
-        </Stack>
-      </Paper>
+      <FormPageTemplate
+        title={`Бронирование #${successBooking.id} создано`}
+        subtitle="Заявка успешно сохранена и готова к дальнейшей работе."
+        helperText={<Alert severity="success">Режим назначения: {successBooking.assignment_mode}.</Alert>}
+        formSections={(
+          <FormSection title="Результат операции">
+            <Stack spacing={1.5}>
+              {successBooking.assignment_explanation && <Alert severity="info">{successBooking.assignment_explanation}</Alert>}
+              {successBooking.assignment_metadata && (
+                <Alert severity="info">Metadata: {JSON.stringify(successBooking.assignment_metadata, null, 2)}</Alert>
+              )}
+            </Stack>
+          </FormSection>
+        )}
+        stickyActions={(
+          <ActionBar
+            actions={(
+              <>
+                <Button variant="contained" onClick={() => navigate('/my-bookings')}>Перейти в мои бронирования</Button>
+                <Button variant="outlined" onClick={() => navigate(NEXT_ROUTE_BY_ROLE[role] ?? '/my-bookings')}>
+                  Перейти к списку бронирований
+                </Button>
+              </>
+            )}
+          />
+        )}
+      />
     );
   }
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Stack spacing={2.5}>
-        <Typography variant="h5">Создание бронирования</Typography>
-        <Alert severity="info">
-          Выберите интервал и парковку, затем создайте бронь вручную или через рекомендательную логику.
-        </Alert>
-
-        <IntervalPicker
-          startTimeLocal={startTimeLocal}
-          endTimeLocal={endTimeLocal}
-          onStartTimeChange={setStartTimeLocal}
-          onEndTimeChange={setEndTimeLocal}
-          startError={intervalErrors.start}
-          endError={intervalErrors.end}
-        />
-
-        <TextField
-          select
-          label="Parking lot"
-          value={parkingLotId}
-          onChange={(event) => setParkingLotId(Number(event.target.value))}
-          helperText="Выберите лот для ручного или auto назначения"
-          disabled={parkingLotsQuery.isLoading || !parkingLotsQuery.data?.items.length}
-        >
-          {parkingLotsQuery.data?.items.map((lot) => (
-            <MenuItem key={lot.id} value={lot.id}>{lot.name} (#{lot.id})</MenuItem>
-          ))}
-        </TextField>
-        {parkingLotsQuery.isError && (
-          <Alert severity="error">
-            Не удалось загрузить список парковок. Без этого шага создать бронирование нельзя.
-          </Alert>
-        )}
-        {!parkingLotsQuery.isLoading && !parkingLotsQuery.isError && parkingLotsQuery.data?.items.length === 0 && (
-          <Alert severity="warning">
-            Нет доступных парковок для бронирования. Попросите администратора создать парковку и места.
-          </Alert>
-        )}
-
-        <Stack spacing={0.5}>
-          <Typography variant="subtitle2">Режим назначения</Typography>
-          <RadioGroup row value={mode} onChange={(event) => setMode(event.target.value as 'manual' | 'auto')}>
-            <FormControlLabel value="manual" control={<Radio />} label="manual (выбор места вручную)" />
-            <FormControlLabel value="auto" control={<Radio />} label="auto (рекомендации + auto_assign)" />
-          </RadioGroup>
-        </Stack>
-
-        {bookingErrorMessage && <Alert severity="error">{bookingErrorMessage}</Alert>}
-
-        {mode === 'manual' && (
-          <Stack spacing={1.5}>
-            <Typography variant="h6">Ручной выбор места</Typography>
-            {availableSpotsQuery.error && (
-              <Alert severity="error">{getStatusErrorMessage(availableSpotsQuery.error as unknown as ApiError)}</Alert>
-            )}
-            <AvailabilityTable
-              items={availableSpotsQuery.data?.items ?? []}
-              selectedSpotId={selectedSpotId}
-              onSelect={setSelectedSpotId}
+    <FormPageTemplate
+      title="Создание бронирования"
+      subtitle="Выберите интервал и парковку, затем создайте бронь вручную или через рекомендательную логику."
+      helperText={<Alert severity="info">Форма поддерживает ручной и автоматический режим назначения места.</Alert>}
+      formSections={(
+        <>
+          <FormSection title="Параметры бронирования">
+            <IntervalPicker
+              startTimeLocal={startTimeLocal}
+              endTimeLocal={endTimeLocal}
+              onStartTimeChange={setStartTimeLocal}
+              onEndTimeChange={setEndTimeLocal}
+              startError={intervalErrors.start}
+              endError={intervalErrors.end}
             />
-            <Button
-              variant="contained"
-              onClick={submitManual}
-              disabled={!selectedSpotId || createBookingMutation.isPending || !hasValidSelection}
+
+            <TextField
+              select
+              label="Парковка"
+              value={parkingLotId}
+              onChange={(event) => setParkingLotId(Number(event.target.value))}
+              helperText="Выберите парковку для ручного или авто-назначения."
+              disabled={parkingLotsQuery.isLoading || !parkingLotsQuery.data?.items.length}
             >
-              Создать бронирование (manual)
-            </Button>
-          </Stack>
-        )}
+              {parkingLotsQuery.data?.items.map((lot) => (
+                <MenuItem key={lot.id} value={lot.id}>{lot.name} (#{lot.id})</MenuItem>
+              ))}
+            </TextField>
+            {parkingLotsQuery.isError && <Alert severity="error">Не удалось загрузить список парковок. Без этого шага создать бронирование нельзя.</Alert>}
+            {!parkingLotsQuery.isLoading && !parkingLotsQuery.isError && parkingLotsQuery.data?.items.length === 0 && (
+              <Alert severity="warning">Нет доступных парковок для бронирования. Попросите администратора создать парковку и места.</Alert>
+            )}
 
-        {mode === 'auto' && (
-          <Stack spacing={1.5}>
-            <Typography variant="h6">Авто-подбор места</Typography>
-
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                type="number"
-                label="Max results"
-                value={maxResults}
-                onChange={(event) => setMaxResults(Math.max(1, Number(event.target.value) || 1))}
-                sx={{ maxWidth: 180 }}
-              />
-              <TextField
-                select
-                label="Requires charger"
-                value={requiresCharger ? 'yes' : 'no'}
-                onChange={(event) => setRequiresCharger(event.target.value === 'yes')}
-                sx={{ maxWidth: 220 }}
-              >
-                <MenuItem value="no">No</MenuItem>
-                <MenuItem value="yes">Yes</MenuItem>
-              </TextField>
-              <TextField
-                select
-                label="Prefer charger"
-                value={preferCharger ? 'yes' : 'no'}
-                onChange={(event) => setPreferCharger(event.target.value === 'yes')}
-                sx={{ maxWidth: 220 }}
-              >
-                <MenuItem value="no">No</MenuItem>
-                <MenuItem value="yes">Yes</MenuItem>
-              </TextField>
+            <Stack spacing={0.5}>
+              <Typography variant="subtitle2">Режим назначения</Typography>
+              <RadioGroup row value={mode} onChange={(event) => setMode(event.target.value as 'manual' | 'auto')}>
+                <FormControlLabel value="manual" control={<Radio />} label="manual (выбор места вручную)" />
+                <FormControlLabel value="auto" control={<Radio />} label="auto (рекомендации + auto_assign)" />
+              </RadioGroup>
             </Stack>
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <TextField
-                select
-                label="Vehicle type"
-                value={vehicleType}
-                onChange={(event) => setVehicleType(event.target.value as VehicleType | '')}
-                sx={{ maxWidth: 220 }}
-              >
-                <MenuItem value="">Any</MenuItem>
-                {VEHICLE_TYPE_OPTIONS.map((option) => (
-                  <MenuItem key={option} value={option}>{option}</MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Size category"
-                value={sizeCategory}
-                onChange={(event) => setSizeCategory(event.target.value as SizeCategory | '')}
-                sx={{ maxWidth: 220 }}
-              >
-                <MenuItem value="">Any</MenuItem>
-                {SIZE_CATEGORY_OPTIONS.map((option) => (
-                  <MenuItem key={option} value={option}>{option}</MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Spot types"
-                SelectProps={{ multiple: true }}
-                value={spotTypes}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setSpotTypes(Array.isArray(next) ? (next as SpotType[]) : String(next).split(',') as SpotType[]);
-                }}
-                sx={{ minWidth: 260 }}
-              >
-                {SPOT_TYPE_OPTIONS.map((option) => (
-                  <MenuItem key={option} value={option}>{option}</MenuItem>
-                ))}
-              </TextField>
-            </Stack>
+            {bookingErrorMessage && <Alert severity="error">{bookingErrorMessage}</Alert>}
+          </FormSection>
 
-            <Button variant="outlined" onClick={requestRecommendations} disabled={!hasValidSelection || recommendationsMutation.isPending}>
-              Получить рекомендации
-            </Button>
+          {mode === 'manual' && (
+            <FormSection title="Ручной выбор места">
+              {availableSpotsQuery.error && <Alert severity="error">{getStatusErrorMessage(availableSpotsQuery.error as unknown as ApiError)}</Alert>}
+              <AvailabilityTable items={availableSpotsQuery.data?.items ?? []} selectedSpotId={selectedSpotId} onSelect={setSelectedSpotId} />
+            </FormSection>
+          )}
 
-            {recommendationErrorMessage && <Alert severity="error">{recommendationErrorMessage}</Alert>}
+          {mode === 'auto' && (
+            <FormSection title="Автоподбор места" subtitle="Настройте ограничения и предпочтения для рекомендации">
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField
+                  type="number"
+                  label="Максимум вариантов"
+                  value={maxResults}
+                  onChange={(event) => setMaxResults(Math.max(1, Number(event.target.value) || 1))}
+                  sx={{ maxWidth: 220 }}
+                />
+                <TextField select label="Требуется зарядка" value={requiresCharger ? 'yes' : 'no'} onChange={(event) => setRequiresCharger(event.target.value === 'yes')} sx={{ maxWidth: 220 }}>
+                  <MenuItem value="no">Нет</MenuItem>
+                  <MenuItem value="yes">Да</MenuItem>
+                </TextField>
+                <TextField select label="Предпочесть зарядку" value={preferCharger ? 'yes' : 'no'} onChange={(event) => setPreferCharger(event.target.value === 'yes')} sx={{ maxWidth: 220 }}>
+                  <MenuItem value="no">Нет</MenuItem>
+                  <MenuItem value="yes">Да</MenuItem>
+                </TextField>
+              </Stack>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <TextField select label="Тип транспорта" value={vehicleType} onChange={(event) => setVehicleType(event.target.value as VehicleType | '')} sx={{ maxWidth: 240 }}>
+                  <MenuItem value="">Любой</MenuItem>
+                  {VEHICLE_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                </TextField>
+                <TextField select label="Размер места" value={sizeCategory} onChange={(event) => setSizeCategory(event.target.value as SizeCategory | '')} sx={{ maxWidth: 240 }}>
+                  <MenuItem value="">Любой</MenuItem>
+                  {SIZE_CATEGORY_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                </TextField>
+                <TextField
+                  select
+                  label="Типы мест"
+                  SelectProps={{ multiple: true }}
+                  value={spotTypes}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setSpotTypes(Array.isArray(next) ? (next as SpotType[]) : (String(next).split(',') as SpotType[]));
+                  }}
+                  sx={{ minWidth: 260 }}
+                >
+                  {SPOT_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                </TextField>
+              </Stack>
+              <Button variant="outlined" onClick={requestRecommendations} disabled={!hasValidSelection || recommendationsMutation.isPending}>
+                Получить рекомендации
+              </Button>
+              {recommendationErrorMessage && <Alert severity="error">{recommendationErrorMessage}</Alert>}
 
-            {recommendationsMutation.data && (
-              <>
+              {recommendationsMutation.data && (
                 <RecommendationList
                   result={recommendationsMutation.data}
                   selectedSpotId={selectedSpotId}
@@ -462,18 +422,37 @@ export function CreateBookingPage() {
                   onConfirmAuto={submitAuto}
                   isSubmitting={createBookingMutation.isPending}
                 />
-                <Button
-                  variant="contained"
-                  disabled={!selectedSpotId || createBookingMutation.isPending}
-                  onClick={submitRecommendedSpot}
-                >
-                  Создать бронирование по выбранной рекомендации
+              )}
+            </FormSection>
+          )}
+        </>
+      )}
+      stickyActions={(
+        <ActionBar
+          actions={(
+            <>
+              {mode === 'manual' ? (
+                <Button variant="contained" onClick={submitManual} disabled={!selectedSpotId || createBookingMutation.isPending || !hasValidSelection}>
+                  Создать бронирование (manual)
                 </Button>
-              </>
-            )}
-          </Stack>
-        )}
-      </Stack>
-    </Paper>
+              ) : (
+                <>
+                  <Button variant="contained" onClick={submitAuto} disabled={!hasValidSelection || createBookingMutation.isPending}>
+                    Создать бронирование (auto)
+                  </Button>
+                  <Button variant="outlined" disabled={!selectedSpotId || createBookingMutation.isPending} onClick={submitRecommendedSpot}>
+                    Создать по выбранной рекомендации
+                  </Button>
+                </>
+              )}
+            </>
+          )}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Убедитесь, что интервал и парковка выбраны корректно перед отправкой формы.
+          </Typography>
+        </ActionBar>
+      )}
+    />
   );
 }
