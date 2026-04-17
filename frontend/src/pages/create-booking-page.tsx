@@ -305,6 +305,9 @@ export function CreateBookingPage() {
     <Paper sx={{ p: 3 }}>
       <Stack spacing={2.5}>
         <Typography variant="h5">Создание бронирования</Typography>
+        <Alert severity="info">
+          Выберите интервал и парковку, затем создайте бронь вручную или через рекомендательную логику.
+        </Alert>
 
         <IntervalPicker
           startTimeLocal={startTimeLocal}
@@ -321,11 +324,22 @@ export function CreateBookingPage() {
           value={parkingLotId}
           onChange={(event) => setParkingLotId(Number(event.target.value))}
           helperText="Выберите лот для ручного или auto назначения"
+          disabled={parkingLotsQuery.isLoading || !parkingLotsQuery.data?.items.length}
         >
           {parkingLotsQuery.data?.items.map((lot) => (
             <MenuItem key={lot.id} value={lot.id}>{lot.name} (#{lot.id})</MenuItem>
           ))}
         </TextField>
+        {parkingLotsQuery.isError && (
+          <Alert severity="error">
+            Не удалось загрузить список парковок. Без этого шага создать бронирование нельзя.
+          </Alert>
+        )}
+        {!parkingLotsQuery.isLoading && !parkingLotsQuery.isError && parkingLotsQuery.data?.items.length === 0 && (
+          <Alert severity="warning">
+            Нет доступных парковок для бронирования. Попросите администратора создать парковку и места.
+          </Alert>
+        )}
 
         <Stack spacing={0.5}>
           <Typography variant="subtitle2">Режим назначения</Typography>

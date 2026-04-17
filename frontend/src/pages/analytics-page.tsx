@@ -53,7 +53,7 @@ export function AnalyticsPage() {
       />
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Summary KPI cards</Typography>
+        <Typography variant="h6" gutterBottom>Сводные KPI</Typography>
         <SummaryKpiSection
           isLoading={queries.summaryQuery.isLoading}
           isError={queries.summaryQuery.isError}
@@ -62,7 +62,7 @@ export function AnalyticsPage() {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Occupancy section</Typography>
+        <Typography variant="h6" gutterBottom>Загрузка парковки</Typography>
         <OccupancySection
           isLoading={queries.occupancyQuery.isLoading}
           isError={queries.occupancyQuery.isError}
@@ -71,7 +71,7 @@ export function AnalyticsPage() {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Bookings metrics section</Typography>
+        <Typography variant="h6" gutterBottom>Метрики бронирований</Typography>
         <BookingsMetricsSection
           isLoading={queries.bookingsQuery.isLoading}
           isError={queries.bookingsQuery.isError}
@@ -80,7 +80,7 @@ export function AnalyticsPage() {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Forecast section</Typography>
+        <Typography variant="h6" gutterBottom>Прогноз загрузки</Typography>
         <ForecastSection
           isLoading={queries.forecastQuery.isLoading}
           isError={queries.forecastQuery.isError}
@@ -89,7 +89,7 @@ export function AnalyticsPage() {
       </Paper>
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Anomalies section</Typography>
+        <Typography variant="h6" gutterBottom>Аномалии</Typography>
         <AnomaliesSection
           role={role}
           isLoading={queries.anomaliesQuery.isLoading}
