@@ -6,6 +6,7 @@ import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom
 import { useCurrentUser } from '../features/auth/use-current-user';
 import { parkingApiErrorMessage } from '../features/parking-lots/error-messages';
 import { useParkingLotQuery, useParkingLotRulesQuery, useReplaceParkingLotRulesMutation, useUpdateParkingLotMutation } from '../features/parking-lots/hooks';
+import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
 import { ParkingLotForm } from '../features/parking-lots/parking-lot-form';
 import { RulesEditor } from '../features/parking-lots/rules-editor';
 
@@ -15,7 +16,7 @@ export function ParkingLotDetailsPage() {
   const { role } = useCurrentUser();
 
   const parkingLotId = Number(lotId);
-  const canManage = role === 'admin' || role === 'owner';
+  const canManage = hasRole(role, MANAGEMENT_ROLES);
   const isEditMode = searchParams.get('mode') === 'edit';
 
   const lotQuery = useParkingLotQuery(parkingLotId);

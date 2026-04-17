@@ -1,3 +1,4 @@
+import { BOOKING_SELF_SERVICE_ROLES, MANAGEMENT_ROLES, hasRole } from './roles';
 import type { BookingStatus, UserRole } from '../types/common';
 
 export type BookingAction = 'open_details' | 'edit' | 'change_status' | 'cancel';
@@ -5,11 +6,7 @@ export type BookingAction = 'open_details' | 'edit' | 'change_status' | 'cancel'
 const terminalStatuses: BookingStatus[] = ['completed', 'cancelled', 'expired', 'no_show'];
 
 export function canCancelBooking(status: BookingStatus, role?: UserRole): boolean {
-  if (!role) {
-    return false;
-  }
-
-  if (!['admin', 'owner', 'tenant'].includes(role)) {
+  if (!hasRole(role, BOOKING_SELF_SERVICE_ROLES)) {
     return false;
   }
 
@@ -17,11 +14,7 @@ export function canCancelBooking(status: BookingStatus, role?: UserRole): boolea
 }
 
 export function canEditBooking(status: BookingStatus, role?: UserRole): boolean {
-  if (!role) {
-    return false;
-  }
-
-  if (!['admin', 'owner', 'tenant'].includes(role)) {
+  if (!hasRole(role, BOOKING_SELF_SERVICE_ROLES)) {
     return false;
   }
 
@@ -29,11 +22,7 @@ export function canEditBooking(status: BookingStatus, role?: UserRole): boolean 
 }
 
 export function canChangeStatus(status: BookingStatus, role?: UserRole): boolean {
-  if (!role) {
-    return false;
-  }
-
-  if (role !== 'admin' && role !== 'owner') {
+  if (!hasRole(role, MANAGEMENT_ROLES)) {
     return false;
   }
 

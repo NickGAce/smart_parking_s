@@ -3,11 +3,12 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { Alert, Button, IconButton, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 
+import { ALL_USER_ROLES } from '../../shared/config/roles';
 import type { UserRole } from '../../shared/types/common';
 import type { AccessMode, ParkingLotRules, ScheduleExceptionItem, WorkingHourItem } from '../../shared/types/parking';
 
 const accessModes: AccessMode[] = ['employees_only', 'guests_only', 'mixed'];
-const roles: UserRole[] = ['admin', 'owner', 'tenant', 'guard', 'uk'];
+const roles: UserRole[] = ALL_USER_ROLES;
 const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function defaultWorkingHours(): WorkingHourItem[] {

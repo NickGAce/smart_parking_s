@@ -16,12 +16,6 @@ async function refreshOperationalData(queryClient: ReturnType<typeof useQueryCli
     queryClient.invalidateQueries({ queryKey: bookingsQueryKeys.detail(bookingId) }),
     queryClient.invalidateQueries({ queryKey: parkingSpotsQueryKeys.all }),
   ]);
-
-  await Promise.all([
-    queryClient.refetchQueries({ queryKey: bookingsQueryKeys.all, type: 'active' }),
-    queryClient.refetchQueries({ queryKey: bookingsQueryKeys.detail(bookingId), type: 'active' }),
-    queryClient.refetchQueries({ queryKey: parkingSpotsQueryKeys.all, type: 'active' }),
-  ]);
 }
 
 export function useBookingsQuery(params?: BookingsQuery, options?: LiveQueryOptions) {

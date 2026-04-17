@@ -5,7 +5,18 @@ import type { ApiError, ApiErrorEnvelope, FastApiValidationErrorItem } from '../
 const isValidationArray = (value: unknown): value is FastApiValidationErrorItem[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'object' && item !== null && 'msg' in item);
 
+const isApiError = (value: unknown): value is ApiError => (
+  typeof value === 'object'
+  && value !== null
+  && 'message' in value
+  && 'code' in value
+);
+
 export const adaptApiError = (error: unknown): ApiError => {
+  if (isApiError(error)) {
+    return error;
+  }
+
   if (!axios.isAxiosError(error)) {
     return {
       message: 'Unexpected error',

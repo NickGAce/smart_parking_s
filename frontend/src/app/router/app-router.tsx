@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 
 import { AppLayout } from '../layouts/app-layout';

@@ -30,6 +30,7 @@ import { parkingApiErrorMessage } from '../features/parking-lots/error-messages'
 import { useCreateParkingLotMutation, useParkingLotsQuery } from '../features/parking-lots/hooks';
 import { ParkingLotForm } from '../features/parking-lots/parking-lot-form';
 import { useCurrentUser } from '../features/auth/use-current-user';
+import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
 import { FiltersToolbar } from '../shared/ui/filters-toolbar';
 import { LoadingState } from '../shared/ui/loading-state';
 import { PaginationControls } from '../shared/ui/pagination-controls';
@@ -44,7 +45,7 @@ export function ParkingLotsPage() {
   const [query, setQuery] = useState<ParkingLotsQuery>({ limit: 10, offset: 0, sort_by: 'name', sort_order: 'asc' });
   const [createOpen, setCreateOpen] = useState(false);
 
-  const canManage = role === 'admin' || role === 'owner';
+  const canManage = hasRole(role, MANAGEMENT_ROLES);
   const lotsQuery = useParkingLotsQuery(query);
   const createMutation = useCreateParkingLotMutation();
 
