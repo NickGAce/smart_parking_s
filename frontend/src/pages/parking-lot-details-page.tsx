@@ -10,10 +10,10 @@ import { RulesEditor } from '../features/parking-lots/rules-editor';
 import { useParkingLotQuery, useParkingLotRulesQuery, useReplaceParkingLotRulesMutation, useUpdateParkingLotMutation } from '../features/parking-lots/hooks';
 import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
 import { accessModeLabels } from '../shared/config/display-labels';
-import { EntityHeader } from '../shared/ui/entity-header';
 import { FormSection } from '../shared/ui/form-section';
 import { KeyValueList } from '../shared/ui/key-value-list';
-import { PageContentLayout } from '../shared/ui/page-content-layout';
+import { MetricCard } from '../shared/ui/metric-card';
+import { DetailsPageTemplate } from '../shared/ui/page-templates';
 
 export function ParkingLotDetailsPage() {
   const { lotId } = useParams();
@@ -44,76 +44,88 @@ export function ParkingLotDetailsPage() {
   }
 
   return (
-    <PageContentLayout>
-      <EntityHeader
-        title={lotQuery.data?.name ? `Парковка «${lotQuery.data.name}»` : `Парковка #${parkingLotId}`}
-        subtitle="Управление базовой информацией и правилами доступа парковки."
-        actions={(
-          <>
-            <Button startIcon={<ArrowBackIcon />} component={RouterLink} to="/parking-lots">Подробнее</Button>
-            <Button variant={isEditMode ? 'contained' : 'outlined'} disabled={!canManage} onClick={() => setSearchParams(isEditMode ? {} : { mode: 'edit' })}>
-              {isEditMode ? 'Сохранить' : 'Редактировать'}
-            </Button>
-          </>
-        )}
-      />
-
-      {!canManage && <Alert severity="info">Режим только чтение: детали и правила доступны для просмотра.</Alert>}
-      {topError && <Alert severity="error">{topError}</Alert>}
-
-      {(lotQuery.isLoading || rulesQuery.isLoading) && <CircularProgress />}
-
-      {lotQuery.data && (
-        <Grid container spacing={2}>
-          <Grid item xs={12} lg={6}>
-            <FormSection title="Базовая информация">
-              {isEditMode ? (
-                <ParkingLotForm
-                  initial={lotQuery.data}
-                  title="Параметры парковки"
-                  submitLabel="Сохранить"
-                  disabled={updateLotMutation.isPending}
-                  readOnly={!canManage}
-                  serverError={updateLotMutation.isError ? parkingApiErrorMessage(updateLotMutation.error, 'Не удалось обновить парковку.') : null}
-                  onSubmit={(payload) => updateLotMutation.mutate(payload)}
-                />
-              ) : (
-                <Stack spacing={1}>
-                  <KeyValueList
-                    items={[
-                      { key: 'Название', value: lotQuery.data.name },
-                      { key: 'Адрес', value: lotQuery.data.address },
-                      { key: 'Всего мест', value: lotQuery.data.total_spots },
-                      { key: 'Гостевые места', value: `${lotQuery.data.guest_spot_percentage}%` },
-                      { key: 'Режим доступа', value: accessModeLabels[lotQuery.data.access_mode] },
-                      {
-                        key: 'Разрешённые роли',
-                        value: lotQuery.data.allowed_user_roles.length ? lotQuery.data.allowed_user_roles.join(', ') : 'Не ограничено',
-                      },
-                    ]}
-                  />
-                </Stack>
-              )}
-            </FormSection>
-          </Grid>
-
-          <Grid item xs={12} lg={6}>
-            <FormSection title="Правила">
-              {rulesQuery.data ? (
-                <RulesEditor
-                  initial={rulesQuery.data}
-                  disabled={updateRulesMutation.isPending}
-                  readOnly={!canManage}
-                  serverError={updateRulesMutation.isError ? parkingApiErrorMessage(updateRulesMutation.error, 'Не удалось обновить правила.') : null}
-                  onSubmit={(payload) => updateRulesMutation.mutate(payload)}
-                />
-              ) : (
-                <Typography color="text.secondary">Правила пока недоступны.</Typography>
-              )}
-            </FormSection>
-          </Grid>
-        </Grid>
+    <DetailsPageTemplate
+      meta={`ID парковки: ${parkingLotId}`}
+      title={lotQuery.data?.name ? `Парковка «${lotQuery.data.name}»` : `Парковка #${parkingLotId}`}
+      subtitle="Управление базовой информацией и правилами доступа парковки."
+      primaryActions={(
+        <>
+          <Button startIcon={<ArrowBackIcon />} component={RouterLink} to="/parking-lots">К списку</Button>
+          <Button variant={isEditMode ? 'contained' : 'outlined'} disabled={!canManage} onClick={() => setSearchParams(isEditMode ? {} : { mode: 'edit' })}>
+            {isEditMode ? 'Сохранить' : 'Редактировать'}
+          </Button>
+        </>
       )}
-    </PageContentLayout>
+      topBanner={(
+        <Stack spacing={1.5}>
+          {!canManage && <Alert severity="info">Режим только чтение: детали и правила доступны для просмотра.</Alert>}
+          {topError && <Alert severity="error">{topError}</Alert>}
+        </Stack>
+      )}
+      summaryCards={lotQuery.data ? (
+        <>
+          <Grid item xs={12} sm={4}><MetricCard label="Всего мест" value={lotQuery.data.total_spots} /></Grid>
+          <Grid item xs={12} sm={4}><MetricCard label="Гостевые места" value={`${lotQuery.data.guest_spot_percentage}%`} /></Grid>
+          <Grid item xs={12} sm={4}><MetricCard label="Режим доступа" value={accessModeLabels[lotQuery.data.access_mode]} /></Grid>
+        </>
+      ) : null}
+      relatedSections={(
+        <>
+          {(lotQuery.isLoading || rulesQuery.isLoading) && <CircularProgress />}
+          {lotQuery.data && (
+            <Grid container spacing={2}>
+              <Grid item xs={12} lg={6}>
+                <FormSection title="Базовая информация">
+                  {isEditMode ? (
+                    <ParkingLotForm
+                      initial={lotQuery.data}
+                      title="Параметры парковки"
+                      submitLabel="Сохранить"
+                      disabled={updateLotMutation.isPending}
+                      readOnly={!canManage}
+                      serverError={updateLotMutation.isError ? parkingApiErrorMessage(updateLotMutation.error, 'Не удалось обновить парковку.') : null}
+                      onSubmit={(payload) => updateLotMutation.mutate(payload)}
+                    />
+                  ) : (
+                    <Stack spacing={1}>
+                      <KeyValueList
+                        items={[
+                          { key: 'Название', value: lotQuery.data.name },
+                          { key: 'Адрес', value: lotQuery.data.address },
+                          { key: 'Всего мест', value: lotQuery.data.total_spots },
+                          { key: 'Гостевые места', value: `${lotQuery.data.guest_spot_percentage}%` },
+                          { key: 'Режим доступа', value: accessModeLabels[lotQuery.data.access_mode] },
+                          {
+                            key: 'Разрешённые роли',
+                            value: lotQuery.data.allowed_user_roles.length ? lotQuery.data.allowed_user_roles.join(', ') : 'Не ограничено',
+                          },
+                        ]}
+                      />
+                    </Stack>
+                  )}
+                </FormSection>
+              </Grid>
+
+              <Grid item xs={12} lg={6}>
+                <FormSection title="Правила">
+                  {rulesQuery.data ? (
+                    <RulesEditor
+                      initial={rulesQuery.data}
+                      disabled={updateRulesMutation.isPending}
+                      readOnly={!canManage}
+                      serverError={updateRulesMutation.isError ? parkingApiErrorMessage(updateRulesMutation.error, 'Не удалось обновить правила.') : null}
+                      onSubmit={(payload) => updateRulesMutation.mutate(payload)}
+                    />
+                  ) : (
+                    <Typography color="text.secondary">Правила пока недоступны.</Typography>
+                  )}
+                </FormSection>
+              </Grid>
+            </Grid>
+          )}
+        </>
+      )}
+      secondaryActions={<Typography color="text.secondary">Подсказка: изменения в правилах применяются сразу после успешного сохранения.</Typography>}
+    />
   );
 }
