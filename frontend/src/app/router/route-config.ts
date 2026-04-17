@@ -34,9 +34,9 @@ export const routeConfig: AppRouteConfig[] = [
   { path: '/403', title: 'Доступ запрещен', component: ForbiddenPage },
   {
     path: '/dashboard',
-    title: 'Панель проекта',
+    title: 'Панель управления',
     component: DashboardPage,
-    menuLabel: 'Панель проекта',
+    menuLabel: 'Панель управления',
     roles: ALL_USER_ROLES,
     showInMenu: true,
   },
@@ -106,7 +106,7 @@ export const routeConfig: AppRouteConfig[] = [
   },
   {
     path: '/admin-users',
-    title: 'Администрирование пользователей',
+    title: 'Пользователи и роли',
     component: AdminUsersPage,
     menuLabel: 'Пользователи',
     roles: ['admin'],
