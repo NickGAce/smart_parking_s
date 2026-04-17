@@ -1,5 +1,7 @@
-import { Button, Paper, Stack, type StackProps } from '@mui/material';
 import type { ReactNode } from 'react';
+import { Stack, type StackProps } from '@mui/material';
+
+import { FiltersSection } from './filters-section';
 
 interface FiltersToolbarProps {
   children: ReactNode;
@@ -12,25 +14,19 @@ interface FiltersToolbarProps {
 export function FiltersToolbar({
   children,
   onReset,
-  resetLabel = 'Сбросить фильтры',
+  resetLabel = 'Сбросить',
   actions,
   direction = { xs: 'column', md: 'row' },
 }: FiltersToolbarProps) {
   return (
-    <Paper sx={{ p: 2 }}>
-      <Stack direction={direction} spacing={2} justifyContent="space-between">
-        <Stack direction={direction} spacing={2} flexWrap="wrap">
-          {children}
-        </Stack>
-        <Stack direction="row" spacing={1.5}>
-          {onReset && (
-            <Button variant="outlined" onClick={onReset}>
-              {resetLabel}
-            </Button>
-          )}
-          {actions}
-        </Stack>
+    <FiltersSection
+      onReset={onReset}
+      resetLabel={resetLabel}
+      actions={actions}
+    >
+      <Stack direction={direction} spacing={2} flexWrap="wrap" useFlexGap>
+        {children}
       </Stack>
-    </Paper>
+    </FiltersSection>
   );
 }

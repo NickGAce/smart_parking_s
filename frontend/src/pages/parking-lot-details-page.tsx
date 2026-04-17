@@ -1,14 +1,19 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { Alert, Button, CircularProgress, Grid, Paper, Stack, Typography } from '@mui/material';
+import { Alert, Button, CircularProgress, Grid, Stack, Typography } from '@mui/material';
 import { useMemo } from 'react';
 import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
 
 import { useCurrentUser } from '../features/auth/use-current-user';
 import { parkingApiErrorMessage } from '../features/parking-lots/error-messages';
-import { useParkingLotQuery, useParkingLotRulesQuery, useReplaceParkingLotRulesMutation, useUpdateParkingLotMutation } from '../features/parking-lots/hooks';
-import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
 import { ParkingLotForm } from '../features/parking-lots/parking-lot-form';
 import { RulesEditor } from '../features/parking-lots/rules-editor';
+import { useParkingLotQuery, useParkingLotRulesQuery, useReplaceParkingLotRulesMutation, useUpdateParkingLotMutation } from '../features/parking-lots/hooks';
+import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
+import { accessModeLabels } from '../shared/config/display-labels';
+import { EntityHeader } from '../shared/ui/entity-header';
+import { FormSection } from '../shared/ui/form-section';
+import { KeyValueList } from '../shared/ui/key-value-list';
+import { PageContentLayout } from '../shared/ui/page-content-layout';
 
 export function ParkingLotDetailsPage() {
   const { lotId } = useParams();
@@ -35,20 +40,25 @@ export function ParkingLotDetailsPage() {
   }, [lotQuery.error, lotQuery.isError, rulesQuery.error, rulesQuery.isError]);
 
   if (!Number.isFinite(parkingLotId) || parkingLotId <= 0) {
-    return <Alert severity="error">Некорректный parking_lot_id.</Alert>;
+    return <Alert severity="error">Некорректный идентификатор парковки.</Alert>;
   }
 
   return (
-    <Stack spacing={2}>
+    <PageContentLayout>
+      <EntityHeader
+        title={lotQuery.data?.name ? `Парковка «${lotQuery.data.name}»` : `Парковка #${parkingLotId}`}
+        subtitle="Управление базовой информацией и правилами доступа парковки."
+        actions={(
+          <>
+            <Button startIcon={<ArrowBackIcon />} component={RouterLink} to="/parking-lots">Подробнее</Button>
+            <Button variant={isEditMode ? 'contained' : 'outlined'} disabled={!canManage} onClick={() => setSearchParams(isEditMode ? {} : { mode: 'edit' })}>
+              {isEditMode ? 'Сохранить' : 'Редактировать'}
+            </Button>
+          </>
+        )}
+      />
 
-      <Stack direction="row" spacing={1}>
-        <Button startIcon={<ArrowBackIcon />} component={RouterLink} to="/parking-lots">К списку</Button>
-        <Button variant={isEditMode ? 'contained' : 'outlined'} disabled={!canManage} onClick={() => setSearchParams(isEditMode ? {} : { mode: 'edit' })}>
-          {isEditMode ? 'Завершить редактирование' : 'Редактировать'}
-        </Button>
-      </Stack>
-
-      {!canManage && <Alert severity="info">Роль с read-only доступом: можно просматривать детали и rules.</Alert>}
+      {!canManage && <Alert severity="info">Режим только чтение: детали и правила доступны для просмотра.</Alert>}
       {topError && <Alert severity="error">{topError}</Alert>}
 
       {(lotQuery.isLoading || rulesQuery.isLoading) && <CircularProgress />}
@@ -56,12 +66,12 @@ export function ParkingLotDetailsPage() {
       {lotQuery.data && (
         <Grid container spacing={2}>
           <Grid item xs={12} lg={6}>
-            <Paper sx={{ p: 2 }}>
+            <FormSection title="Базовая информация">
               {isEditMode ? (
                 <ParkingLotForm
                   initial={lotQuery.data}
-                  title="Базовая информация"
-                  submitLabel="Сохранить изменения"
+                  title="Параметры парковки"
+                  submitLabel="Сохранить"
                   disabled={updateLotMutation.isPending}
                   readOnly={!canManage}
                   serverError={updateLotMutation.isError ? parkingApiErrorMessage(updateLotMutation.error, 'Не удалось обновить парковку.') : null}
@@ -69,35 +79,41 @@ export function ParkingLotDetailsPage() {
                 />
               ) : (
                 <Stack spacing={1}>
-                  <Typography variant="h6">Базовая информация</Typography>
-                  <Typography><b>Название:</b> {lotQuery.data.name}</Typography>
-                  <Typography><b>Адрес:</b> {lotQuery.data.address}</Typography>
-                  <Typography><b>Всего мест:</b> {lotQuery.data.total_spots}</Typography>
-                  <Typography><b>Гостевые места:</b> {lotQuery.data.guest_spot_percentage}%</Typography>
-                  <Typography><b>Access mode:</b> {lotQuery.data.access_mode}</Typography>
-                  <Typography><b>Allowed roles:</b> {lotQuery.data.allowed_user_roles.length ? lotQuery.data.allowed_user_roles.join(', ') : 'не ограничено'}</Typography>
+                  <KeyValueList
+                    items={[
+                      { key: 'Название', value: lotQuery.data.name },
+                      { key: 'Адрес', value: lotQuery.data.address },
+                      { key: 'Всего мест', value: lotQuery.data.total_spots },
+                      { key: 'Гостевые места', value: `${lotQuery.data.guest_spot_percentage}%` },
+                      { key: 'Режим доступа', value: accessModeLabels[lotQuery.data.access_mode] },
+                      {
+                        key: 'Разрешённые роли',
+                        value: lotQuery.data.allowed_user_roles.length ? lotQuery.data.allowed_user_roles.join(', ') : 'Не ограничено',
+                      },
+                    ]}
+                  />
                 </Stack>
               )}
-            </Paper>
+            </FormSection>
           </Grid>
 
           <Grid item xs={12} lg={6}>
-            <Paper sx={{ p: 2 }}>
+            <FormSection title="Правила">
               {rulesQuery.data ? (
                 <RulesEditor
                   initial={rulesQuery.data}
                   disabled={updateRulesMutation.isPending}
                   readOnly={!canManage}
-                  serverError={updateRulesMutation.isError ? parkingApiErrorMessage(updateRulesMutation.error, 'Не удалось обновить rules.') : null}
+                  serverError={updateRulesMutation.isError ? parkingApiErrorMessage(updateRulesMutation.error, 'Не удалось обновить правила.') : null}
                   onSubmit={(payload) => updateRulesMutation.mutate(payload)}
                 />
               ) : (
                 <Typography color="text.secondary">Правила пока недоступны.</Typography>
               )}
-            </Paper>
+            </FormSection>
           </Grid>
         </Grid>
       )}
-    </Stack>
+    </PageContentLayout>
   );
 }
