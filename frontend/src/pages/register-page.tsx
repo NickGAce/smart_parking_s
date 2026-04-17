@@ -39,7 +39,10 @@ export function RegisterPage() {
             registerMutation.mutate({ email, password });
           }}
         >
-          <Typography variant="h5">Register</Typography>
+          <Typography variant="h5">Регистрация пользователя</Typography>
+          <Typography variant="body2" color="text.secondary">
+            После успешной регистрации выполняется автоматический вход в систему.
+          </Typography>
           {alertText && <Alert severity="error">{alertText}</Alert>}
           <TextField
             label="Email"
@@ -56,10 +59,10 @@ export function RegisterPage() {
             required
           />
           <Button type="submit" variant="contained" disabled={registerMutation.isPending}>
-            {registerMutation.isPending ? 'Creating...' : 'Create account'}
+            {registerMutation.isPending ? 'Создаем аккаунт...' : 'Зарегистрироваться'}
           </Button>
           <Button component={RouterLink} to="/login">
-            Back to login
+            Назад ко входу
           </Button>
         </Stack>
       </Paper>

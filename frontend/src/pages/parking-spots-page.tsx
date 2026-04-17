@@ -263,8 +263,19 @@ export function ParkingSpotsPage() {
 
       {listQuery.isError && <ApiErrorAlert message={parkingApiErrorMessage(listQuery.error, 'Не удалось загрузить parking spots.')} />}
       {listQuery.isLoading && <LoadingState message="Загрузка parking spots..." />}
+      {(createMutation.isSuccess || updateMutation.isSuccess || deleteMutation.isSuccess) && (
+        <Alert severity="success">Изменения успешно сохранены.</Alert>
+      )}
+      {listQuery.data && listQuery.data.items.length === 0 && (
+        <Paper sx={{ p: 4 }}>
+          <Typography variant="h6">Места не найдены</Typography>
+          <Typography color="text.secondary">
+            Для выбранных фильтров список пуст. Сбросьте фильтры или создайте новое место.
+          </Typography>
+        </Paper>
+      )}
 
-      {listQuery.data && (
+      {listQuery.data && listQuery.data.items.length > 0 && (
         <Paper>
           <Table>
             <TableHead>

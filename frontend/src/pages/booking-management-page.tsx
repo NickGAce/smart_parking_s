@@ -18,6 +18,7 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Typography,
 } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -230,12 +231,15 @@ export function BookingManagementPage() {
           {bookingLifecycleErrorMessage(lifecycleError, 'Lifecycle операция отклонена backend. Статус мог измениться в фоне.')}
         </Alert>
       )}
+      {(checkInMutation.isSuccess || checkOutMutation.isSuccess || markNoShowMutation.isSuccess) && (
+        <Alert severity="success">Lifecycle-операция выполнена. Данные в таблице уже обновлены.</Alert>
+      )}
 
       {listQuery.isError && (
         <Alert severity="error">Не удалось загрузить бронирования для management-экрана.</Alert>
       )}
 
-      {listQuery.data && (
+      {listQuery.data && visibleItems.length > 0 && (
         <Paper>
           <Table>
             <TableHead>
@@ -277,6 +281,14 @@ export function BookingManagementPage() {
             onRowsPerPageChange={(e) => applyQuery({ limit: Number(e.target.value), offset: 0 })}
             rowsPerPageOptions={[5, 10, 20, 50]}
           />
+        </Paper>
+      )}
+      {listQuery.data && visibleItems.length === 0 && (
+        <Paper sx={{ p: 4 }}>
+          <Typography variant="h6">Бронирования не найдены</Typography>
+          <Typography color="text.secondary">
+            Измените фильтры, период или статус, чтобы увидеть данные для управления lifecycle.
+          </Typography>
         </Paper>
       )}
 

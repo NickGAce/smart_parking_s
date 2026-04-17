@@ -62,7 +62,10 @@ export function LoginPage() {
             );
           }}
         >
-          <Typography variant="h5">Login</Typography>
+          <Typography variant="h5">Вход в Smart Parking</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Для демо используйте тестового пользователя с нужной ролью.
+          </Typography>
           {alertText && <Alert severity="error">{alertText}</Alert>}
           <TextField
             label="Email"
@@ -79,10 +82,10 @@ export function LoginPage() {
             required
           />
           <Button type="submit" variant="contained" disabled={loginMutation.isPending}>
-            {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
+            {loginMutation.isPending ? 'Выполняем вход...' : 'Войти'}
           </Button>
           <Button component={RouterLink} to="/register">
-            Create account
+            Создать аккаунт
           </Button>
         </Stack>
       </Paper>

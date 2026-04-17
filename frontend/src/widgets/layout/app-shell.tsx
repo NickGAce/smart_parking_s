@@ -43,14 +43,14 @@ export function AppShell() {
 
   const breadcrumbs = useMemo(() => {
     if (!routeMeta) {
-      return [{ label: 'Home', to: '/' }, { label: 'Unknown page' }];
+      return [{ label: 'Главная', to: '/' }, { label: 'Неизвестная страница' }];
     }
 
     if (routeMeta.path === '/dashboard') {
-      return [{ label: 'Dashboard' }];
+      return [{ label: 'Панель проекта' }];
     }
 
-    return [{ label: 'Dashboard', to: '/dashboard' }, { label: routeMeta.title }];
+    return [{ label: 'Панель проекта', to: '/dashboard' }, { label: routeMeta.title }];
   }, [routeMeta]);
 
   if (!user) {
@@ -109,7 +109,7 @@ export function AppShell() {
                 <MenuRoundedIcon />
               </IconButton>
             )}
-            <Box sx={{ fontWeight: 600 }}>Smart Parking SPA</Box>
+            <Box sx={{ fontWeight: 600 }}>Smart Parking • Demo</Box>
           </Stack>
           <Button
             color="inherit"
@@ -119,7 +119,7 @@ export function AppShell() {
               navigate('/login');
             }}
           >
-            Logout
+            Выйти
           </Button>
         </Toolbar>
       </AppBar>
