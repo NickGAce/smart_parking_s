@@ -153,7 +153,7 @@ export function AppShell() {
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
         <Toolbar />
         <PageHeader title={routeMeta?.title ?? 'Страница'} breadcrumbs={breadcrumbs} />
-        <Box sx={{ maxWidth: 1280 }}>
+        <Box sx={{ width: '100%' }}>
           <Outlet />
         </Box>
       </Box>
