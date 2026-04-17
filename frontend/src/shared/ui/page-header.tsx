@@ -10,7 +10,7 @@ interface Crumb {
 export function PageHeader({ title, breadcrumbs }: { title: string; breadcrumbs: Crumb[] }) {
   return (
     <Stack spacing={1.5} mb={3}>
-      <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} aria-label="breadcrumb">
+      <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} aria-label="Навигация по разделам">
         {breadcrumbs.map((crumb) =>
           crumb.to ? (
             <Typography
