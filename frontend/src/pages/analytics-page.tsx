@@ -5,6 +5,7 @@ import { useAnalyticsDashboard } from '../features/analytics/use-analytics-dashb
 import type { AnalyticsDashboardFilters } from '../features/analytics/use-analytics-dashboard';
 import { useCurrentUser } from '../features/auth/use-current-user';
 import { useParkingLotsQuery } from '../features/parking-lots/use-parking-lots-query';
+import { ANALYTICS_ANOMALY_FILTER_ROLES, hasRole } from '../shared/config/roles';
 import { DashboardFilters } from '../widgets/analytics/dashboard-filters';
 import { AnomaliesSection } from '../widgets/analytics/sections/anomalies-section';
 import { BookingsMetricsSection } from '../widgets/analytics/sections/bookings-metrics-section';
@@ -34,7 +35,7 @@ export function AnalyticsPage() {
   );
 
   const queries = useAnalyticsDashboard(filters, role);
-  const canManageAnomalyUser = role === 'admin' || role === 'owner' || role === 'guard';
+  const canManageAnomalyUser = hasRole(role, ANALYTICS_ANOMALY_FILTER_ROLES);
 
   return (
     <Stack spacing={2}>

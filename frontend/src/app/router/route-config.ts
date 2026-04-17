@@ -15,6 +15,7 @@ import { ParkingLotDetailsPage } from '../../pages/parking-lot-details-page';
 import { ParkingLotsPage } from '../../pages/parking-lots-page';
 import { ParkingSpotsPage } from '../../pages/parking-spots-page';
 import { RegisterPage } from '../../pages/register-page';
+import { ALL_USER_ROLES, ROLES_WITH_SPOT_CATALOG_ACCESS } from '../../shared/config/roles';
 import type { UserRole } from '../../shared/types/common';
 
 export interface AppRouteConfig {
@@ -36,7 +37,7 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'Dashboard',
     component: DashboardPage,
     menuLabel: 'Dashboard',
-    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
+    roles: ALL_USER_ROLES,
     showInMenu: true,
   },
   {
@@ -44,14 +45,14 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'Parking lots',
     component: ParkingLotsPage,
     menuLabel: 'Parking lots',
-    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
+    roles: ALL_USER_ROLES,
     showInMenu: true,
   },
   {
     path: '/parking-lots/:lotId',
     title: 'Parking lot details',
     component: ParkingLotDetailsPage,
-    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
+    roles: ALL_USER_ROLES,
     showInMenu: false,
   },
   {
@@ -59,7 +60,7 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'Parking spots',
     component: ParkingSpotsPage,
     menuLabel: 'Parking spots',
-    roles: ['admin', 'owner', 'tenant', 'guard'],
+    roles: ROLES_WITH_SPOT_CATALOG_ACCESS,
     showInMenu: true,
   },
   {
@@ -67,7 +68,7 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'My bookings',
     component: MyBookingsPage,
     menuLabel: 'My bookings',
-    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
+    roles: ALL_USER_ROLES,
     showInMenu: true,
   },
 
@@ -76,7 +77,7 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'Create booking',
     component: CreateBookingPage,
     menuLabel: 'Create booking',
-    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
+    roles: ALL_USER_ROLES,
     showInMenu: true,
   },
   {
@@ -92,7 +93,7 @@ export const routeConfig: AppRouteConfig[] = [
     title: 'Notifications',
     component: NotificationsPage,
     menuLabel: 'Notifications',
-    roles: ['admin', 'owner', 'tenant', 'guard', 'uk'],
+    roles: ALL_USER_ROLES,
     showInMenu: true,
   },
   {

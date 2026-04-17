@@ -1,4 +1,5 @@
-import { type ReactNode, createContext, useContext, useEffect, useMemo, useState } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { type ReactNode, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { authApi } from '../../entities/auth/api';
 import { meApi } from '../../entities/me/api';
@@ -78,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  const login = async (payload: LoginPayload) => {
+  const login = useCallback(async (payload: LoginPayload) => {
     setStatus('loading');
     setError(null);
 
@@ -97,9 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(toAuthError(loginError, 'Не удалось войти в систему.'));
       throw loginError;
     }
-  };
+  }, []);
 
-  const register = async (payload: RegisterPayload) => {
+  const register = useCallback(async (payload: RegisterPayload) => {
     setError(null);
 
     try {
@@ -109,17 +110,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(toAuthError(registerError, 'Не удалось зарегистрировать пользователя.'));
       throw registerError;
     }
-  };
+  }, [login]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     tokenStorage.clear();
     setAccessToken(null);
     setUser(null);
     setError(null);
     setStatus('unauthenticated');
-  };
+  }, []);
 
-  const clearError = () => setError(null);
+  const clearError = useCallback(() => setError(null), []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -134,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       clearError,
     }),
-    [accessToken, error, status, user],
+    [accessToken, clearError, error, login, logout, register, status, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

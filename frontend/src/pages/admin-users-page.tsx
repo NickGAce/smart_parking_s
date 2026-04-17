@@ -14,9 +14,10 @@ import { useMemo, useState } from 'react';
 import { useCreateUserMutation } from '../features/admin-users/use-create-user-mutation';
 import { useUpdateUserRoleMutation } from '../features/admin-users/use-update-user-role-mutation';
 import { adaptApiError } from '../shared/api/error-adapter';
+import { ALL_USER_ROLES } from '../shared/config/roles';
 import type { UserRole } from '../shared/types/common';
 
-const roleOptions: UserRole[] = ['admin', 'owner', 'tenant', 'guard', 'uk'];
+const roleOptions: UserRole[] = ALL_USER_ROLES;
 
 function formatFieldErrors(fieldErrors?: Array<{ loc: Array<string | number>; msg: string }>) {
   if (!fieldErrors || fieldErrors.length === 0) {

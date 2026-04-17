@@ -48,6 +48,7 @@ import {
 } from '../features/parking-spots/hooks';
 import { ParkingSpotForm } from '../features/parking-spots/parking-spot-form';
 import { effectiveStatusMap } from '../shared/config/status-map';
+import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
 import { ApiErrorAlert } from '../shared/ui/api-error-alert';
 import { ConfirmDialog } from '../shared/ui/confirm-dialog';
 import { FiltersToolbar } from '../shared/ui/filters-toolbar';
@@ -60,6 +61,14 @@ import type { ParkingSpot, ParkingSpotsQuery } from '../shared/types/parking';
 const DEFAULT_LIMIT = 10;
 
 type ParkingSpotsSortBy = NonNullable<ParkingSpotsQuery['sort_by']>;
+
+const parseEnumParam = <T extends string>(value: string | null, allowedValues: readonly T[]): T | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  return allowedValues.includes(value as T) ? (value as T) : undefined;
+};
 
 const parseNumberParam = (value: string | null): number | undefined => {
   if (!value) {
@@ -83,18 +92,18 @@ function parseQuery(searchParams: URLSearchParams): ParkingSpotsQuery {
   return {
     from: searchParams.get('from') ?? undefined,
     to: searchParams.get('to') ?? undefined,
-    spot_type: (searchParams.get('spot_type') as ParkingSpotsQuery['spot_type']) ?? undefined,
-    vehicle_type: (searchParams.get('vehicle_type') as ParkingSpotsQuery['vehicle_type']) ?? undefined,
-    size_category: (searchParams.get('size_category') as ParkingSpotsQuery['size_category']) ?? undefined,
+    spot_type: parseEnumParam(searchParams.get('spot_type'), parkingSpotTypeOptions),
+    vehicle_type: parseEnumParam(searchParams.get('vehicle_type'), parkingSpotVehicleTypeOptions),
+    size_category: parseEnumParam(searchParams.get('size_category'), parkingSpotSizeCategoryOptions),
     has_charger: parseBooleanParam(searchParams.get('has_charger')),
     zone_id: parseNumberParam(searchParams.get('zone_id')),
     zone_name: searchParams.get('zone_name') ?? undefined,
     parking_lot_id: parseNumberParam(searchParams.get('parking_lot_id')),
-    status: (searchParams.get('status') as ParkingSpotsQuery['status']) ?? undefined,
+    status: parseEnumParam(searchParams.get('status'), parkingSpotRawStatusOptions),
     limit: parseNumberParam(searchParams.get('limit')) ?? DEFAULT_LIMIT,
     offset: parseNumberParam(searchParams.get('offset')) ?? 0,
-    sort_by: (searchParams.get('sort_by') as ParkingSpotsSortBy) ?? 'id',
-    sort_order: (searchParams.get('sort_order') as SortOrder) ?? 'asc',
+    sort_by: parseEnumParam(searchParams.get('sort_by'), parkingSpotSortByOptions) ?? 'id',
+    sort_order: parseEnumParam(searchParams.get('sort_order'), parkingSpotSortOrderOptions) ?? 'asc',
   };
 }
 
@@ -122,7 +131,7 @@ export function ParkingSpotsPage() {
   const [deletingSpot, setDeletingSpot] = useState<ParkingSpot | null>(null);
   const [drawerSpotId, setDrawerSpotId] = useState<number | null>(null);
 
-  const canManage = role === 'admin' || role === 'owner';
+  const canManage = hasRole(role, MANAGEMENT_ROLES);
 
   const listQuery = useParkingSpotsQuery(query);
   const detailsQuery = useParkingSpotQuery(drawerSpotId ?? 0);

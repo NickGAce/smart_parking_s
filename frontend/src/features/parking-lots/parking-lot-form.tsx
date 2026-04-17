@@ -1,11 +1,12 @@
 import { Alert, Box, Button, Chip, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 
+import { ALL_USER_ROLES } from '../../shared/config/roles';
 import type { UserRole } from '../../shared/types/common';
 import type { AccessMode, CreateParkingLotPayload, ParkingLot } from '../../shared/types/parking';
 
 const accessModes: AccessMode[] = ['employees_only', 'guests_only', 'mixed'];
-const roleOptions: UserRole[] = ['admin', 'owner', 'tenant', 'guard', 'uk'];
+const roleOptions: UserRole[] = ALL_USER_ROLES;
 
 export interface ParkingLotFormValue {
   name: string;

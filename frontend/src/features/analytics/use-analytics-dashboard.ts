@@ -1,6 +1,7 @@
 import { useQueries } from '@tanstack/react-query';
 
 import { analyticsApi } from '../../entities/analytics/api';
+import { ANALYTICS_ANOMALY_FILTER_ROLES, hasRole } from '../../shared/config/roles';
 import type { UserRole } from '../../shared/types/common';
 import type { AnalyticsPeriod } from '../../shared/types/analytics';
 import { analyticsQueryKeys } from './query-keys';
@@ -34,9 +35,7 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
     from: normalizeOptionalString(filters.from),
     to: normalizeOptionalString(filters.to),
     parking_lot_id: filters.parkingLotId ?? undefined,
-    user_id: role === 'admin' || role === 'owner' || role === 'guard'
-      ? filters.anomalyUserId ?? undefined
-      : undefined,
+    user_id: hasRole(role, ANALYTICS_ANOMALY_FILTER_ROLES) ? filters.anomalyUserId ?? undefined : undefined,
   };
 
   const [summaryQuery, occupancyQuery, bookingsQuery, forecastQuery, anomaliesQuery] = useQueries({
