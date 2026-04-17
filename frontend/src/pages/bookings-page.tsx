@@ -1,12 +1,13 @@
-import { Paper, Stack, Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
+
+import { DataPanel } from '../shared/ui/data-panel';
 
 export function BookingsPage() {
   return (
-    <Paper sx={{ p: 3 }}>
+    <DataPanel title="Бронирования" subtitle="Раздел в процессе миграции на новый UI kit.">
       <Stack spacing={1.5}>
-        <Typography variant="h4">Bookings</Typography>
         <Typography color="text.secondary">Страница-заглушка для бронирований.</Typography>
       </Stack>
-    </Paper>
+    </DataPanel>
   );
 }

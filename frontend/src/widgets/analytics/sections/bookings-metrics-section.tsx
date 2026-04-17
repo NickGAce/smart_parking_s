@@ -1,47 +1,43 @@
-import { Chip, Grid, Paper, Stack, Typography } from '@mui/material';
+import { Chip, Grid, Stack, Typography } from '@mui/material';
 
 import { EmptyState } from '../../../shared/ui/empty-state';
 import { ErrorState } from '../../../shared/ui/error-state';
+import { MetricCard } from '../../../shared/ui/metric-card';
 import { LoadingState } from '../../../shared/ui/loading-state';
+import { ContentCard } from '../../../shared/ui/content-card';
 import type { AnalyticsBookings } from '../../../shared/types/analytics';
 
 export function BookingsMetricsSection({ isLoading, isError, data }: { isLoading: boolean; isError: boolean; data?: AnalyticsBookings }) {
-  if (isLoading) return <LoadingState message="Загрузка booking metrics..." />;
-  if (isError) return <ErrorState message="Не удалось загрузить booking metrics." />;
-  if (!data) return <EmptyState title="Нет booking данных" />;
+  if (isLoading) return <LoadingState message="Загрузка метрик бронирований..." />;
+  if (isError) return <ErrorState message="Не удалось загрузить метрики бронирований." />;
+  if (!data) return <EmptyState title="Нет данных по бронированиям" />;
 
   return (
     <Grid container spacing={2}>
       <Grid item xs={12} md={4}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1">Bookings count</Typography>
-          <Typography variant="h4">{data.bookings_count}</Typography>
-        </Paper>
+        <MetricCard label="Бронирований" value={data.bookings_count} />
       </Grid>
       <Grid item xs={12} md={4}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1">Avg duration</Typography>
-          <Typography variant="h4">{data.average_booking_duration_minutes.toFixed(1)} min</Typography>
-        </Paper>
+        <MetricCard label="Средняя длительность" value={`${data.average_booking_duration_minutes.toFixed(1)} мин`} />
       </Grid>
       <Grid item xs={12} md={4}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1">Rates</Typography>
-          <Typography>Cancel: {(data.cancellation_rate * 100).toFixed(1)}%</Typography>
-          <Typography>No-show: {(data.no_show_rate * 100).toFixed(1)}%</Typography>
-        </Paper>
+        <ContentCard sx={{ p: 2, height: '100%' }}>
+          <Typography variant="cardTitle">Доли</Typography>
+          <Typography variant="body2" color="text.secondary">Отмены: {(data.cancellation_rate * 100).toFixed(1)}%</Typography>
+          <Typography variant="body2" color="text.secondary">No-show: {(data.no_show_rate * 100).toFixed(1)}%</Typography>
+        </ContentCard>
       </Grid>
       <Grid item xs={12}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>Status breakdown</Typography>
+        <ContentCard sx={{ p: 2 }}>
+          <Typography variant="cardTitle" gutterBottom>Распределение по статусам</Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {Object.keys(data.status_breakdown).length === 0 ? (
-              <Typography color="text.secondary">No status breakdown available.</Typography>
+              <Typography color="text.secondary">Данные о статусах отсутствуют.</Typography>
             ) : Object.entries(data.status_breakdown).map(([status, count]) => (
               <Chip key={status} label={`${status}: ${count}`} variant="outlined" />
             ))}
           </Stack>
-        </Paper>
+        </ContentCard>
       </Grid>
     </Grid>
   );

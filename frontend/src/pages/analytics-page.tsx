@@ -1,4 +1,4 @@
-import { Alert, Paper, Stack, Typography } from '@mui/material';
+import { Alert } from '@mui/material';
 import { useMemo, useState } from 'react';
 
 import { useAnalyticsDashboard } from '../features/analytics/use-analytics-dashboard';
@@ -6,6 +6,8 @@ import type { AnalyticsDashboardFilters } from '../features/analytics/use-analyt
 import { useCurrentUser } from '../features/auth/use-current-user';
 import { useParkingLotsQuery } from '../features/parking-lots/use-parking-lots-query';
 import { ANALYTICS_ANOMALY_FILTER_ROLES, hasRole } from '../shared/config/roles';
+import { DataPanel } from '../shared/ui/data-panel';
+import { PageContentLayout } from '../shared/ui/page-content-layout';
 import { DashboardFilters } from '../widgets/analytics/dashboard-filters';
 import { AnomaliesSection } from '../widgets/analytics/sections/anomalies-section';
 import { BookingsMetricsSection } from '../widgets/analytics/sections/bookings-metrics-section';
@@ -38,10 +40,9 @@ export function AnalyticsPage() {
   const canManageAnomalyUser = hasRole(role, ANALYTICS_ANOMALY_FILTER_ROLES);
 
   return (
-    <Stack spacing={2}>
-
+    <PageContentLayout>
       <Alert severity="info">
-        Dashboard агрегируется на клиенте через отдельные endpoints: summary, occupancy, bookings, forecast, anomalies.
+        Дашборд агрегируется на клиенте через отдельные endpoint-ы: summary, occupancy, bookings, forecast, anomalies.
       </Alert>
 
       <DashboardFilters
@@ -52,51 +53,46 @@ export function AnalyticsPage() {
         parkingLotOptions={parkingLotOptions}
       />
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Сводные KPI</Typography>
+      <DataPanel title="Сводные KPI">
         <SummaryKpiSection
           isLoading={queries.summaryQuery.isLoading}
           isError={queries.summaryQuery.isError}
           data={queries.summaryQuery.data}
         />
-      </Paper>
+      </DataPanel>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Загрузка парковки</Typography>
+      <DataPanel title="Загрузка парковки">
         <OccupancySection
           isLoading={queries.occupancyQuery.isLoading}
           isError={queries.occupancyQuery.isError}
           data={queries.occupancyQuery.data}
         />
-      </Paper>
+      </DataPanel>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Метрики бронирований</Typography>
+      <DataPanel title="Метрики бронирований">
         <BookingsMetricsSection
           isLoading={queries.bookingsQuery.isLoading}
           isError={queries.bookingsQuery.isError}
           data={queries.bookingsQuery.data}
         />
-      </Paper>
+      </DataPanel>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Прогноз загрузки</Typography>
+      <DataPanel title="Прогноз загрузки">
         <ForecastSection
           isLoading={queries.forecastQuery.isLoading}
           isError={queries.forecastQuery.isError}
           data={queries.forecastQuery.data}
         />
-      </Paper>
+      </DataPanel>
 
-      <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Аномалии</Typography>
+      <DataPanel title="Аномалии">
         <AnomaliesSection
           role={role}
           isLoading={queries.anomaliesQuery.isLoading}
           isError={queries.anomaliesQuery.isError}
           data={queries.anomaliesQuery.data}
         />
-      </Paper>
-    </Stack>
+      </DataPanel>
+    </PageContentLayout>
   );
 }

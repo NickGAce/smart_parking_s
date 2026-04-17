@@ -1,8 +1,10 @@
-import { Grid, LinearProgress, Paper, Stack, Typography } from '@mui/material';
+import { Grid, LinearProgress, Stack, Typography } from '@mui/material';
 
+import { ContentCard } from '../../../shared/ui/content-card';
 import { EmptyState } from '../../../shared/ui/empty-state';
 import { ErrorState } from '../../../shared/ui/error-state';
 import { LoadingState } from '../../../shared/ui/loading-state';
+import { MetricCard } from '../../../shared/ui/metric-card';
 import type { AnalyticsOccupancy } from '../../../shared/types/analytics';
 
 function BarStat({ label, value }: { label: string; value: number }) {
@@ -18,52 +20,49 @@ function BarStat({ label, value }: { label: string; value: number }) {
 }
 
 export function OccupancySection({ isLoading, isError, data }: { isLoading: boolean; isError: boolean; data?: AnalyticsOccupancy }) {
-  if (isLoading) return <LoadingState message="Загрузка occupancy..." />;
-  if (isError) return <ErrorState message="Не удалось загрузить occupancy metrics." />;
-  if (!data) return <EmptyState title="Нет occupancy данных" />;
+  if (isLoading) return <LoadingState message="Загрузка метрик загрузки..." />;
+  if (isError) return <ErrorState message="Не удалось загрузить метрики загрузки." />;
+  if (!data) return <EmptyState title="Нет данных по загрузке" />;
 
   return (
     <Grid container spacing={2}>
       <Grid item xs={12} md={4}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>Overall occupancy</Typography>
-          <Typography variant="h4">{data.occupancy_percent.toFixed(1)}%</Typography>
-        </Paper>
+        <MetricCard label="Общая загрузка" value={`${data.occupancy_percent.toFixed(1)}%`} />
       </Grid>
       <Grid item xs={12} md={4}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>By zone</Typography>
+        <ContentCard sx={{ p: 2, height: '100%' }}>
+          <Typography variant="cardTitle" gutterBottom>По зонам</Typography>
           <Stack spacing={1.2}>
             {data.by_zone.length === 0 ? (
-              <Typography color="text.secondary">No zone breakdown.</Typography>
+              <Typography color="text.secondary">Нет разбивки по зонам.</Typography>
             ) : data.by_zone.map((zone) => <BarStat key={zone.zone} label={zone.zone} value={zone.occupancy_percent} />)}
           </Stack>
-        </Paper>
+        </ContentCard>
       </Grid>
       <Grid item xs={12} md={4}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>By spot type</Typography>
+        <ContentCard sx={{ p: 2, height: '100%' }}>
+          <Typography variant="cardTitle" gutterBottom>По типам мест</Typography>
           <Stack spacing={1.2}>
             {data.by_spot_type.length === 0 ? (
-              <Typography color="text.secondary">No type breakdown.</Typography>
+              <Typography color="text.secondary">Нет разбивки по типам.</Typography>
             ) : data.by_spot_type.map((spotType) => <BarStat key={spotType.spot_type} label={spotType.spot_type} value={spotType.occupancy_percent} />)}
           </Stack>
-        </Paper>
+        </ContentCard>
       </Grid>
       <Grid item xs={12}>
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>Peak hours</Typography>
+        <ContentCard sx={{ p: 2 }}>
+          <Typography variant="cardTitle" gutterBottom>Пиковые часы</Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {data.peak_hours.length === 0 ? (
-              <Typography color="text.secondary">No peak hours for selected range.</Typography>
+              <Typography color="text.secondary">Для выбранного периода пиковые часы отсутствуют.</Typography>
             ) : data.peak_hours.map((peakHour) => (
-              <Paper key={`${peakHour.hour}-${peakHour.bookings}`} variant="outlined" sx={{ p: 1.5, minWidth: 120 }}>
+              <ContentCard key={`${peakHour.hour}-${peakHour.bookings}`} sx={{ p: 1.5, minWidth: 120 }}>
                 <Typography variant="body2" color="text.secondary">{String(peakHour.hour).padStart(2, '0')}:00</Typography>
                 <Typography variant="h6">{peakHour.bookings}</Typography>
-              </Paper>
+              </ContentCard>
             ))}
           </Stack>
-        </Paper>
+        </ContentCard>
       </Grid>
     </Grid>
   );

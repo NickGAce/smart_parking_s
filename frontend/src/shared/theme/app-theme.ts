@@ -139,15 +139,15 @@ function getDesignTokens(mode: PaletteMode) {
     },
     spacing: 4,
     shape: {
-      borderRadius: 12,
+      borderRadius: 8,
     },
     foundation: {
       radius: {
-        xs: 6,
-        sm: 8,
-        md: 12,
-        lg: 16,
-        xl: 20,
+        xs: 4,
+        sm: 6,
+        md: 8,
+        lg: 10,
+        xl: 12,
         pill: 999,
       },
       shadows: {
@@ -300,7 +300,7 @@ export const appTheme = (() => {
         styleOverrides: {
           root: {
             border: baseTheme.foundation.borders.subtle,
-            borderRadius: baseTheme.foundation.radius.lg,
+            borderRadius: baseTheme.foundation.radius.md,
             boxShadow: baseTheme.foundation.shadows.sm,
             transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
             '&:hover': {
@@ -419,7 +419,7 @@ export const appTheme = (() => {
       MuiDialog: {
         styleOverrides: {
           paper: {
-            borderRadius: baseTheme.foundation.radius.lg,
+            borderRadius: baseTheme.foundation.radius.md,
             border: baseTheme.foundation.borders.subtle,
             boxShadow: baseTheme.foundation.shadows.lg,
           },
