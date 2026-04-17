@@ -11,12 +11,12 @@ export function ContentCard({ children, padded = true, sx }: ContentCardProps) {
   return (
     <Paper
       sx={{
-        borderRadius: (theme) => theme.foundation.radius.lg,
+        borderRadius: (theme) => theme.foundation.radius.md,
         border: 1,
         borderColor: 'border.subtle',
         p: padded ? { xs: 2, md: 3 } : 0,
         boxShadow: (theme) => theme.foundation.shadows.xs,
-        overflow: 'hidden',
+        width: '100%',
         ...sx,
       }}
     >
