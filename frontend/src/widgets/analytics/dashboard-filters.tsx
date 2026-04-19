@@ -24,7 +24,7 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
   return (
     <FiltersSection onReset={onReset}>
       <Grid container spacing={2} width="100%">
-        <Grid item xs={12} md={2}>
+        <Grid item xs={12} sm={6} lg={2}>
           <TextField
             select
             label="Период"
@@ -37,7 +37,7 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
           </TextField>
         </Grid>
 
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} sm={6} lg={3}>
           <TextField
             select
             label="Парковка"
@@ -51,11 +51,11 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
           </TextField>
         </Grid>
 
-        <Grid item xs={12} md={2}>
+        <Grid item xs={12} sm={6} lg={2}>
           <TextField label="Зона" size="small" fullWidth value={filters.zone} onChange={(event) => onChange({ zone: event.target.value })} />
         </Grid>
 
-        <Grid item xs={12} md={2}>
+        <Grid item xs={12} sm={6} lg={2}>
           <TextField
             label="От"
             type="datetime-local"
@@ -67,7 +67,7 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
           />
         </Grid>
 
-        <Grid item xs={12} md={2}>
+        <Grid item xs={12} sm={6} lg={2}>
           <TextField
             label="До"
             type="datetime-local"
@@ -79,13 +79,13 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
           />
         </Grid>
 
-        <Grid item xs={12} md={1}>
+        <Grid item xs={12} sm={6} lg={1}>
           <Button fullWidth variant="outlined" onClick={onReset}>Сбросить</Button>
         </Grid>
 
-        <Grid item xs={12} md={2}>
+        <Grid item xs={12} sm={6} lg={2}>
           <TextField
-            label="Глубина истории, дней"
+            label="История, дней"
             type="number"
             size="small"
             fullWidth
@@ -95,9 +95,9 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
           />
         </Grid>
 
-        <Grid item xs={12} md={2}>
+        <Grid item xs={12} sm={6} lg={2}>
           <TextField
-            label="Шаг бакета, часов"
+            label="Шаг, часов"
             type="number"
             size="small"
             fullWidth
@@ -108,9 +108,9 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
         </Grid>
 
         {canManageAnomalyUser && (
-          <Grid item xs={12} md={2}>
+          <Grid item xs={12} sm={6} lg={2}>
             <TextField
-              label="ID пользователя аномалий"
+              label="ID пользователя"
               type="number"
               size="small"
               fullWidth

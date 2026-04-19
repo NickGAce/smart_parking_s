@@ -13,6 +13,13 @@ function confidenceColor(confidence: string): 'success' | 'warning' | 'default' 
   return 'default';
 }
 
+function confidenceLabel(confidence: string): string {
+  const normalized = confidence.toLowerCase();
+  if (normalized.includes('high')) return 'Высокая';
+  if (normalized.includes('low')) return 'Низкая';
+  return 'Средняя';
+}
+
 export function ForecastSection({ isLoading, isError, data }: { isLoading: boolean; isError: boolean; data?: OccupancyForecast }) {
   if (isLoading) return <LoadingState message="Загрузка прогноза..." />;
   if (isError) return <ErrorState message="Не удалось загрузить прогноз." />;
@@ -25,13 +32,15 @@ export function ForecastSection({ isLoading, isError, data }: { isLoading: boole
       {data.forecast.map((bucket) => (
         <ContentCard key={bucket.time_bucket} sx={{ p: 2 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between">
-            <Stack>
-              <Typography variant="cardTitle">{new Date(bucket.time_bucket).toLocaleString()}</Typography>
+            <Stack spacing={0.5}>
+              <Typography variant="cardTitle">
+                {new Date(bucket.time_bucket).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}
+              </Typography>
               <Typography color="text.secondary">Прогноз загрузки: {bucket.predicted_occupancy_percent.toFixed(1)}%</Typography>
-              <Typography color="text.secondary">Выборка: {bucket.samples}</Typography>
-              <Typography variant="body2">{bucket.comment}</Typography>
+              <Typography color="text.secondary">Объем выборки: {bucket.samples}</Typography>
+              {bucket.comment ? <Typography variant="body2">{bucket.comment}</Typography> : null}
             </Stack>
-            <Chip label={`Уверенность: ${bucket.confidence}`} color={confidenceColor(bucket.confidence)} />
+            <Chip label={`Уверенность: ${confidenceLabel(bucket.confidence)}`} color={confidenceColor(bucket.confidence)} variant="outlined" />
           </Stack>
         </ContentCard>
       ))}
