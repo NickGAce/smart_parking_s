@@ -22,18 +22,45 @@ function normalizeOptionalString(value: string) {
   return normalized.length === 0 ? undefined : normalized;
 }
 
+function resolveForecastWindow(period: AnalyticsPeriod, from?: string, to?: string): { from: string; to: string } {
+  if (from && to) {
+    return { from, to };
+  }
+
+  const now = new Date();
+  const start = new Date(now);
+
+  if (period === 'day') {
+    start.setDate(start.getDate() - 1);
+  } else if (period === 'week') {
+    start.setDate(start.getDate() - 7);
+  } else {
+    start.setDate(start.getDate() - 30);
+  }
+
+  return {
+    from: start.toISOString(),
+    to: now.toISOString(),
+  };
+}
+
 export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?: UserRole) {
+  const normalizedFrom = normalizeOptionalString(filters.from);
+  const normalizedTo = normalizeOptionalString(filters.to);
+
   const baseParams = {
     period: filters.period,
     parking_lot_id: filters.parkingLotId ?? undefined,
     zone: normalizeOptionalString(filters.zone),
-    from: normalizeOptionalString(filters.from),
-    to: normalizeOptionalString(filters.to),
+    from: normalizedFrom,
+    to: normalizedTo,
   };
 
+  const forecastWindow = resolveForecastWindow(filters.period, normalizedFrom, normalizedTo);
+
   const anomalyParams = {
-    from: normalizeOptionalString(filters.from),
-    to: normalizeOptionalString(filters.to),
+    from: normalizedFrom,
+    to: normalizedTo,
     parking_lot_id: filters.parkingLotId ?? undefined,
     user_id: hasRole(role, ANALYTICS_ANOMALY_FILTER_ROLES) ? filters.anomalyUserId ?? undefined : undefined,
   };
@@ -55,11 +82,16 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
       {
         queryKey: analyticsQueryKeys.forecast({
           ...baseParams,
+          from: forecastWindow.from,
+          to: forecastWindow.to,
           history_days: filters.historyDays,
           bucket_size_hours: filters.bucketSizeHours,
         }),
         queryFn: () => analyticsApi.getOccupancyForecast({
-          ...baseParams,
+          parking_lot_id: baseParams.parking_lot_id,
+          zone: baseParams.zone,
+          from: forecastWindow.from,
+          to: forecastWindow.to,
           history_days: filters.historyDays,
           bucket_size_hours: filters.bucketSizeHours,
         }),
