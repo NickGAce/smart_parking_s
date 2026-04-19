@@ -84,33 +84,34 @@ async def seed_bookings(days_back: int, bookings_per_day: int, random_seed: int)
             raise RuntimeError('No parking spots found. Seed parking spots first (scripts/create_test_data.py).')
 
         created = 0
-        async with session.begin():
-            for day_offset in range(days_back):
-                day = (now - timedelta(days=day_offset)).date()
+        for day_offset in range(days_back):
+            day = (now - timedelta(days=day_offset)).date()
 
-                for slot in range(bookings_per_day):
-                    hour = 7 + (slot % 12)
-                    minute = (slot * 5) % 60
-                    start = datetime(day.year, day.month, day.day, hour, minute)
-                    duration = rng.choice([30, 60, 90, 120])
-                    end = start + timedelta(minutes=duration)
+            for slot in range(bookings_per_day):
+                hour = 7 + (slot % 12)
+                minute = (slot * 5) % 60
+                start = datetime(day.year, day.month, day.day, hour, minute)
+                duration = rng.choice([30, 60, 90, 120])
+                end = start + timedelta(minutes=duration)
 
-                    spot_id = spot_ids[(day_offset * bookings_per_day + slot) % len(spot_ids)]
-                    user_id = user_ids[(day_offset + slot) % len(user_ids)]
-                    status = choose_status(start, now, rng)
+                spot_id = spot_ids[(day_offset * bookings_per_day + slot) % len(spot_ids)]
+                user_id = user_ids[(day_offset + slot) % len(user_ids)]
+                status = choose_status(start, now, rng)
 
-                    session.add(
-                        Booking(
-                            start_time=start,
-                            end_time=end,
-                            created_at=max(start - timedelta(hours=rng.randint(2, 30)), now - timedelta(days=40)),
-                            type=BookingType.guest,
-                            status=status,
-                            parking_spot_id=spot_id,
-                            user_id=user_id,
-                        )
+                session.add(
+                    Booking(
+                        start_time=start,
+                        end_time=end,
+                        created_at=max(start - timedelta(hours=rng.randint(2, 30)), now - timedelta(days=40)),
+                        type=BookingType.guest,
+                        status=status,
+                        parking_spot_id=spot_id,
+                        user_id=user_id,
                     )
-                    created += 1
+                )
+                created += 1
+
+        await session.commit()
 
     return created
 
