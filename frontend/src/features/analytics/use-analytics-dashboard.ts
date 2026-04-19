@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 
 import { analyticsApi } from '../../entities/analytics/api';
@@ -56,7 +57,10 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
     to: normalizedTo,
   };
 
-  const forecastWindow = resolveForecastWindow(filters.period, normalizedFrom, normalizedTo);
+  const forecastWindow = useMemo(
+    () => resolveForecastWindow(filters.period, normalizedFrom, normalizedTo),
+    [filters.period, normalizedFrom, normalizedTo],
+  );
 
   const anomalyParams = {
     from: normalizedFrom,
