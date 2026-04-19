@@ -1,4 +1,4 @@
-import { Chip, Stack, Typography } from '@mui/material';
+import { Chip, Divider, Grid, Stack, Typography } from '@mui/material';
 
 import { ContentCard } from '../../../shared/ui/content-card';
 import { EmptyState } from '../../../shared/ui/empty-state';
@@ -20,6 +20,10 @@ function confidenceLabel(confidence: string): string {
   return 'Средняя';
 }
 
+function formatBucketTime(value: string): string {
+  return new Date(value).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 export function ForecastSection({ isLoading, isError, data }: { isLoading: boolean; isError: boolean; data?: OccupancyForecast }) {
   if (isLoading) return <LoadingState message="Загрузка прогноза..." />;
   if (isError) return <ErrorState message="Не удалось загрузить прогноз." />;
@@ -27,23 +31,56 @@ export function ForecastSection({ isLoading, isError, data }: { isLoading: boole
     return <EmptyState title="Нет данных прогноза" description="Для выбранного контекста прогнозные бакеты отсутствуют." />;
   }
 
+  const sortedBuckets = [...data.forecast].sort((a, b) => new Date(a.time_bucket).getTime() - new Date(b.time_bucket).getTime());
+  const previewBuckets = sortedBuckets.slice(0, 12);
+  const hiddenBuckets = sortedBuckets.slice(12);
+
   return (
-    <Stack spacing={1.2}>
-      {data.forecast.map((bucket) => (
-        <ContentCard key={bucket.time_bucket} sx={{ p: 2 }}>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between">
-            <Stack spacing={0.5}>
-              <Typography variant="cardTitle">
-                {new Date(bucket.time_bucket).toLocaleString('ru-RU', { dateStyle: 'medium', timeStyle: 'short' })}
-              </Typography>
-              <Typography color="text.secondary">Прогноз загрузки: {bucket.predicted_occupancy_percent.toFixed(1)}%</Typography>
-              <Typography color="text.secondary">Объем выборки: {bucket.samples}</Typography>
-              {bucket.comment ? <Typography variant="body2">{bucket.comment}</Typography> : null}
-            </Stack>
-            <Chip label={`Уверенность: ${confidenceLabel(bucket.confidence)}`} color={confidenceColor(bucket.confidence)} variant="outlined" />
+    <Stack spacing={1.5}>
+      <ContentCard sx={{ p: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1}>
+          <Typography variant="body2" color="text.secondary">
+            Горизонт прогноза: {formatBucketTime(sortedBuckets[0].time_bucket)} — {formatBucketTime(sortedBuckets[sortedBuckets.length - 1].time_bucket)}
+          </Typography>
+          <Chip size="small" variant="outlined" label={`Бакетов: ${sortedBuckets.length}`} />
+        </Stack>
+      </ContentCard>
+
+      <Grid container spacing={1.5}>
+        {previewBuckets.map((bucket) => (
+          <Grid key={bucket.time_bucket} item xs={12} md={6}>
+            <ContentCard sx={{ p: 1.5, height: '100%' }}>
+              <Stack spacing={0.5}>
+                <Stack direction="row" justifyContent="space-between" spacing={1}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatBucketTime(bucket.time_bucket)}</Typography>
+                  <Chip size="small" variant="outlined" label={confidenceLabel(bucket.confidence)} color={confidenceColor(bucket.confidence)} />
+                </Stack>
+                <Typography variant="h6">{bucket.predicted_occupancy_percent.toFixed(1)}%</Typography>
+                <Typography variant="caption" color="text.secondary">Выборка: {bucket.samples}</Typography>
+              </Stack>
+            </ContentCard>
+          </Grid>
+        ))}
+      </Grid>
+
+      {hiddenBuckets.length > 0 ? (
+        <ContentCard sx={{ p: 2 }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Дополнительно: {hiddenBuckets.length} бакетов (полный список)
+          </Typography>
+          <Stack spacing={1} sx={{ maxHeight: 260, overflowY: 'auto', pr: 0.5 }}>
+            {hiddenBuckets.map((bucket) => (
+              <Stack key={bucket.time_bucket} spacing={0.4}>
+                <Stack direction="row" justifyContent="space-between" spacing={1}>
+                  <Typography variant="body2">{formatBucketTime(bucket.time_bucket)}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{bucket.predicted_occupancy_percent.toFixed(1)}%</Typography>
+                </Stack>
+                <Divider />
+              </Stack>
+            ))}
           </Stack>
         </ContentCard>
-      ))}
+      ) : null}
     </Stack>
   );
 }

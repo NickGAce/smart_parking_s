@@ -29,19 +29,20 @@ function resolveForecastWindow(period: AnalyticsPeriod, from?: string, to?: stri
   }
 
   const now = new Date();
-  const start = new Date(now);
+  now.setMinutes(0, 0, 0);
+  const end = new Date(now);
 
   if (period === 'day') {
-    start.setDate(start.getDate() - 1);
+    end.setDate(end.getDate() + 1);
   } else if (period === 'week') {
-    start.setDate(start.getDate() - 7);
+    end.setDate(end.getDate() + 7);
   } else {
-    start.setDate(start.getDate() - 30);
+    end.setDate(end.getDate() + 30);
   }
 
   return {
-    from: start.toISOString(),
-    to: now.toISOString(),
+    from: now.toISOString(),
+    to: end.toISOString(),
   };
 }
 
