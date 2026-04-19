@@ -87,6 +87,7 @@ export function AnalyticsPage() {
       <Grid container spacing={2}>
         <Grid item xs={12} md={4}>
           <MetricCard
+            align="center"
             label="Текущая загрузка"
             value={queries.summaryQuery.data ? `${queries.summaryQuery.data.occupancy_percent.toFixed(1)}%` : '—'}
             helperText="Быстрый индикатор состояния площадки."
@@ -94,6 +95,7 @@ export function AnalyticsPage() {
         </Grid>
         <Grid item xs={12} md={4}>
           <MetricCard
+            align="center"
             label="Активность бронирований"
             value={queries.summaryQuery.data ? String(queries.summaryQuery.data.bookings_count) : '—'}
             helperText="Количество операций в выбранном периоде."
@@ -101,6 +103,7 @@ export function AnalyticsPage() {
         </Grid>
         <Grid item xs={12} md={4}>
           <MetricCard
+            align="center"
             label="Операционный риск"
             value={criticalAnomalies > 0 ? 'Требует внимания' : 'Контролируемо'}
             badgeLabel={criticalAnomalies > 0 ? 'Высокий' : 'Низкий'}

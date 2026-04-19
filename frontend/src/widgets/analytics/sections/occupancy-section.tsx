@@ -33,6 +33,7 @@ export function OccupancySection({ isLoading, isError, data }: { isLoading: bool
     <Grid container spacing={2}>
       <Grid item xs={12} md={4}>
         <MetricCard
+          align="center"
           label="Общая загрузка"
           value={`${data.occupancy_percent.toFixed(1)}%`}
           secondaryValue={problemZone ? `Пиковая зона: ${problemZone.zone}` : 'Нет пиковых зон'}

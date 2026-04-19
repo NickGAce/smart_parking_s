@@ -10,6 +10,7 @@ interface MetricCardProps {
   secondaryValue?: ReactNode;
   badgeLabel?: ReactNode;
   badgeColor?: ChipProps['color'];
+  align?: 'left' | 'center';
   sx?: SxProps<Theme>;
 }
 
@@ -20,8 +21,11 @@ export function MetricCard({
   secondaryValue,
   badgeLabel,
   badgeColor = 'default',
+  align = 'left',
   sx,
 }: MetricCardProps) {
+  const isCentered = align === 'center';
+
   return (
     <ContentCard
       sx={{
@@ -31,9 +35,15 @@ export function MetricCard({
         ...sx,
       }}
     >
-      <Stack spacing={1} minWidth={0} height="100%" justifyContent="space-between">
-        <Stack spacing={0.75} minWidth={0}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+      <Stack spacing={1} minWidth={0} height="100%" justifyContent="space-between" textAlign={isCentered ? 'center' : 'left'}>
+        <Stack spacing={0.75} minWidth={0} alignItems={isCentered ? 'center' : 'stretch'}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent={isCentered ? 'center' : 'space-between'}
+            spacing={1}
+            width="100%"
+          >
             <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
               {label}
             </Typography>

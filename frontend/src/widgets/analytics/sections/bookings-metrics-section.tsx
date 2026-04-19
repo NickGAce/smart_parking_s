@@ -24,10 +24,11 @@ export function BookingsMetricsSection({ isLoading, isError, data }: { isLoading
   return (
     <Grid container spacing={2}>
       <Grid item xs={12} md={4}>
-        <MetricCard label="Бронирований" value={data.bookings_count} helperText="Общее число заявок." />
+        <MetricCard align="center" label="Бронирований" value={data.bookings_count} helperText="Общее число заявок." />
       </Grid>
       <Grid item xs={12} md={4}>
         <MetricCard
+          align="center"
           label="Средняя длительность"
           value={`${data.average_booking_duration_minutes.toFixed(1)} мин`}
           helperText="Сколько в среднем длится одно бронирование."
