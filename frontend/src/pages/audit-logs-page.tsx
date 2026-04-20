@@ -1,5 +1,4 @@
 import {
-  Alert,
   Box,
   Chip,
   Grid,
@@ -16,10 +15,13 @@ import {
 import { useMemo, useState } from 'react';
 
 import { useAuditLogsQuery } from '../features/audit/use-audit-logs-query';
-import { ApiErrorAlert } from '../shared/ui/api-error-alert';
+import { EmptyState } from '../shared/ui/empty-state';
+import { ErrorState } from '../shared/ui/error-state';
 import { FiltersToolbar } from '../shared/ui/filters-toolbar';
-import { LoadingState } from '../shared/ui/loading-state';
 import { PaginationControls } from '../shared/ui/pagination-controls';
+import { StateFeedback } from '../shared/ui/state-feedback';
+import { TableLoadingState } from '../shared/ui/table-loading-state';
+import { tableCodeBlockSx } from '../shared/theme/semantic-sx';
 import type { AuditLogsQuery } from '../shared/types/audit';
 
 const DEFAULT_LIMIT = 10;
@@ -43,7 +45,7 @@ function formatValue(value: unknown) {
 }
 
 function formatTimestamp(dateTime: string) {
-  return new Date(dateTime).toLocaleString();
+  return new Date(dateTime).toLocaleString('ru-RU');
 }
 
 function actionTone(action: string): 'default' | 'success' | 'warning' {
@@ -95,16 +97,15 @@ export function AuditLogsPage() {
 
   return (
     <Stack spacing={2}>
-      <Alert severity="info">
-        Админ-экран интегрирован напрямую с <code>GET /audit-logs</code>: фильтры actor/action/entity,
-        time range и пагинация выполняются сервером.
-      </Alert>
+      <StateFeedback severity="info">
+        Логи аудита показывают действия пользователей и системные изменения. Используйте фильтры, чтобы быстро найти нужный эпизод.
+      </StateFeedback>
 
       <FiltersToolbar onReset={clearFilters}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={2}>
             <TextField
-              label="Actor (user_id)"
+              label="ID пользователя"
               type="number"
               size="small"
               fullWidth
@@ -117,7 +118,7 @@ export function AuditLogsPage() {
           </Grid>
           <Grid item xs={12} md={2}>
             <TextField
-              label="Action"
+              label="Действие"
               size="small"
               fullWidth
               value={action}
@@ -129,7 +130,7 @@ export function AuditLogsPage() {
           </Grid>
           <Grid item xs={12} md={2}>
             <TextField
-              label="Entity"
+              label="Сущность"
               size="small"
               fullWidth
               value={entity}
@@ -141,7 +142,7 @@ export function AuditLogsPage() {
           </Grid>
           <Grid item xs={12} md={2}>
             <TextField
-              label="From"
+              label="С"
               type="datetime-local"
               size="small"
               fullWidth
@@ -155,7 +156,7 @@ export function AuditLogsPage() {
           </Grid>
           <Grid item xs={12} md={2}>
             <TextField
-              label="To"
+              label="По"
               type="datetime-local"
               size="small"
               fullWidth
@@ -171,25 +172,33 @@ export function AuditLogsPage() {
       </FiltersToolbar>
 
       {listQuery.isError && (
-        <ApiErrorAlert message="Не удалось загрузить audit logs. Проверьте фильтры и права admin." />
+        <ErrorState message="Не удалось загрузить журнал аудита. Проверьте фильтры и повторите попытку." onRetry={() => listQuery.refetch()} />
       )}
 
-      {listQuery.isLoading && (
-        <LoadingState message="Загрузка audit logs..." />
+      {listQuery.isLoading && <TableLoadingState rows={8} columns={7} />}
+
+      {listQuery.data && listQuery.data.items.length === 0 && (
+        <Paper>
+          <EmptyState
+            kind="no-results"
+            title="Записи не найдены"
+            description="По выбранным фильтрам журнал пуст. Измените параметры поиска или период."
+          />
+        </Paper>
       )}
 
-      {listQuery.data && (
+      {listQuery.data && listQuery.data.items.length > 0 && (
         <Paper>
           <Table size="small">
             <TableHead>
               <TableRow>
                 <TableCell>ID</TableCell>
-                <TableCell>Timestamp</TableCell>
-                <TableCell>Actor</TableCell>
-                <TableCell>Action</TableCell>
-                <TableCell>Entity</TableCell>
-                <TableCell>Changes</TableCell>
-                <TableCell>Metadata</TableCell>
+                <TableCell>Время</TableCell>
+                <TableCell>Пользователь</TableCell>
+                <TableCell>Действие</TableCell>
+                <TableCell>Сущность</TableCell>
+                <TableCell>Изменения</TableCell>
+                <TableCell>Метаданные</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -213,31 +222,16 @@ export function AuditLogsPage() {
                     <Stack spacing={1}>
                       <Box>
                         <Typography variant="caption" color="text.secondary">old_values</Typography>
-                        <Box
-                          component="pre"
-                          sx={{ m: 0, mt: 0.5, p: 1, bgcolor: 'grey.100', borderRadius: 1, overflowX: 'auto' }}
-                        >
-                          {formatValue(log.old_values)}
-                        </Box>
+                        <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.old_values)}</Box>
                       </Box>
                       <Box>
                         <Typography variant="caption" color="text.secondary">new_values</Typography>
-                        <Box
-                          component="pre"
-                          sx={{ m: 0, mt: 0.5, p: 1, bgcolor: 'grey.100', borderRadius: 1, overflowX: 'auto' }}
-                        >
-                          {formatValue(log.new_values)}
-                        </Box>
+                        <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.new_values)}</Box>
                       </Box>
                     </Stack>
                   </TableCell>
                   <TableCell sx={{ maxWidth: 220 }}>
-                    <Box
-                      component="pre"
-                      sx={{ m: 0, p: 1, bgcolor: 'grey.100', borderRadius: 1, overflowX: 'auto' }}
-                    >
-                      {formatValue(log.source_metadata)}
-                    </Box>
+                    <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.source_metadata)}</Box>
                   </TableCell>
                 </TableRow>
               ))}

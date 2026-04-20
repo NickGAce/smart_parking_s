@@ -1,16 +1,48 @@
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
+import SearchOffOutlinedIcon from '@mui/icons-material/SearchOffOutlined';
 import type { ReactNode } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
 
+import { stateMessages } from './state-messages';
+
+type EmptyKind = 'generic' | 'no-results' | 'not-found';
+
 interface EmptyStateProps {
-  title: ReactNode;
+  title?: ReactNode;
   description?: ReactNode;
   icon?: ReactNode;
   actions?: ReactNode;
   compact?: boolean;
+  kind?: EmptyKind;
 }
 
-export function EmptyState({ title, description, icon, actions, compact = false }: EmptyStateProps) {
+function defaultsByKind(kind: EmptyKind) {
+  if (kind === 'no-results') {
+    return {
+      title: stateMessages.empty.noResultsTitle,
+      description: stateMessages.empty.noResultsDescription,
+      icon: <SearchOffOutlinedIcon fontSize="small" />,
+    };
+  }
+
+  if (kind === 'not-found') {
+    return {
+      title: stateMessages.empty.notFoundTitle,
+      description: stateMessages.empty.notFoundDescription,
+      icon: <SearchOffOutlinedIcon fontSize="small" />,
+    };
+  }
+
+  return {
+    title: stateMessages.empty.genericTitle,
+    description: stateMessages.empty.genericDescription,
+    icon: <InboxOutlinedIcon fontSize="small" />,
+  };
+}
+
+export function EmptyState({ title, description, icon, actions, compact = false, kind = 'generic' }: EmptyStateProps) {
+  const defaults = defaultsByKind(kind);
+
   return (
     <Stack
       alignItems="center"
@@ -18,9 +50,7 @@ export function EmptyState({ title, description, icon, actions, compact = false 
       spacing={1}
       py={compact ? 3 : 6}
       textAlign="center"
-      sx={{
-        color: 'text.secondary',
-      }}
+      sx={{ color: 'text.secondary' }}
     >
       <Box
         sx={{
@@ -33,16 +63,14 @@ export function EmptyState({ title, description, icon, actions, compact = false 
           color: 'text.secondary',
         }}
       >
-        {icon ?? <InboxOutlinedIcon fontSize="small" />}
+        {icon ?? defaults.icon}
       </Box>
       <Typography variant="h6" color="text.primary" sx={{ wordBreak: 'break-word' }}>
-        {title}
+        {title ?? defaults.title}
       </Typography>
-      {description && (
-        <Typography color="text.secondary" sx={{ maxWidth: 560, wordBreak: 'break-word' }}>
-          {description}
-        </Typography>
-      )}
+      <Typography color="text.secondary" sx={{ maxWidth: 560, wordBreak: 'break-word' }}>
+        {description ?? defaults.description}
+      </Typography>
       {actions}
     </Stack>
   );

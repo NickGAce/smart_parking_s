@@ -20,7 +20,7 @@ function BarStat({ label, value }: { label: string; value: number }) {
 }
 
 export function OccupancySection({ isLoading, isError, data }: { isLoading: boolean; isError: boolean; data?: AnalyticsOccupancy }) {
-  if (isLoading) return <LoadingState message="Загрузка метрик загрузки..." />;
+  if (isLoading) return <LoadingState variant="skeleton" lines={4} />;
   if (isError) return <ErrorState message="Не удалось загрузить метрики загрузки." />;
   if (!data) return <EmptyState title="Нет данных по загрузке" />;
 

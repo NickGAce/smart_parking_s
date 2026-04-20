@@ -7,19 +7,21 @@ interface PageStateProps {
   errorText?: string;
   emptyText?: string;
   isEmpty?: boolean;
+  emptyKind?: 'generic' | 'no-results' | 'not-found';
+  onRetry?: () => void;
 }
 
-export function PageState({ isLoading, errorText, emptyText, isEmpty }: PageStateProps) {
+export function PageState({ isLoading, errorText, emptyText, isEmpty, emptyKind = 'generic', onRetry }: PageStateProps) {
   if (isLoading) {
-    return <LoadingState />;
+    return <LoadingState variant="page" />;
   }
 
   if (errorText) {
-    return <ErrorState message={errorText} />;
+    return <ErrorState message={errorText} onRetry={onRetry} />;
   }
 
-  if (isEmpty && emptyText) {
-    return <EmptyState title={emptyText} />;
+  if (isEmpty) {
+    return <EmptyState kind={emptyKind} title={emptyText} />;
   }
 
   return null;

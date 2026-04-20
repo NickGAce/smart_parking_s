@@ -11,5 +11,17 @@ interface StatusChipProps {
 export function StatusChip({ status, mapping, variant = 'filled' }: StatusChipProps) {
   const meta = mapping[status] ?? { label: status, color: 'default' as const };
 
-  return <Chip size="small" label={meta.label} color={meta.color} variant={variant} sx={{ fontWeight: 600 }} />;
+  return (
+    <Chip
+      size="small"
+      label={meta.label}
+      color={meta.color}
+      variant={variant}
+      sx={{
+        fontWeight: 600,
+        borderRadius: (theme) => theme.foundation.radius.pill,
+        minWidth: 108,
+      }}
+    />
+  );
 }

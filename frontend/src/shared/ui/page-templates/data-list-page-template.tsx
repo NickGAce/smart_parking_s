@@ -15,6 +15,7 @@ interface DataListPageTemplateProps {
   kpiStrip?: ReactNode;
   filters?: ReactNode;
   dataView?: ReactNode;
+  loadingView?: ReactNode;
   isLoading?: boolean;
   errorText?: string;
   isEmpty?: boolean;
@@ -31,13 +32,14 @@ export function DataListPageTemplate({
   kpiStrip,
   filters,
   dataView,
+  loadingView,
   isLoading,
   errorText,
   isEmpty,
   emptyText,
   stateSx,
 }: DataListPageTemplateProps) {
-  const hasState = Boolean(isLoading || errorText || isEmpty);
+  const hasState = Boolean((isLoading && !loadingView) || errorText || isEmpty);
 
   return (
     <PageContentLayout maxWidth="100%" spacing={2.5}>
@@ -52,7 +54,7 @@ export function DataListPageTemplate({
       {topBanner}
       {kpiStrip ? <Box>{kpiStrip}</Box> : null}
       {filters ? <Box>{filters}</Box> : null}
-      {hasState ? (
+      {isLoading && loadingView ? loadingView : hasState ? (
         <Stack spacing={2}>
           <ContentCard sx={{ p: { xs: 3, md: 5 }, borderRadius: (theme) => theme.foundation.radius.xs, ...stateSx }}>
             <PageState isLoading={isLoading} errorText={errorText} isEmpty={isEmpty} emptyText={emptyText} />
