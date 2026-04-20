@@ -18,6 +18,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TableContainer,
   TextField,
   Typography,
 } from '@mui/material';
@@ -320,42 +321,78 @@ export function BookingManagementPage() {
         emptyText="Бронирования по выбранным фильтрам не найдены."
         dataView={(
           <ContentCard padded={false}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Бронь</TableCell>
-                  <TableCell>Пользователь</TableCell>
-                  <TableCell>Статус</TableCell>
-                  <TableCell>Интервал</TableCell>
-                  <TableCell>Длительность</TableCell>
-                  <TableCell align="right">Операции</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {visibleItems.map((booking) => (
-                  <TableRow key={booking.id} hover>
-                    <TableCell>
-                      <Stack spacing={0.5}>
-                        <Typography variant="subtitle2">#{booking.id}</Typography>
-                        <Typography variant="caption" color="text.secondary">Место #{booking.parking_spot_id}</Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>{booking.user_id}</TableCell>
-                    <TableCell><StatusChip status={booking.status} mapping={bookingStatusMap} /></TableCell>
-                    <TableCell>{formatBookingInterval(booking.start_time, booking.end_time)}</TableCell>
-                    <TableCell>{formatBookingDurationLabel(booking.start_time, booking.end_time)}</TableCell>
-                    <TableCell align="right">
-                      <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
-                        <Button size="small" startIcon={<VisibilityOutlinedIcon />} onClick={() => setSelectedBookingId(booking.id)}>Детали</Button>
-                        <Button size="small" color="success" variant="contained" disabled={isLifecyclePending || !['confirmed', 'active'].includes(booking.status)} onClick={() => checkInMutation.mutate(booking.id)}>Заезд</Button>
-                        <Button size="small" color="primary" variant="contained" disabled={isLifecyclePending || booking.status !== 'active'} onClick={() => checkOutMutation.mutate(booking.id)}>Выезд</Button>
-                        <Button size="small" color="warning" variant="outlined" disabled={isLifecyclePending || !['confirmed', 'active'].includes(booking.status)} onClick={() => markNoShowMutation.mutate(booking.id)}>Не заехал</Button>
-                      </Stack>
-                    </TableCell>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table aria-label="Таблица управления бронированиями" sx={{ minWidth: 900 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Бронь</TableCell>
+                    <TableCell>Пользователь</TableCell>
+                    <TableCell>Статус</TableCell>
+                    <TableCell>Интервал</TableCell>
+                    <TableCell>Длительность</TableCell>
+                    <TableCell align="right">Операции</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {visibleItems.map((booking) => (
+                    <TableRow key={booking.id} hover>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          <Typography variant="subtitle2">#{booking.id}</Typography>
+                          <Typography variant="caption" color="text.secondary">Место #{booking.parking_spot_id}</Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>{booking.user_id}</TableCell>
+                      <TableCell><StatusChip status={booking.status} mapping={bookingStatusMap} /></TableCell>
+                      <TableCell>{formatBookingInterval(booking.start_time, booking.end_time)}</TableCell>
+                      <TableCell>{formatBookingDurationLabel(booking.start_time, booking.end_time)}</TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
+                          <Button
+                            size="small"
+                            startIcon={<VisibilityOutlinedIcon />}
+                            onClick={() => setSelectedBookingId(booking.id)}
+                            aria-label={`Открыть детали бронирования №${booking.id}`}
+                          >
+                            Детали
+                          </Button>
+                          <Button
+                            size="small"
+                            color="success"
+                            variant="contained"
+                            disabled={isLifecyclePending || !['confirmed', 'active'].includes(booking.status)}
+                            onClick={() => checkInMutation.mutate(booking.id)}
+                            aria-label={`Отметить заезд для бронирования №${booking.id}`}
+                          >
+                            Заезд
+                          </Button>
+                          <Button
+                            size="small"
+                            color="primary"
+                            variant="contained"
+                            disabled={isLifecyclePending || booking.status !== 'active'}
+                            onClick={() => checkOutMutation.mutate(booking.id)}
+                            aria-label={`Отметить выезд для бронирования №${booking.id}`}
+                          >
+                            Выезд
+                          </Button>
+                          <Button
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            disabled={isLifecyclePending || !['confirmed', 'active'].includes(booking.status)}
+                            onClick={() => markNoShowMutation.mutate(booking.id)}
+                            aria-label={`Отметить незаезд для бронирования №${booking.id}`}
+                          >
+                            Не заехал
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
             {activeStatuses.length > 0 && (
               <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>

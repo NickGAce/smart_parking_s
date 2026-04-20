@@ -1,27 +1,32 @@
-import type { ComponentType } from 'react';
+import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import { matchPath } from 'react-router-dom';
 
-import { AdminUsersPage } from '../../pages/admin-users-page';
-import { AnalyticsPage } from '../../pages/analytics-page';
-import { AuditLogsPage } from '../../pages/audit-logs-page';
-import { BookingManagementPage } from '../../pages/booking-management-page';
-import { CreateBookingPage } from '../../pages/create-booking-page';
 import { DashboardPage } from '../../pages/dashboard-page';
 import { ForbiddenPage } from '../../pages/forbidden-page';
 import { LoginPage } from '../../pages/login-page';
-import { MyBookingsPage } from '../../pages/my-bookings-page';
-import { NotificationsPage } from '../../pages/notifications-page';
-import { ParkingLotDetailsPage } from '../../pages/parking-lot-details-page';
 import { ParkingLotsPage } from '../../pages/parking-lots-page';
-import { ParkingSpotsPage } from '../../pages/parking-spots-page';
 import { RegisterPage } from '../../pages/register-page';
 import { ALL_USER_ROLES, ROLES_WITH_SPOT_CATALOG_ACCESS } from '../../shared/config/roles';
 import type { UserRole } from '../../shared/types/common';
 
+function lazyNamed<T extends ComponentType>(loader: () => Promise<Record<string, unknown>>, exportName: string) {
+  return lazy(async () => ({ default: (await loader())[exportName] as T }));
+}
+
+const AnalyticsPage = lazyNamed(() => import('../../pages/analytics-page'), 'AnalyticsPage');
+const AuditLogsPage = lazyNamed(() => import('../../pages/audit-logs-page'), 'AuditLogsPage');
+const BookingManagementPage = lazyNamed(() => import('../../pages/booking-management-page'), 'BookingManagementPage');
+const CreateBookingPage = lazyNamed(() => import('../../pages/create-booking-page'), 'CreateBookingPage');
+const MyBookingsPage = lazyNamed(() => import('../../pages/my-bookings-page'), 'MyBookingsPage');
+const NotificationsPage = lazyNamed(() => import('../../pages/notifications-page'), 'NotificationsPage');
+const ParkingLotDetailsPage = lazyNamed(() => import('../../pages/parking-lot-details-page'), 'ParkingLotDetailsPage');
+const ParkingSpotsPage = lazyNamed(() => import('../../pages/parking-spots-page'), 'ParkingSpotsPage');
+const AdminUsersPage = lazyNamed(() => import('../../pages/admin-users-page'), 'AdminUsersPage');
+
 export interface AppRouteConfig {
   path: string;
   title: string;
-  component: ComponentType;
+  component: ComponentType | LazyExoticComponent<ComponentType>;
   isPublic?: boolean;
   menuLabel?: string;
   roles?: UserRole[];
