@@ -1,6 +1,8 @@
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import {
   Alert,
@@ -12,9 +14,9 @@ import {
   Drawer,
   FormControl,
   Grid,
+  IconButton,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   Stack,
   Table,
@@ -23,9 +25,10 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { useCurrentUser } from '../features/auth/use-current-user';
@@ -49,18 +52,55 @@ import {
 import { ParkingSpotForm } from '../features/parking-spots/parking-spot-form';
 import { effectiveStatusMap } from '../shared/config/status-map';
 import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
-import { ApiErrorAlert } from '../shared/ui/api-error-alert';
 import { ConfirmDialog } from '../shared/ui/confirm-dialog';
-import { FiltersToolbar } from '../shared/ui/filters-toolbar';
-import { LoadingState } from '../shared/ui/loading-state';
+import { ContentCard } from '../shared/ui/content-card';
+import { DataListPageTemplate } from '../shared/ui/page-templates';
+import { MetricCard } from '../shared/ui/metric-card';
 import { PaginationControls } from '../shared/ui/pagination-controls';
 import { StatusChip } from '../shared/ui/status-chip';
-import type { SortOrder } from '../shared/types/common';
+import type { SortOrder, SpotRawStatus, SpotType, VehicleType } from '../shared/types/common';
 import type { ParkingSpot, ParkingSpotsQuery } from '../shared/types/parking';
 
 const DEFAULT_LIMIT = 10;
 
 type ParkingSpotsSortBy = NonNullable<ParkingSpotsQuery['sort_by']>;
+
+type FiltersDraft = Omit<ParkingSpotsQuery, 'limit' | 'offset'>;
+
+const spotTypeLabels: Record<SpotType, string> = {
+  regular: 'Обычное',
+  guest: 'Гостевое',
+  disabled: 'Для МГН',
+  ev: 'Электро',
+  reserved: 'Зарезервированное',
+  vip: 'VIP',
+};
+
+const vehicleTypeLabels: Record<VehicleType, string> = {
+  car: 'Автомобиль',
+  bike: 'Мото/вело',
+  truck: 'Грузовой',
+};
+
+const sizeLabels: Record<NonNullable<ParkingSpotsQuery['size_category']>, string> = {
+  small: 'Малый',
+  medium: 'Средний',
+  large: 'Большой',
+};
+
+const sortByLabels: Record<ParkingSpotsSortBy, string> = {
+  id: 'ID',
+  spot_number: 'Номер места',
+  status: 'Базовый статус',
+  spot_type: 'Тип места',
+  vehicle_type: 'Тип транспорта',
+  size_category: 'Размер места',
+};
+
+const sortOrderLabels: Record<SortOrder, string> = {
+  asc: 'По возрастанию',
+  desc: 'По убыванию',
+};
 
 const parseEnumParam = <T extends string>(value: string | null, allowedValues: readonly T[]): T | undefined => {
   if (!value) {
@@ -120,11 +160,33 @@ function writeQuery(params: ParkingSpotsQuery): Record<string, string> {
 
 const spotTypeValue = (spot: ParkingSpot) => spot.spot_type ?? (spot.type as ParkingSpot['spot_type']) ?? 'regular';
 
+function toDraft(query: ParkingSpotsQuery): FiltersDraft {
+  return {
+    from: query.from,
+    to: query.to,
+    spot_type: query.spot_type,
+    vehicle_type: query.vehicle_type,
+    size_category: query.size_category,
+    has_charger: query.has_charger,
+    zone_id: query.zone_id,
+    zone_name: query.zone_name,
+    parking_lot_id: query.parking_lot_id,
+    status: query.status,
+    sort_by: query.sort_by,
+    sort_order: query.sort_order,
+  };
+}
+
 export function ParkingSpotsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { role } = useCurrentUser();
 
   const query = useMemo(() => parseQuery(searchParams), [searchParams]);
+  const [draft, setDraft] = useState<FiltersDraft>(() => toDraft(query));
+
+  useEffect(() => {
+    setDraft(toDraft(query));
+  }, [query]);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editingSpot, setEditingSpot] = useState<ParkingSpot | null>(null);
@@ -148,184 +210,266 @@ export function ParkingSpotsPage() {
     setSearchParams(writeQuery(nextQuery));
   };
 
+  const handleApplyFilters = () => {
+    applyQuery({ ...draft }, true);
+  };
+
+  const handleResetFilters = () => {
+    const resetQuery: ParkingSpotsQuery = { limit: query.limit ?? DEFAULT_LIMIT, offset: 0, sort_by: 'id', sort_order: 'asc' };
+    setDraft(toDraft(resetQuery));
+    setSearchParams(writeQuery(resetQuery));
+  };
+
+  const totalSpots = listQuery.data?.meta.total ?? 0;
+  const availableOnPage = listQuery.data?.items.filter((spot) => spot.effective_status === 'available').length ?? 0;
+  const withChargerOnPage = listQuery.data?.items.filter((spot) => spot.has_charger).length ?? 0;
+  const hasActiveFilters = Boolean(
+    query.from
+    || query.to
+    || query.spot_type
+    || query.vehicle_type
+    || query.size_category
+    || query.has_charger !== undefined
+    || query.zone_id !== undefined
+    || query.zone_name
+    || query.parking_lot_id !== undefined
+    || query.status,
+  );
+
   return (
-    <Stack spacing={2}>
-      <Alert severity="info">
-        <b>UX-пояснение:</b> <code>effective_status</code> — вычисляемый статус для выбранного интервала from/to (учёт блокировки и активных пересечений бронирования).{' '}
-        <code>status</code> — базовый (raw) статус spot в модели.
-      </Alert>
-
-      {!canManage && (
-        <Alert severity="info">Роль с read-only доступом: можно просматривать каталог и детали, но CRUD для parking spots отключен.</Alert>
-      )}
-
-      <FiltersToolbar>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={3}><TextField label="from" type="datetime-local" fullWidth size="small" value={query.from ?? ''} InputLabelProps={{ shrink: true }} onChange={(e) => applyQuery({ from: e.target.value || undefined }, true)} /></Grid>
-          <Grid item xs={12} md={3}><TextField label="to" type="datetime-local" fullWidth size="small" value={query.to ?? ''} InputLabelProps={{ shrink: true }} onChange={(e) => applyQuery({ to: e.target.value || undefined }, true)} /></Grid>
-
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="spot-type-filter">spot_type</InputLabel>
-              <Select labelId="spot-type-filter" label="spot_type" value={query.spot_type ?? ''} onChange={(e) => applyQuery({ spot_type: (e.target.value as ParkingSpotsQuery['spot_type']) || undefined }, true)}>
-                <MenuItem value="">all</MenuItem>
-                {parkingSpotTypeOptions.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-              </Select>
-            </FormControl>
+    <>
+      <DataListPageTemplate
+        title="Управление парковочными местами"
+        subtitle="Операционный реестр мест с интервалами доступности, статусами и быстрыми действиями."
+        headerMeta={`Записей в каталоге: ${totalSpots}`}
+        headerActions={(
+          <Button variant="contained" startIcon={<AddCircleOutlineIcon />} disabled={!canManage} onClick={() => setCreateOpen(true)}>
+            Добавить место
+          </Button>
+        )}
+        topBanner={(
+          <Stack spacing={1.5}>
+            <Alert icon={<InfoOutlinedIcon />} severity="info">
+              <b>Подсказка по статусам:</b> «Текущий статус» учитывает интервал <code>from/to</code> и активные бронирования, а «Базовый статус» — исходное состояние места в модели.
+            </Alert>
+            {!canManage ? (
+              <Alert severity="info">Для вашей роли доступен только просмотр: редактирование и удаление мест отключены.</Alert>
+            ) : null}
+            {(createMutation.isSuccess || updateMutation.isSuccess || deleteMutation.isSuccess) ? (
+              <Alert severity="success">Изменения сохранены.</Alert>
+            ) : null}
+          </Stack>
+        )}
+        kpiStrip={(
+          <Grid container spacing={1.5}>
+            <Grid item xs={12} md={4}>
+              <MetricCard label="Всего мест" value={totalSpots} helperText="С учетом пагинации и фильтров." />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <MetricCard label="Свободно на странице" value={availableOnPage} helperText="Быстрый срез по текущему интервалу." />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <MetricCard label="С зарядкой на странице" value={withChargerOnPage} helperText="Количество мест с EV-зарядкой." />
+            </Grid>
           </Grid>
+        )}
+        filters={(
+          <ContentCard>
+            <Stack spacing={2.5}>
+              <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} gap={1.5}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                  Фильтры и сортировка
+                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} width={{ xs: '100%', sm: 'auto' }}>
+                  <Button variant="outlined" color="inherit" startIcon={<RestartAltOutlinedIcon />} onClick={handleResetFilters} fullWidth={false}>
+                    Сбросить
+                  </Button>
+                  <Button variant="contained" onClick={handleApplyFilters}>
+                    Применить
+                  </Button>
+                </Stack>
+              </Stack>
 
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="vehicle-type-filter">vehicle_type</InputLabel>
-              <Select labelId="vehicle-type-filter" label="vehicle_type" value={query.vehicle_type ?? ''} onChange={(e) => applyQuery({ vehicle_type: (e.target.value as ParkingSpotsQuery['vehicle_type']) || undefined }, true)}>
-                <MenuItem value="">all</MenuItem>
-                {parkingSpotVehicleTypeOptions.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="tableLabel" color="text.secondary">Интервал и локация</Typography>
+                </Grid>
+                <Grid item xs={12} md={3}><TextField label="Начало интервала" type="datetime-local" fullWidth size="small" value={draft.from ?? ''} InputLabelProps={{ shrink: true }} onChange={(e) => setDraft((prev) => ({ ...prev, from: e.target.value || undefined }))} /></Grid>
+                <Grid item xs={12} md={3}><TextField label="Конец интервала" type="datetime-local" fullWidth size="small" value={draft.to ?? ''} InputLabelProps={{ shrink: true }} onChange={(e) => setDraft((prev) => ({ ...prev, to: e.target.value || undefined }))} /></Grid>
+                <Grid item xs={12} md={2}><TextField label="ID парковки" type="number" size="small" fullWidth value={draft.parking_lot_id ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, parking_lot_id: e.target.value ? Number(e.target.value) : undefined }))} /></Grid>
+                <Grid item xs={12} md={2}><TextField label="ID зоны" type="number" size="small" fullWidth value={draft.zone_id ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, zone_id: e.target.value ? Number(e.target.value) : undefined }))} /></Grid>
+                <Grid item xs={12} md={2}><TextField label="Название зоны" size="small" fullWidth value={draft.zone_name ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, zone_name: e.target.value || undefined }))} /></Grid>
 
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="size-filter">size_category</InputLabel>
-              <Select labelId="size-filter" label="size_category" value={query.size_category ?? ''} onChange={(e) => applyQuery({ size_category: (e.target.value as ParkingSpotsQuery['size_category']) || undefined }, true)}>
-                <MenuItem value="">all</MenuItem>
-                {parkingSpotSizeCategoryOptions.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
+                <Grid item xs={12} sx={{ pt: 0.5 }}>
+                  <Typography variant="tableLabel" color="text.secondary">Типы и статусы</Typography>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="spot-type-filter">Тип места</InputLabel>
+                    <Select labelId="spot-type-filter" label="Тип места" value={draft.spot_type ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, spot_type: (e.target.value as ParkingSpotsQuery['spot_type']) || undefined }))}>
+                      <MenuItem value="">Все</MenuItem>
+                      {parkingSpotTypeOptions.map((value) => <MenuItem key={value} value={value}>{spotTypeLabels[value]}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="vehicle-type-filter">Тип транспорта</InputLabel>
+                    <Select labelId="vehicle-type-filter" label="Тип транспорта" value={draft.vehicle_type ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, vehicle_type: (e.target.value as ParkingSpotsQuery['vehicle_type']) || undefined }))}>
+                      <MenuItem value="">Все</MenuItem>
+                      {parkingSpotVehicleTypeOptions.map((value) => <MenuItem key={value} value={value}>{vehicleTypeLabels[value]}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="size-filter">Размер</InputLabel>
+                    <Select labelId="size-filter" label="Размер" value={draft.size_category ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, size_category: (e.target.value as ParkingSpotsQuery['size_category']) || undefined }))}>
+                      <MenuItem value="">Все</MenuItem>
+                      {parkingSpotSizeCategoryOptions.map((value) => <MenuItem key={value} value={value}>{sizeLabels[value]}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="charger-filter">Зарядка</InputLabel>
+                    <Select
+                      labelId="charger-filter"
+                      label="Зарядка"
+                      value={draft.has_charger === undefined ? '' : String(draft.has_charger)}
+                      onChange={(e) => setDraft((prev) => ({ ...prev, has_charger: parseBooleanParam(e.target.value || null) }))}
+                    >
+                      <MenuItem value="">Все</MenuItem>
+                      <MenuItem value="true">Есть</MenuItem>
+                      <MenuItem value="false">Нет</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="status-filter">Базовый статус</InputLabel>
+                    <Select labelId="status-filter" label="Базовый статус" value={draft.status ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, status: (e.target.value as SpotRawStatus) || undefined }))}>
+                      <MenuItem value="">Все</MenuItem>
+                      {parkingSpotRawStatusOptions.map((value) => <MenuItem key={value} value={value}>{parkingSpotRawStatusLabels[value]}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
 
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="charger-filter">has_charger</InputLabel>
-              <Select
-                labelId="charger-filter"
-                label="has_charger"
-                value={query.has_charger === undefined ? '' : String(query.has_charger)}
-                onChange={(e) => applyQuery({ has_charger: parseBooleanParam(e.target.value || null) }, true)}
-              >
-                <MenuItem value="">all</MenuItem>
-                <MenuItem value="true">true</MenuItem>
-                <MenuItem value="false">false</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2}><TextField label="zone_id" type="number" size="small" fullWidth value={query.zone_id ?? ''} onChange={(e) => applyQuery({ zone_id: e.target.value ? Number(e.target.value) : undefined }, true)} /></Grid>
-          <Grid item xs={12} md={2}><TextField label="zone_name" size="small" fullWidth value={query.zone_name ?? ''} onChange={(e) => applyQuery({ zone_name: e.target.value || undefined }, true)} /></Grid>
-          <Grid item xs={12} md={2}><TextField label="parking_lot_id" type="number" size="small" fullWidth value={query.parking_lot_id ?? ''} onChange={(e) => applyQuery({ parking_lot_id: e.target.value ? Number(e.target.value) : undefined }, true)} /></Grid>
-
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="status-filter">status</InputLabel>
-              <Select labelId="status-filter" label="status" value={query.status ?? ''} onChange={(e) => applyQuery({ status: (e.target.value as ParkingSpotsQuery['status']) || undefined }, true)}>
-                <MenuItem value="">all</MenuItem>
-                {parkingSpotRawStatusOptions.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="sort-by">sort_by</InputLabel>
-              <Select labelId="sort-by" label="sort_by" value={query.sort_by ?? 'id'} onChange={(e) => applyQuery({ sort_by: e.target.value as ParkingSpotsSortBy }, true)}>
-                {parkingSpotSortByOptions.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="sort-order">sort_order</InputLabel>
-              <Select labelId="sort-order" label="sort_order" value={query.sort_order ?? 'asc'} onChange={(e) => applyQuery({ sort_order: e.target.value as SortOrder }, true)}>
-                {parkingSpotSortOrderOptions.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={2}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => {
-                setSearchParams(writeQuery({ limit: query.limit ?? DEFAULT_LIMIT, offset: 0, sort_by: 'id', sort_order: 'asc' }));
-              }}
-            >
-              Сбросить фильтры
-            </Button>
-          </Grid>
-
-          <Grid item xs={12} md={2}>
-            <Button fullWidth variant="contained" startIcon={<AddCircleOutlineIcon />} disabled={!canManage} onClick={() => setCreateOpen(true)}>
-              Создать spot
-            </Button>
-          </Grid>
-        </Grid>
-      </FiltersToolbar>
-
-      {listQuery.isError && <ApiErrorAlert message={parkingApiErrorMessage(listQuery.error, 'Не удалось загрузить parking spots.')} />}
-      {listQuery.isLoading && <LoadingState message="Загрузка parking spots..." />}
-      {(createMutation.isSuccess || updateMutation.isSuccess || deleteMutation.isSuccess) && (
-        <Alert severity="success">Изменения успешно сохранены.</Alert>
-      )}
-      {listQuery.data && listQuery.data.items.length === 0 && (
-        <Paper sx={{ p: 4 }}>
-          <Typography variant="h6">Места не найдены</Typography>
-          <Typography color="text.secondary">
-            Для выбранных фильтров список пуст. Сбросьте фильтры или создайте новое место.
-          </Typography>
-        </Paper>
-      )}
-
-      {listQuery.data && listQuery.data.items.length > 0 && (
-        <Paper>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Spot number</TableCell>
-                <TableCell>spot_type</TableCell>
-                <TableCell>effective_status</TableCell>
-                <TableCell>raw status</TableCell>
-                <TableCell>Parking lot / zone</TableCell>
-                <TableCell>Charger / size / vehicle</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {listQuery.data.items.map((spot) => (
-                <TableRow key={spot.id} hover>
-                  <TableCell>{spot.spot_number}</TableCell>
-                  <TableCell>{spotTypeValue(spot)}</TableCell>
-                  <TableCell><StatusChip status={spot.effective_status} mapping={effectiveStatusMap} /></TableCell>
-                  <TableCell>{parkingSpotRawStatusLabels[spot.status]}</TableCell>
-                  <TableCell>Lot #{spot.parking_lot_id} / {spot.zone_name ? `${spot.zone_name} (${spot.zone_id ?? 'n/a'})` : (spot.zone_id ?? 'No zone')}</TableCell>
-                  <TableCell>{spot.has_charger ? 'charger' : 'no charger'} / {spot.size_category} / {spot.vehicle_type}</TableCell>
-                  <TableCell align="right">
-                    <Button size="small" startIcon={<VisibilityOutlinedIcon />} onClick={() => setDrawerSpotId(spot.id)}>Details</Button>
-                    <Button size="small" startIcon={<EditOutlinedIcon />} disabled={!canManage} onClick={() => setEditingSpot(spot)}>Edit</Button>
-                    <Button color="error" size="small" startIcon={<DeleteOutlineIcon />} disabled={!canManage} onClick={() => setDeletingSpot(spot)}>Delete</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <PaginationControls
-            count={listQuery.data.meta.total}
-            page={Math.floor(listQuery.data.meta.offset / listQuery.data.meta.limit)}
-            rowsPerPage={listQuery.data.meta.limit}
-            onPageChange={(page) => applyQuery({ offset: page * (query.limit ?? DEFAULT_LIMIT) })}
-            onRowsPerPageChange={(rowsPerPage) => applyQuery({ limit: rowsPerPage, offset: 0 })}
-          />
-        </Paper>
-      )}
+                <Grid item xs={12} sx={{ pt: 0.5 }}>
+                  <Typography variant="tableLabel" color="text.secondary">Сортировка</Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="sort-by">Поле сортировки</InputLabel>
+                    <Select labelId="sort-by" label="Поле сортировки" value={draft.sort_by ?? 'id'} onChange={(e) => setDraft((prev) => ({ ...prev, sort_by: e.target.value as ParkingSpotsSortBy }))}>
+                      {parkingSpotSortByOptions.map((value) => <MenuItem key={value} value={value}>{sortByLabels[value]}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="sort-order">Порядок</InputLabel>
+                    <Select labelId="sort-order" label="Порядок" value={draft.sort_order ?? 'asc'} onChange={(e) => setDraft((prev) => ({ ...prev, sort_order: e.target.value as SortOrder }))}>
+                      {parkingSpotSortOrderOptions.map((value) => <MenuItem key={value} value={value}>{sortOrderLabels[value]}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Stack>
+          </ContentCard>
+        )}
+        isLoading={listQuery.isLoading}
+        errorText={listQuery.isError ? parkingApiErrorMessage(listQuery.error, 'Не удалось загрузить список мест.') : undefined}
+        isEmpty={Boolean(listQuery.data && listQuery.data.items.length === 0)}
+        emptyText={hasActiveFilters ? 'По выбранным фильтрам места не найдены. Измените параметры или сбросьте фильтры.' : 'Список мест пуст. Добавьте первое парковочное место.'}
+        dataView={listQuery.data && listQuery.data.items.length > 0 ? (
+          <ContentCard padded={false} sx={{ borderRadius: (theme) => theme.foundation.radius.xs }}>
+            <Box sx={{ overflowX: 'auto', p: { xs: 1.5, md: 2.5 } }}>
+              <Table size="medium" sx={{ minWidth: 980 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Место</TableCell>
+                    <TableCell>Тип</TableCell>
+                    <TableCell>Текущий статус</TableCell>
+                    <TableCell>Базовый статус</TableCell>
+                    <TableCell>Парковка и зона</TableCell>
+                    <TableCell>Параметры</TableCell>
+                    <TableCell align="right">Действия</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {listQuery.data.items.map((spot) => (
+                    <TableRow key={spot.id} hover>
+                      <TableCell>
+                        <Stack spacing={0.25}>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>#{spot.spot_number}</Typography>
+                          <Typography variant="caption" color="text.secondary">ID {spot.id}</Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>{spotTypeLabels[spotTypeValue(spot)]}</TableCell>
+                      <TableCell><StatusChip status={spot.effective_status} mapping={effectiveStatusMap} /></TableCell>
+                      <TableCell>{parkingSpotRawStatusLabels[spot.status]}</TableCell>
+                      <TableCell>
+                        <Stack spacing={0.25}>
+                          <Typography variant="body2">Парковка #{spot.parking_lot_id}</Typography>
+                          <Typography variant="caption" color="text.secondary">{spot.zone_name ? `${spot.zone_name} (ID ${spot.zone_id ?? '—'})` : (spot.zone_id ? `Зона ID ${spot.zone_id}` : 'Без зоны')}</Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {spot.has_charger ? 'С зарядкой' : 'Без зарядки'} · {sizeLabels[spot.size_category]} · {vehicleTypeLabels[spot.vehicle_type]}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                          <Tooltip title="Детали">
+                            <span>
+                              <IconButton size="small" color="primary" onClick={() => setDrawerSpotId(spot.id)}>
+                                <VisibilityOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip title="Редактировать">
+                            <span>
+                              <IconButton size="small" onClick={() => setEditingSpot(spot)} disabled={!canManage}>
+                                <EditOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip title="Удалить">
+                            <span>
+                              <IconButton size="small" color="error" onClick={() => setDeletingSpot(spot)} disabled={!canManage}>
+                                <DeleteOutlineIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Box>
+            <PaginationControls
+              count={listQuery.data.meta.total}
+              page={Math.floor(listQuery.data.meta.offset / listQuery.data.meta.limit)}
+              rowsPerPage={listQuery.data.meta.limit}
+              onPageChange={(page) => applyQuery({ offset: page * (query.limit ?? DEFAULT_LIMIT) })}
+              onRowsPerPageChange={(rowsPerPage) => applyQuery({ limit: rowsPerPage, offset: 0 })}
+            />
+          </ContentCard>
+        ) : undefined}
+      />
 
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Создание parking spot</DialogTitle>
+        <DialogTitle>Добавление парковочного места</DialogTitle>
         <DialogContent>
           <Box mt={1}>
             <ParkingSpotForm
               mode="create"
               disabled={createMutation.isPending}
               readOnly={!canManage}
-              serverError={createMutation.isError ? parkingApiErrorMessage(createMutation.error, 'Не удалось создать spot.') : null}
+              serverError={createMutation.isError ? parkingApiErrorMessage(createMutation.error, 'Не удалось создать место.') : null}
               onSubmit={(payload) => createMutation.mutate(payload as never, { onSuccess: () => setCreateOpen(false) })}
             />
           </Box>
@@ -333,7 +477,7 @@ export function ParkingSpotsPage() {
       </Dialog>
 
       <Dialog open={Boolean(editingSpot)} onClose={() => setEditingSpot(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Редактирование parking spot</DialogTitle>
+        <DialogTitle>Редактирование парковочного места</DialogTitle>
         <DialogContent>
           {editingSpot && (
             <Box mt={1}>
@@ -342,7 +486,7 @@ export function ParkingSpotsPage() {
                 initial={editingSpot}
                 disabled={updateMutation.isPending}
                 readOnly={!canManage}
-                serverError={updateMutation.isError ? parkingApiErrorMessage(updateMutation.error, 'Не удалось обновить spot.') : null}
+                serverError={updateMutation.isError ? parkingApiErrorMessage(updateMutation.error, 'Не удалось обновить место.') : null}
                 onSubmit={(payload) => updateMutation.mutate(payload as never, { onSuccess: () => setEditingSpot(null) })}
               />
             </Box>
@@ -352,8 +496,8 @@ export function ParkingSpotsPage() {
 
       <ConfirmDialog
         open={Boolean(deletingSpot)}
-        title="Удалить parking spot?"
-        description={`Вы действительно хотите удалить spot #${deletingSpot?.spot_number} (ID ${deletingSpot?.id})? Это действие нельзя отменить.`}
+        title="Удалить парковочное место?"
+        description={`Вы действительно хотите удалить место №${deletingSpot?.spot_number} (ID ${deletingSpot?.id})? Это действие нельзя отменить.`}
         danger
         pending={deleteMutation.isPending}
         confirmLabel="Удалить"
@@ -367,26 +511,26 @@ export function ParkingSpotsPage() {
       />
 
       <Drawer anchor="right" open={drawerSpotId !== null} onClose={() => setDrawerSpotId(null)}>
-        <Box sx={{ width: 420, p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 1 }}>Parking spot details</Typography>
-          {detailsQuery.isLoading && <LoadingState message="Loading..." />}
-          {detailsQuery.isError && <ApiErrorAlert message={parkingApiErrorMessage(detailsQuery.error, 'Не удалось загрузить детали spot.')} />}
-          {detailsQuery.data && (
-            <Stack spacing={1}>
+        <Box sx={{ width: { xs: 340, md: 420 }, p: 2.5 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>Карточка парковочного места</Typography>
+          {detailsQuery.isLoading ? <Typography color="text.secondary">Загрузка...</Typography> : null}
+          {detailsQuery.isError ? <Alert severity="error">{parkingApiErrorMessage(detailsQuery.error, 'Не удалось загрузить детали места.')}</Alert> : null}
+          {detailsQuery.data ? (
+            <Stack spacing={1.25}>
               <Typography><b>ID:</b> {detailsQuery.data.id}</Typography>
-              <Typography><b>Spot number:</b> {detailsQuery.data.spot_number}</Typography>
-              <Typography><b>spot_type:</b> {spotTypeValue(detailsQuery.data)}</Typography>
-              <Typography><b>effective_status:</b> {detailsQuery.data.effective_status}</Typography>
-              <Typography><b>raw status:</b> {detailsQuery.data.status}</Typography>
-              <Typography><b>Parking lot:</b> {detailsQuery.data.parking_lot_id}</Typography>
-              <Typography><b>Zone:</b> {detailsQuery.data.zone_name ?? detailsQuery.data.zone_id ?? 'No zone'}</Typography>
-              <Typography><b>Vehicle type:</b> {detailsQuery.data.vehicle_type}</Typography>
-              <Typography><b>Size:</b> {detailsQuery.data.size_category}</Typography>
-              <Typography><b>Charger:</b> {detailsQuery.data.has_charger ? 'yes' : 'no'}</Typography>
+              <Typography><b>Номер места:</b> {detailsQuery.data.spot_number}</Typography>
+              <Typography><b>Тип:</b> {spotTypeLabels[spotTypeValue(detailsQuery.data)]}</Typography>
+              <Typography><b>Текущий статус:</b> {effectiveStatusMap[detailsQuery.data.effective_status]?.label ?? detailsQuery.data.effective_status}</Typography>
+              <Typography><b>Базовый статус:</b> {parkingSpotRawStatusLabels[detailsQuery.data.status]}</Typography>
+              <Typography><b>Парковка:</b> {detailsQuery.data.parking_lot_id}</Typography>
+              <Typography><b>Зона:</b> {detailsQuery.data.zone_name ?? detailsQuery.data.zone_id ?? 'Не указана'}</Typography>
+              <Typography><b>Тип транспорта:</b> {vehicleTypeLabels[detailsQuery.data.vehicle_type]}</Typography>
+              <Typography><b>Размер:</b> {sizeLabels[detailsQuery.data.size_category]}</Typography>
+              <Typography><b>Зарядка:</b> {detailsQuery.data.has_charger ? 'Есть' : 'Нет'}</Typography>
             </Stack>
-          )}
+          ) : null}
         </Box>
       </Drawer>
-    </Stack>
+    </>
   );
 }

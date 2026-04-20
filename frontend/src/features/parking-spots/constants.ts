@@ -18,7 +18,7 @@ export const parkingSpotSizeCategoryOptions: SizeCategory[] = ['small', 'medium'
 export const parkingSpotRawStatusOptions: SpotRawStatus[] = ['available', 'booked', 'blocked'];
 
 export const parkingSpotRawStatusLabels: Record<SpotRawStatus, string> = {
-  available: 'Available (raw)',
-  booked: 'Booked (raw)',
-  blocked: 'Blocked (raw)',
+  available: 'Свободно',
+  booked: 'Занято',
+  blocked: 'Заблокировано',
 };
