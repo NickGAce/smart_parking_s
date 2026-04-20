@@ -29,8 +29,8 @@ export function AvailabilityTable({ items, selectedSpotId, onSelect }: Availabil
             <TableCell>Место</TableCell>
             <TableCell>Тип</TableCell>
             <TableCell>Зона</TableCell>
-            <TableCell>Charger</TableCell>
-            <TableCell>Effective status</TableCell>
+            <TableCell>Зарядка</TableCell>
+            <TableCell>Доступность</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
