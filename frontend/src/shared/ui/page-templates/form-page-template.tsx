@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { Box, Stack } from '@mui/material';
+import { Stack } from '@mui/material';
 
 import { ContentCard } from '../content-card';
 import { EntityHeader } from '../entity-header';
+import { StickyActionBar } from '../form-actions';
 import { PageContentLayout } from '../page-content-layout';
 
 interface FormPageTemplateProps {
@@ -32,11 +33,7 @@ export function FormPageTemplate({
       {topBanner}
       {helperText ? <ContentCard sx={{ p: { xs: 1.5, md: 2 } }}>{helperText}</ContentCard> : null}
       <Stack spacing={2.5}>{formSections}</Stack>
-      {stickyActions ? (
-        <Box sx={{ position: 'sticky', bottom: 12, zIndex: 5 }}>
-          {stickyActions}
-        </Box>
-      ) : null}
+      {stickyActions ? <StickyActionBar>{stickyActions}</StickyActionBar> : null}
     </PageContentLayout>
   );
 }

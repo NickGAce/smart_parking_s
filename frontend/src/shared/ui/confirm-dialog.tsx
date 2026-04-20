@@ -1,9 +1,13 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
+import type { ReactNode } from 'react';
+import { Button, Dialog, DialogActions, DialogContent, Typography } from '@mui/material';
+
+import { DialogHeader } from './dialog-header';
 
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  description: string;
+  subtitle?: string;
+  description: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
@@ -15,6 +19,7 @@ interface ConfirmDialogProps {
 export function ConfirmDialog({
   open,
   title,
+  subtitle,
   description,
   confirmLabel = 'Подтвердить',
   cancelLabel = 'Отмена',
@@ -24,13 +29,13 @@ export function ConfirmDialog({
   onConfirm,
 }: ConfirmDialogProps) {
   return (
-    <Dialog open={open} onClose={onCancel}>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        <Typography>{description}</Typography>
+    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
+      <DialogHeader title={title} subtitle={subtitle} />
+      <DialogContent sx={{ pt: 1 }}>
+        {typeof description === 'string' ? <Typography>{description}</Typography> : description}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onCancel} disabled={pending}>
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <Button onClick={onCancel} disabled={pending} color="inherit">
           {cancelLabel}
         </Button>
         <Button color={danger ? 'error' : 'primary'} variant="contained" disabled={pending} onClick={onConfirm}>
