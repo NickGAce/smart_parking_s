@@ -31,6 +31,14 @@ function formatDelta(value: number) {
   return `${value > 0 ? '+' : ''}${value.toFixed(1)} п.п.`;
 }
 
+function zoneContextHint(zoneName: string): string {
+  const normalized = zoneName.toLowerCase();
+  if (normalized.includes('accessible') || normalized.includes('service') || normalized.includes('vip')) {
+    return 'Небольшая спецзона: 100% может быть нормой при малой ёмкости.';
+  }
+  return `Зона ${zoneName}`;
+}
+
 export function DashboardPage() {
   const { user, role } = useCurrentUser();
   const analytics = useAnalyticsDashboard(DASHBOARD_FILTERS, role);
@@ -152,9 +160,9 @@ export function DashboardPage() {
             <Grid item xs={12} md={6}>
               <MetricCard
                 align="center"
-                label="Загруженность пикового часа"
+                label="Пиковая загрузка зоны"
                 value={hottestZone ? formatPercent(hottestZone.occupancy_percent) : '—'}
-                helperText={hottestZone ? `Зона ${hottestZone.zone}` : 'Нет данных по зонам'}
+                helperText={hottestZone ? zoneContextHint(hottestZone.zone) : 'Нет данных по зонам'}
               />
             </Grid>
           </Grid>

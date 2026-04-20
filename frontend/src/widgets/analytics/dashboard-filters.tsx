@@ -1,4 +1,4 @@
-import { Button, Grid, MenuItem, TextField } from '@mui/material';
+import { Grid, MenuItem, TextField } from '@mui/material';
 
 import type { AnalyticsDashboardFilters } from '../../features/analytics/use-analytics-dashboard';
 import { FiltersSection } from '../../shared/ui/filters-section';
@@ -79,9 +79,6 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} lg={1}>
-          <Button fullWidth variant="outlined" onClick={onReset}>Сбросить</Button>
-        </Grid>
 
         <Grid item xs={12} sm={6} lg={2}>
           <TextField
