@@ -3,7 +3,6 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import {
-  Alert,
   Box,
   Button,
   Dialog,
@@ -32,12 +31,13 @@ import { ParkingLotForm } from '../features/parking-lots/parking-lot-form';
 import { accessModeLabels } from '../shared/config/display-labels';
 import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
 import { ContentCard } from '../shared/ui/content-card';
-import { EmptyState } from '../shared/ui/empty-state';
 import { MetricCard } from '../shared/ui/metric-card';
 import { PaginationControls } from '../shared/ui/pagination-controls';
 import { DataListPageTemplate } from '../shared/ui/page-templates';
 import { DialogHeader } from '../shared/ui/dialog-header';
+import { StateFeedback } from '../shared/ui/state-feedback';
 import { StatusChip } from '../shared/ui/status-chip';
+import { TableLoadingState } from '../shared/ui/table-loading-state';
 import type { SortOrder } from '../shared/types/common';
 import type { ParkingLotsQuery } from '../shared/types/parking';
 
@@ -70,7 +70,7 @@ export function ParkingLotsPage() {
             Создать парковку
           </Button>
         )}
-        topBanner={!canManage ? <Alert severity="info">Режим только чтение для вашей роли. Просмотр разрешен, управление отключено.</Alert> : null}
+        topBanner={!canManage ? <StateFeedback severity="info">Режим только чтения: просмотр разрешён, управление парковками недоступно для вашей роли.</StateFeedback> : null}
         kpiStrip={(
           <Grid container spacing={1.5}>
             <Grid item xs={12} md={6}>
@@ -133,6 +133,7 @@ export function ParkingLotsPage() {
           </ContentCard>
         )}
         isLoading={lotsQuery.isLoading}
+        loadingView={<TableLoadingState rows={7} columns={6} />}
         errorText={lotsQuery.isError ? parkingApiErrorMessage(lotsQuery.error, 'Не удалось загрузить список парковок.') : undefined}
         isEmpty={Boolean(lotsQuery.data && lotsQuery.data.items.length === 0)}
         emptyText="Парковки не найдены. Создайте первую парковку или измените параметры списка."
@@ -192,7 +193,7 @@ export function ParkingLotsPage() {
               onRowsPerPageChange={(rowsPerPage) => setQuery((prev) => ({ ...prev, limit: rowsPerPage, offset: 0 }))}
             />
           </ContentCard>
-        ) : <EmptyState title="Парковки не найдены" description="Создайте первую парковку или измените параметры списка." />}
+) : null}
       />
 
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>

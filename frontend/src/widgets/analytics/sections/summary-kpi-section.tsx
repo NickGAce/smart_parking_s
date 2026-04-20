@@ -8,7 +8,7 @@ import type { AnalyticsSummary } from '../../../shared/types/analytics';
 
 export function SummaryKpiSection({ isLoading, isError, data }: { isLoading: boolean; isError: boolean; data?: AnalyticsSummary }) {
   if (isLoading) {
-    return <LoadingState message="Загрузка KPI..." />;
+    return <LoadingState variant="skeleton" lines={3} />;
   }
 
   if (isError) {

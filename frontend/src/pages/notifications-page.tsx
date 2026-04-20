@@ -1,10 +1,8 @@
 import DoneOutlinedIcon from '@mui/icons-material/DoneOutlined';
 import {
-  Alert,
   Box,
   Stack,
   Button,
-  Chip,
   Paper,
   ToggleButton,
   ToggleButtonGroup,
@@ -17,11 +15,14 @@ import {
   useMarkNotificationReadMutation,
   useNotificationsQuery,
 } from '../features/notifications/use-notifications-query';
+import { notificationStatusMap } from '../shared/config/status-map';
 import { EmptyState } from '../shared/ui/empty-state';
-import { ApiErrorAlert } from '../shared/ui/api-error-alert';
+import { ErrorState } from '../shared/ui/error-state';
 import { FiltersToolbar } from '../shared/ui/filters-toolbar';
-import { LoadingState } from '../shared/ui/loading-state';
 import { PaginationControls } from '../shared/ui/pagination-controls';
+import { StateFeedback } from '../shared/ui/state-feedback';
+import { StatusChip } from '../shared/ui/status-chip';
+import { TableLoadingState } from '../shared/ui/table-loading-state';
 import type { NotificationStatus } from '../shared/types/common';
 
 const ROWS_PER_PAGE_OPTIONS = [5, 10, 20];
@@ -30,12 +31,14 @@ const DEFAULT_ROWS_PER_PAGE = 10;
 type FilterValue = NotificationStatus | 'all';
 
 function formatTimestamp(dateTime: string) {
-  return new Date(dateTime).toLocaleString();
+  return new Date(dateTime).toLocaleString('ru-RU');
 }
 
-function getStatusTone(status: NotificationStatus) {
-  return status === 'unread' ? 'warning' : 'default';
-}
+const filterLabelMap: Record<FilterValue, string> = {
+  all: 'Все',
+  unread: 'Не прочитано',
+  read: 'Прочитано',
+};
 
 export function NotificationsPage() {
   const [filter, setFilter] = useState<FilterValue>('all');
@@ -63,37 +66,35 @@ export function NotificationsPage() {
 
   return (
     <Stack spacing={2}>
-      <Alert severity="info">
-        Inbox интегрирован через GET /notifications и PATCH /notifications/{'{notification_id}'}/read.
-        Realtime канал отсутствует, поэтому используется polling.
-      </Alert>
+      <StateFeedback severity="info">
+        Уведомления обновляются при каждом запросе страницы. Если ожидаете новое событие, обновите список.
+      </StateFeedback>
 
       <FiltersToolbar direction={{ xs: 'column', sm: 'row' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ sm: 'center' }}>
           <ToggleButtonGroup size="small" color="primary" value={filter} exclusive onChange={onFilterChange}>
-            <ToggleButton value="all">all</ToggleButton>
-            <ToggleButton value="unread">unread</ToggleButton>
-            <ToggleButton value="read">read</ToggleButton>
+            <ToggleButton value="all">Все</ToggleButton>
+            <ToggleButton value="unread">Не прочитано</ToggleButton>
+            <ToggleButton value="read">Прочитано</ToggleButton>
           </ToggleButtonGroup>
           <Typography color="text.secondary" variant="body2">
-            {filter === 'all' ? `Всего уведомлений: ${totalItems}` : `Фильтр: ${filter}`}
+            {filter === 'all' ? `Всего уведомлений: ${totalItems}` : `Фильтр: ${filterLabelMap[filter]}`}
           </Typography>
         </Stack>
       </FiltersToolbar>
 
-      {listQuery.isLoading && (
-        <LoadingState message="Загружаем уведомления..." />
-      )}
+      {listQuery.isLoading && <TableLoadingState rows={5} columns={4} />}
 
       {listQuery.isError && (
-        <ApiErrorAlert message="Не удалось загрузить inbox уведомлений. Попробуйте обновить страницу." />
+        <ErrorState message="Не удалось загрузить уведомления. Обновите страницу или проверьте подключение." onRetry={() => listQuery.refetch()} />
       )}
 
       {!listQuery.isLoading && !listQuery.isError && items.length === 0 && (
         <Paper>
           <EmptyState
-            title="Уведомлений пока нет"
-            description="Когда backend отправит события, они появятся в этом inbox. Пока список пуст."
+            kind="no-results"
+            title="Уведомления не найдены"
+            description="Попробуйте изменить фильтр или вернитесь позже — новые события появятся автоматически."
           />
         </Paper>
       )}
@@ -104,7 +105,7 @@ export function NotificationsPage() {
             {unreadItems.length > 0 && (
               <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', bgcolor: 'warning.50' }}>
                 <Typography variant="subtitle2" color="warning.dark">
-                  Unread
+                  Требуют внимания
                 </Typography>
               </Box>
             )}
@@ -122,8 +123,8 @@ export function NotificationsPage() {
                 <Stack spacing={1}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
                     <Typography variant="subtitle1" fontWeight={700}>{item.title}</Typography>
-                    <Stack direction="row" spacing={1}>
-                      <Chip label={item.status} color={getStatusTone(item.status)} size="small" />
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <StatusChip status={item.status} mapping={notificationStatusMap} variant="outlined" />
                       <Typography variant="caption" color="text.secondary">{formatTimestamp(item.created_at)}</Typography>
                     </Stack>
                   </Stack>
@@ -135,7 +136,7 @@ export function NotificationsPage() {
                       disabled={markReadMutation.isPending}
                       onClick={() => markReadMutation.mutate(item.id)}
                     >
-                      Mark as read
+                      Отметить как прочитанное
                     </Button>
                   </Box>
                 </Stack>
@@ -143,19 +144,19 @@ export function NotificationsPage() {
             ))}
 
             {readItems.length > 0 && (
-              <Box sx={{ px: 2, py: 1, borderBottom: unreadItems.length === 0 ? 1 : 0, borderColor: 'divider', bgcolor: 'grey.100' }}>
+              <Box sx={{ px: 2, py: 1, borderBottom: unreadItems.length === 0 ? 1 : 0, borderColor: 'divider', bgcolor: 'surface.overlay' }}>
                 <Typography variant="subtitle2" color="text.secondary">
-                  Read
+                  История
                 </Typography>
               </Box>
             )}
             {readItems.map((item) => (
-              <Box key={item.id} sx={{ px: 2, py: 1.5, borderTop: 1, borderColor: 'divider', opacity: 0.84 }}>
+              <Box key={item.id} sx={{ px: 2, py: 1.5, borderTop: 1, borderColor: 'divider', opacity: 0.88 }}>
                 <Stack spacing={1}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
                     <Typography variant="subtitle1">{item.title}</Typography>
-                    <Stack direction="row" spacing={1}>
-                      <Chip label={item.status} color={getStatusTone(item.status)} size="small" />
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <StatusChip status={item.status} mapping={notificationStatusMap} variant="outlined" />
                       <Typography variant="caption" color="text.secondary">{formatTimestamp(item.created_at)}</Typography>
                     </Stack>
                   </Stack>

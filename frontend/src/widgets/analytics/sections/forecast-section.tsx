@@ -25,7 +25,7 @@ function formatBucketTime(value: string): string {
 }
 
 export function ForecastSection({ isLoading, isError, data }: { isLoading: boolean; isError: boolean; data?: OccupancyForecast }) {
-  if (isLoading) return <LoadingState message="Загрузка прогноза..." />;
+  if (isLoading) return <LoadingState variant="skeleton" lines={5} />;
   if (isError) return <ErrorState message="Не удалось загрузить прогноз." />;
   if (!data || data.forecast.length === 0) {
     return <EmptyState title="Нет данных прогноза" description="Для выбранного контекста прогнозные бакеты отсутствуют." />;
@@ -34,13 +34,15 @@ export function ForecastSection({ isLoading, isError, data }: { isLoading: boole
   const sortedBuckets = [...data.forecast].sort((a, b) => new Date(a.time_bucket).getTime() - new Date(b.time_bucket).getTime());
   const previewBuckets = sortedBuckets.slice(0, 12);
   const hiddenBuckets = sortedBuckets.slice(12);
+  const firstBucket = sortedBuckets[0];
+  const lastBucket = sortedBuckets[sortedBuckets.length - 1];
 
   return (
     <Stack spacing={1.5} textAlign="center">
       <ContentCard sx={{ p: 2 }}>
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1} alignItems="center">
           <Typography variant="body2" color="text.secondary">
-            Горизонт прогноза: {formatBucketTime(sortedBuckets[0].time_bucket)} — {formatBucketTime(sortedBuckets[sortedBuckets.length - 1].time_bucket)}
+            Горизонт прогноза: {formatBucketTime(firstBucket!.time_bucket)} — {formatBucketTime(lastBucket!.time_bucket)}
           </Typography>
           <Chip size="small" variant="outlined" label={`Бакетов: ${sortedBuckets.length}`} />
         </Stack>
