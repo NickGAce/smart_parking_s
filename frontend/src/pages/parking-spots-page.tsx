@@ -10,7 +10,6 @@ import {
   Button,
   Dialog,
   DialogContent,
-  DialogTitle,
   Drawer,
   FormControl,
   Grid,
@@ -52,7 +51,8 @@ import {
 import { ParkingSpotForm } from '../features/parking-spots/parking-spot-form';
 import { effectiveStatusMap } from '../shared/config/status-map';
 import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
-import { ConfirmDialog } from '../shared/ui/confirm-dialog';
+import { DestructiveConfirmDialog } from '../shared/ui/destructive-confirm-dialog';
+import { DialogHeader } from '../shared/ui/dialog-header';
 import { ContentCard } from '../shared/ui/content-card';
 import { DataListPageTemplate } from '../shared/ui/page-templates';
 import { MetricCard } from '../shared/ui/metric-card';
@@ -462,9 +462,9 @@ export function ParkingSpotsPage() {
       />
 
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Добавление парковочного места</DialogTitle>
-        <DialogContent>
-          <Box mt={1}>
+        <DialogHeader title="Добавление парковочного места" subtitle="Заполните параметры места. Обязательные поля отмечены звездочкой." />
+        <DialogContent sx={{ pt: 1.5 }}>
+          <Box>
             <ParkingSpotForm
               mode="create"
               disabled={createMutation.isPending}
@@ -477,10 +477,10 @@ export function ParkingSpotsPage() {
       </Dialog>
 
       <Dialog open={Boolean(editingSpot)} onClose={() => setEditingSpot(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Редактирование парковочного места</DialogTitle>
-        <DialogContent>
+        <DialogHeader title="Редактирование парковочного места" subtitle="Проверьте изменения перед сохранением." />
+        <DialogContent sx={{ pt: 1.5 }}>
           {editingSpot && (
-            <Box mt={1}>
+            <Box>
               <ParkingSpotForm
                 mode="edit"
                 initial={editingSpot}
@@ -494,13 +494,12 @@ export function ParkingSpotsPage() {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
+      <DestructiveConfirmDialog
         open={Boolean(deletingSpot)}
-        title="Удалить парковочное место?"
-        description={`Вы действительно хотите удалить место №${deletingSpot?.spot_number} (ID ${deletingSpot?.id})? Это действие нельзя отменить.`}
-        danger
+        title="Удалить парковочное место"
+        description={`Вы уверены, что хотите удалить место №${deletingSpot?.spot_number} (ID ${deletingSpot?.id})?`}
         pending={deleteMutation.isPending}
-        confirmLabel="Удалить"
+        confirmLabel="Удалить место"
         onCancel={() => setDeletingSpot(null)}
         onConfirm={() => {
           if (!deletingSpot) {

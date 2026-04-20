@@ -8,7 +8,6 @@ import {
   Button,
   Dialog,
   DialogContent,
-  DialogTitle,
   FormControl,
   Grid,
   InputLabel,
@@ -37,6 +36,7 @@ import { EmptyState } from '../shared/ui/empty-state';
 import { MetricCard } from '../shared/ui/metric-card';
 import { PaginationControls } from '../shared/ui/pagination-controls';
 import { DataListPageTemplate } from '../shared/ui/page-templates';
+import { DialogHeader } from '../shared/ui/dialog-header';
 import { StatusChip } from '../shared/ui/status-chip';
 import type { SortOrder } from '../shared/types/common';
 import type { ParkingLotsQuery } from '../shared/types/parking';
@@ -196,9 +196,9 @@ export function ParkingLotsPage() {
       />
 
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Создание парковки</DialogTitle>
-        <DialogContent>
-          <Box mt={1}>
+        <DialogHeader title="Создание парковки" subtitle="Заполните обязательные поля. Значения можно изменить позже в карточке парковки." />
+        <DialogContent sx={{ pt: 1.5 }}>
+          <Box>
             <ParkingLotForm
               title="Новая парковка"
               submitLabel="Создать"

@@ -14,6 +14,8 @@ import {
 } from '@mui/material';
 import { useMemo, useState } from 'react';
 
+import { FormActions } from '../../shared/ui/form-actions';
+import { InlineFieldHint } from '../../shared/ui/inline-field-hint';
 import type { CreateParkingSpotPayload, ParkingSpot, UpdateParkingSpotPayload } from '../../shared/types/parking';
 import {
   parkingSpotRawStatusOptions,
@@ -47,22 +49,22 @@ export function ParkingSpotForm({ initial, mode, onSubmit, disabled = false, rea
 
   const zoneHint = useMemo(() => {
     if (zoneId.trim() || zoneName.trim()) {
-      return 'Укажите только одно: zone_id или zone_name.';
+      return 'Укажите только одно значение: ID зоны или название зоны.';
     }
-    return 'Если указать zone_name и зоны нет, backend может создать её автоматически.';
+    return 'Если указать новое название зоны, backend может создать ее автоматически.';
   }, [zoneId, zoneName]);
 
   const handleSubmit = () => {
     if (!Number.isFinite(spotNumber) || spotNumber <= 0) {
-      setFormError('spot_number должен быть положительным числом.');
+      setFormError('Номер места должен быть положительным числом.');
       return;
     }
     if (!Number.isFinite(parkingLotId) || parkingLotId <= 0) {
-      setFormError('parking_lot_id должен быть положительным числом.');
+      setFormError('ID парковки должен быть положительным числом.');
       return;
     }
     if (zoneId.trim() && zoneName.trim()) {
-      setFormError('Нельзя одновременно отправлять zone_id и zone_name.');
+      setFormError('Нельзя одновременно передавать ID и название зоны.');
       return;
     }
 
@@ -90,23 +92,39 @@ export function ParkingSpotForm({ initial, mode, onSubmit, disabled = false, rea
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h6">{isCreateMode ? 'Новый parking spot' : `Редактирование spot #${initial?.id}`}</Typography>
+      <Typography variant="h6">{isCreateMode ? 'Новое парковочное место' : `Редактирование места #${initial?.id}`}</Typography>
 
       {formError && <Alert severity="error">{formError}</Alert>}
       {serverError && <Alert severity="error">{serverError}</Alert>}
 
       <Grid container spacing={2}>
         <Grid item xs={12} sm={6}>
-          <TextField label="Spot number" type="number" value={spotNumber} fullWidth disabled={disabled || readOnly} onChange={(e) => setSpotNumber(Number(e.target.value))} />
+          <TextField
+            label="Номер места"
+            type="number"
+            value={spotNumber}
+            fullWidth
+            required
+            disabled={disabled || readOnly}
+            onChange={(e) => setSpotNumber(Number(e.target.value))}
+          />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField label="Parking lot ID" type="number" value={parkingLotId} fullWidth disabled={disabled || readOnly} onChange={(e) => setParkingLotId(Number(e.target.value))} />
+          <TextField
+            label="ID парковки"
+            type="number"
+            value={parkingLotId}
+            fullWidth
+            required
+            disabled={disabled || readOnly}
+            onChange={(e) => setParkingLotId(Number(e.target.value))}
+          />
         </Grid>
 
         <Grid item xs={12} sm={6}>
           <FormControl fullWidth>
-            <InputLabel id="spot-type-label">Spot type</InputLabel>
-            <Select labelId="spot-type-label" label="Spot type" value={spotType} disabled={disabled || readOnly} onChange={(e) => setSpotType(e.target.value as typeof spotType)}>
+            <InputLabel id="spot-type-label">Тип места</InputLabel>
+            <Select labelId="spot-type-label" label="Тип места" value={spotType} disabled={disabled || readOnly} onChange={(e) => setSpotType(e.target.value as typeof spotType)}>
               {parkingSpotTypeOptions.map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
             </Select>
           </FormControl>
@@ -114,8 +132,8 @@ export function ParkingSpotForm({ initial, mode, onSubmit, disabled = false, rea
 
         <Grid item xs={12} sm={6}>
           <FormControl fullWidth>
-            <InputLabel id="vehicle-type-label">Vehicle type</InputLabel>
-            <Select labelId="vehicle-type-label" label="Vehicle type" value={vehicleType} disabled={disabled || readOnly} onChange={(e) => setVehicleType(e.target.value as typeof vehicleType)}>
+            <InputLabel id="vehicle-type-label">Тип транспорта</InputLabel>
+            <Select labelId="vehicle-type-label" label="Тип транспорта" value={vehicleType} disabled={disabled || readOnly} onChange={(e) => setVehicleType(e.target.value as typeof vehicleType)}>
               {parkingSpotVehicleTypeOptions.map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
             </Select>
           </FormControl>
@@ -123,8 +141,8 @@ export function ParkingSpotForm({ initial, mode, onSubmit, disabled = false, rea
 
         <Grid item xs={12} sm={6}>
           <FormControl fullWidth>
-            <InputLabel id="size-category-label">Size category</InputLabel>
-            <Select labelId="size-category-label" label="Size category" value={sizeCategory} disabled={disabled || readOnly} onChange={(e) => setSizeCategory(e.target.value as typeof sizeCategory)}>
+            <InputLabel id="size-category-label">Размер места</InputLabel>
+            <Select labelId="size-category-label" label="Размер места" value={sizeCategory} disabled={disabled || readOnly} onChange={(e) => setSizeCategory(e.target.value as typeof sizeCategory)}>
               {parkingSpotSizeCategoryOptions.map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
             </Select>
           </FormControl>
@@ -133,8 +151,8 @@ export function ParkingSpotForm({ initial, mode, onSubmit, disabled = false, rea
         {!isCreateMode && (
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth>
-              <InputLabel id="spot-status-label">Raw status</InputLabel>
-              <Select labelId="spot-status-label" label="Raw status" value={status} disabled={disabled || readOnly} onChange={(e) => setStatus(e.target.value as typeof status)}>
+              <InputLabel id="spot-status-label">Статус</InputLabel>
+              <Select labelId="spot-status-label" label="Статус" value={status} disabled={disabled || readOnly} onChange={(e) => setStatus(e.target.value as typeof status)}>
                 {parkingSpotRawStatusOptions.map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
               </Select>
             </FormControl>
@@ -142,23 +160,41 @@ export function ParkingSpotForm({ initial, mode, onSubmit, disabled = false, rea
         )}
 
         <Grid item xs={12} sm={6}>
-          <TextField label="Zone ID" type="number" value={zoneId} fullWidth disabled={disabled || readOnly} onChange={(e) => setZoneId(e.target.value)} helperText={zoneHint} />
+          <TextField
+            label="ID зоны"
+            type="number"
+            value={zoneId}
+            fullWidth
+            disabled={disabled || readOnly}
+            onChange={(e) => setZoneId(e.target.value)}
+            helperText={<InlineFieldHint>{zoneHint}</InlineFieldHint>}
+          />
         </Grid>
         <Grid item xs={12} sm={6}>
-          <TextField label="Zone name" value={zoneName} fullWidth disabled={disabled || readOnly} onChange={(e) => setZoneName(e.target.value)} helperText={zoneHint} />
+          <TextField
+            label="Название зоны"
+            value={zoneName}
+            fullWidth
+            disabled={disabled || readOnly}
+            onChange={(e) => setZoneName(e.target.value)}
+            helperText={<InlineFieldHint>{zoneHint}</InlineFieldHint>}
+          />
         </Grid>
       </Grid>
 
       <FormControlLabel
         control={<Checkbox checked={hasCharger} onChange={(e) => setHasCharger(e.target.checked)} disabled={disabled || readOnly} />}
-        label="Has charger"
+        label="Есть зарядка для электромобиля"
       />
 
-      <Stack direction="row" justifyContent="flex-end">
-        <Button variant="contained" onClick={handleSubmit} disabled={disabled || readOnly}>
-          {isCreateMode ? 'Создать spot' : 'Сохранить spot'}
-        </Button>
-      </Stack>
+
+      <FormActions
+        primary={(
+          <Button variant="contained" onClick={handleSubmit} disabled={disabled || readOnly}>
+            {isCreateMode ? 'Создать место' : 'Сохранить изменения'}
+          </Button>
+        )}
+      />
     </Stack>
   );
 }
