@@ -7,6 +7,15 @@ import { LoadingState } from '../../../shared/ui/loading-state';
 import { ContentCard } from '../../../shared/ui/content-card';
 import type { AnalyticsBookings } from '../../../shared/types/analytics';
 
+const statusLabels: Record<string, string> = {
+  created: 'Создано',
+  confirmed: 'Подтверждено',
+  active: 'Активно',
+  completed: 'Завершено',
+  cancelled: 'Отменено',
+  no_show: 'Неявка',
+};
+
 export function BookingsMetricsSection({ isLoading, isError, data }: { isLoading: boolean; isError: boolean; data?: AnalyticsBookings }) {
   if (isLoading) return <LoadingState message="Загрузка метрик бронирований..." />;
   if (isError) return <ErrorState message="Не удалось загрузить метрики бронирований." />;
@@ -15,16 +24,23 @@ export function BookingsMetricsSection({ isLoading, isError, data }: { isLoading
   return (
     <Grid container spacing={2}>
       <Grid item xs={12} md={4}>
-        <MetricCard label="Бронирований" value={data.bookings_count} />
+        <MetricCard align="center" label="Бронирований" value={data.bookings_count} helperText="Общее число заявок." />
       </Grid>
       <Grid item xs={12} md={4}>
-        <MetricCard label="Средняя длительность" value={`${data.average_booking_duration_minutes.toFixed(1)} мин`} />
+        <MetricCard
+          align="center"
+          label="Средняя длительность"
+          value={`${data.average_booking_duration_minutes.toFixed(1)} мин`}
+          helperText="Сколько в среднем длится одно бронирование."
+        />
       </Grid>
       <Grid item xs={12} md={4}>
-        <ContentCard sx={{ p: 2, height: '100%' }}>
-          <Typography variant="cardTitle">Доли</Typography>
-          <Typography variant="body2" color="text.secondary">Отмены: {(data.cancellation_rate * 100).toFixed(1)}%</Typography>
-          <Typography variant="body2" color="text.secondary">No-show: {(data.no_show_rate * 100).toFixed(1)}%</Typography>
+        <ContentCard sx={{ p: 2, height: '100%', textAlign: 'center' }}>
+          <Typography variant="cardTitle" gutterBottom>Качество потока</Typography>
+          <Stack spacing={0.75} alignItems="center">
+            <Typography variant="body2" color="text.secondary">Отмены: {(data.cancellation_rate * 100).toFixed(1)}%</Typography>
+            <Typography variant="body2" color="text.secondary">No-show: {(data.no_show_rate * 100).toFixed(1)}%</Typography>
+          </Stack>
         </ContentCard>
       </Grid>
       <Grid item xs={12}>
@@ -34,7 +50,7 @@ export function BookingsMetricsSection({ isLoading, isError, data }: { isLoading
             {Object.keys(data.status_breakdown).length === 0 ? (
               <Typography color="text.secondary">Данные о статусах отсутствуют.</Typography>
             ) : Object.entries(data.status_breakdown).map(([status, count]) => (
-              <Chip key={status} label={`${status}: ${count}`} variant="outlined" />
+              <Chip key={status} label={`${statusLabels[status] ?? status}: ${count}`} variant="outlined" />
             ))}
           </Stack>
         </ContentCard>

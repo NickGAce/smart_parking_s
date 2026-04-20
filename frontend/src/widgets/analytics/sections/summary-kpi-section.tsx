@@ -21,11 +21,40 @@ export function SummaryKpiSection({ isLoading, isError, data }: { isLoading: boo
 
   return (
     <Grid container spacing={2}>
-      <Grid item xs={12} sm={6} md={4}><MetricCard label="Загрузка" value={`${data.occupancy_percent.toFixed(1)}%`} /></Grid>
-      <Grid item xs={12} sm={6} md={4}><MetricCard label="Бронирований" value={String(data.bookings_count)} /></Grid>
-      <Grid item xs={12} sm={6} md={4}><MetricCard label="Средняя длительность" value={`${data.average_booking_duration_minutes.toFixed(1)} мин`} /></Grid>
-      <Grid item xs={12} sm={6} md={6}><MetricCard label="Доля отмен" value={`${(data.cancellation_rate * 100).toFixed(1)}%`} /></Grid>
-      <Grid item xs={12} sm={6} md={6}><MetricCard label="Доля no-show" value={`${(data.no_show_rate * 100).toFixed(1)}%`} /></Grid>
+      <Grid item xs={12} sm={6} md={4}>
+        <MetricCard align="center" label="Загрузка" value={`${data.occupancy_percent.toFixed(1)}%`} helperText="Средняя занятость мест." />
+      </Grid>
+      <Grid item xs={12} sm={6} md={4}>
+        <MetricCard align="center" label="Бронирований" value={String(data.bookings_count)} helperText="Общее число операций за период." />
+      </Grid>
+      <Grid item xs={12} sm={6} md={4}>
+        <MetricCard
+          align="center"
+          label="Средняя длительность"
+          value={`${data.average_booking_duration_minutes.toFixed(1)} мин`}
+          helperText="Среднее время одной сессии парковки."
+        />
+      </Grid>
+      <Grid item xs={12} sm={6} md={6}>
+        <MetricCard
+          align="center"
+          label="Доля отмен"
+          value={`${(data.cancellation_rate * 100).toFixed(1)}%`}
+          badgeLabel={data.cancellation_rate > 0.15 ? 'Риск' : 'Норма'}
+          badgeColor={data.cancellation_rate > 0.15 ? 'warning' : 'success'}
+          helperText="Процент заявок, отмененных до начала."
+        />
+      </Grid>
+      <Grid item xs={12} sm={6} md={6}>
+        <MetricCard
+          align="center"
+          label="Доля no-show"
+          value={`${(data.no_show_rate * 100).toFixed(1)}%`}
+          badgeLabel={data.no_show_rate > 0.1 ? 'Внимание' : 'Норма'}
+          badgeColor={data.no_show_rate > 0.1 ? 'warning' : 'success'}
+          helperText="Бронирования без фактического заезда."
+        />
+      </Grid>
     </Grid>
   );
 }

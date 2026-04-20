@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from statistics import mean
 from typing import Protocol
 
@@ -168,6 +168,12 @@ class HistoricalPatternForecastModel:
         return result
 
 
+def _to_naive_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def resolve_period_window(
     period: str,
     from_time: datetime | None,
@@ -177,7 +183,7 @@ def resolve_period_window(
     now = now or datetime.utcnow()
 
     if from_time and to_time:
-        return from_time, to_time
+        return _to_naive_utc(from_time), _to_naive_utc(to_time)
 
     if period == "day":
         return now - timedelta(days=1), now
@@ -428,10 +434,13 @@ def resolve_forecast_window(
     if from_time is None or to_time is None:
         raise ValueError("Provide target_date or both from/to.")
 
-    if from_time >= to_time:
+    normalized_from = _to_naive_utc(from_time)
+    normalized_to = _to_naive_utc(to_time)
+
+    if normalized_from >= normalized_to:
         raise ValueError("from must be earlier than to")
 
-    return from_time, to_time
+    return normalized_from, normalized_to
 
 
 def _iter_buckets(start: datetime, end: datetime, bucket_size_hours: int):
