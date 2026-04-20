@@ -74,10 +74,10 @@ export function ParkingLotsPage() {
         kpiStrip={(
           <Grid container spacing={1.5}>
             <Grid item xs={12} md={6}>
-              <MetricCard label="Парковок в каталоге" value={totalLots} helperText="С учетом пагинации и текущей сортировки." />
+              <MetricCard label="Парковок в каталоге" value={totalLots} helperText="С учетом пагинации и текущей сортировки." align="center" />
             </Grid>
             <Grid item xs={12} md={6}>
-              <MetricCard label="Мест на текущей странице" value={totalSpots} helperText="Сумма total_spots для отображаемых парковок." />
+              <MetricCard label="Мест на текущей странице" value={totalSpots} helperText="Сумма total_spots для отображаемых парковок." align="center" />
             </Grid>
           </Grid>
         )}

@@ -263,13 +263,13 @@ export function ParkingSpotsPage() {
         kpiStrip={(
           <Grid container spacing={1.5}>
             <Grid item xs={12} md={4}>
-              <MetricCard label="Всего мест" value={totalSpots} helperText="С учетом пагинации и фильтров." />
+              <MetricCard label="Всего мест" value={totalSpots} helperText="С учетом пагинации и фильтров." align="center" />
             </Grid>
             <Grid item xs={12} md={4}>
-              <MetricCard label="Свободно на странице" value={availableOnPage} helperText="Быстрый срез по текущему интервалу." />
+              <MetricCard label="Свободно на странице" value={availableOnPage} helperText="Быстрый срез по текущему интервалу." align="center" />
             </Grid>
             <Grid item xs={12} md={4}>
-              <MetricCard label="С зарядкой на странице" value={withChargerOnPage} helperText="Количество мест с EV-зарядкой." />
+              <MetricCard label="С зарядкой на странице" value={withChargerOnPage} helperText="Количество мест с EV-зарядкой." align="center" />
             </Grid>
           </Grid>
         )}
