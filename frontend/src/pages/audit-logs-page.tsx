@@ -7,6 +7,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
   TableRow,
   TextField,
@@ -189,54 +190,56 @@ export function AuditLogsPage() {
 
       {listQuery.data && listQuery.data.items.length > 0 && (
         <Paper>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Время</TableCell>
-                <TableCell>Пользователь</TableCell>
-                <TableCell>Действие</TableCell>
-                <TableCell>Сущность</TableCell>
-                <TableCell>Изменения</TableCell>
-                <TableCell>Метаданные</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {listQuery.data.items.map((log) => (
-                <TableRow key={log.id} hover>
-                  <TableCell>{log.id}</TableCell>
-                  <TableCell>{formatTimestamp(log.timestamp)}</TableCell>
-                  <TableCell>{log.actor_user_id ?? 'system'}</TableCell>
-                  <TableCell>
-                    <Chip label={log.action_type} size="small" color={actionTone(log.action_type)} />
-                  </TableCell>
-                  <TableCell>
-                    <Stack spacing={0.5}>
-                      <Typography variant="body2">{log.entity_type}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        entity_id: {log.entity_id ?? '—'}
-                      </Typography>
-                    </Stack>
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 280 }}>
-                    <Stack spacing={1}>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">old_values</Typography>
-                        <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.old_values)}</Box>
-                      </Box>
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">new_values</Typography>
-                        <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.new_values)}</Box>
-                      </Box>
-                    </Stack>
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 220 }}>
-                    <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.source_metadata)}</Box>
-                  </TableCell>
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table size="small" aria-label="Журнал аудита" sx={{ minWidth: 1080 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Время</TableCell>
+                  <TableCell>Пользователь</TableCell>
+                  <TableCell>Действие</TableCell>
+                  <TableCell>Сущность</TableCell>
+                  <TableCell>Изменения</TableCell>
+                  <TableCell>Метаданные</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {listQuery.data.items.map((log) => (
+                  <TableRow key={log.id} hover>
+                    <TableCell>{log.id}</TableCell>
+                    <TableCell>{formatTimestamp(log.timestamp)}</TableCell>
+                    <TableCell>{log.actor_user_id ?? 'system'}</TableCell>
+                    <TableCell>
+                      <Chip label={log.action_type} size="small" color={actionTone(log.action_type)} />
+                    </TableCell>
+                    <TableCell>
+                      <Stack spacing={0.5}>
+                        <Typography variant="body2">{log.entity_type}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          entity_id: {log.entity_id ?? '—'}
+                        </Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 280 }}>
+                      <Stack spacing={1}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">old_values</Typography>
+                          <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.old_values)}</Box>
+                        </Box>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">new_values</Typography>
+                          <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.new_values)}</Box>
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 220 }}>
+                      <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.source_metadata)}</Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
           <PaginationControls
             count={totalRows}

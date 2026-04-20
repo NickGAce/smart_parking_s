@@ -86,7 +86,7 @@ export function AppShell() {
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));
   const unreadCountQuery = useUnreadNotificationsCountQuery();
 
-  const links = user ? getMenuByRole(user.role) : [];
+  const links = useMemo(() => (user ? getMenuByRole(user.role) : []), [user]);
   const routeMeta = findRouteByPathname(location.pathname);
 
   const breadcrumbs = useMemo(() => {
