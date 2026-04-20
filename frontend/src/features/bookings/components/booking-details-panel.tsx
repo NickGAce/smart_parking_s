@@ -2,6 +2,7 @@ import {
   Alert,
   Box,
   Button,
+  Divider,
   Drawer,
   FormControl,
   InputLabel,
@@ -14,6 +15,7 @@ import {
 import { useEffect, useState } from 'react';
 
 import { useCurrentUser } from '../../auth/use-current-user';
+import { bookingStatuses } from '../constants';
 import { bookingApiErrorMessage, bookingLifecycleErrorMessage } from '../error-messages';
 import {
   useBookingQuery,
@@ -23,9 +25,22 @@ import {
   useMarkNoShowBookingMutation,
   useUpdateBookingMutation,
 } from '../hooks';
-import { bookingStatuses } from '../constants';
-import { bookingActionAvailabilityMap, canCancelBooking, canChangeStatus as canChangeStatusAction, canEditBooking, getAvailableBookingActions } from '../../../shared/config/booking-actions';
+import {
+  bookingAssignmentModeLabelMap,
+  bookingStatusLabelMap,
+  bookingTypeLabelMap,
+  formatBookingDurationLabel,
+  formatBookingInterval,
+} from '../../../shared/config/booking-ui';
+import {
+  bookingActionAvailabilityMap,
+  canCancelBooking,
+  canChangeStatus as canChangeStatusAction,
+  canEditBooking,
+  getAvailableBookingActions,
+} from '../../../shared/config/booking-actions';
 import { bookingStatusMap } from '../../../shared/config/status-map';
+import { KeyValueList } from '../../../shared/ui/key-value-list';
 import { StatusChip } from '../../../shared/ui/status-chip';
 import type { BookingStatus } from '../../../shared/types/common';
 import type { BookingType, UpdateBookingPayload } from '../../../shared/types/booking';
@@ -93,100 +108,106 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
 
   return (
     <Drawer anchor="right" open={bookingId !== null} onClose={onClose}>
-      <Box sx={{ width: 460, p: 2 }}>
+      <Box sx={{ width: 520, p: 2.5 }}>
         <Stack spacing={2}>
-          <Typography variant="h6">Booking details / operations</Typography>
-
-          <Alert severity="info">
-            UI скрывает явно недоступные действия, но backend остаётся источником истины для transition rules.
-          </Alert>
-
-          <Alert severity="warning">DELETE выполняет soft cancel: запись сохраняется, статус переходит в cancelled, если переход разрешён backend.</Alert>
+          <Typography variant="h6">Детали бронирования</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Здесь можно проверить интервал, статус и доступные действия, а также отредактировать бронирование, если это разрешено ролью.
+          </Typography>
 
           {detailsQuery.isError && <Alert severity="error">{bookingApiErrorMessage(detailsQuery.error, 'Не удалось загрузить детали бронирования.')}</Alert>}
 
           {booking && (
-            <Stack spacing={1.5}>
-              <Typography><b>ID:</b> {booking.id}</Typography>
-              <Typography><b>Interval:</b> {new Date(booking.start_time).toLocaleString()} — {new Date(booking.end_time).toLocaleString()}</Typography>
+            <Stack spacing={2}>
+              <KeyValueList
+                items={[
+                  { key: 'ID', value: `#${booking.id}` },
+                  { key: 'Интервал', value: formatBookingInterval(booking.start_time, booking.end_time) },
+                  { key: 'Длительность', value: formatBookingDurationLabel(booking.start_time, booking.end_time) },
+                  { key: 'Пользователь', value: booking.user_id },
+                  { key: 'Парковочное место', value: `#${booking.parking_spot_id}` },
+                  { key: 'Тип бронирования', value: bookingTypeLabelMap[booking.type] },
+                  { key: 'Режим назначения', value: bookingAssignmentModeLabelMap[booking.assignment_mode] ?? booking.assignment_mode },
+                  { key: 'Пояснение назначения', value: booking.assignment_explanation ?? '—' },
+                ]}
+              />
               <Stack direction="row" spacing={1} alignItems="center">
-                <Typography><b>Status:</b></Typography>
+                <Typography variant="body2" color="text.secondary">Статус:</Typography>
                 <StatusChip status={booking.status} mapping={bookingStatusMap} />
               </Stack>
-              <Typography><b>Parking info:</b> spot #{booking.parking_spot_id}</Typography>
-              <Typography><b>Assignment mode:</b> {booking.assignment_mode}</Typography>
-              <Typography><b>Assignment metadata:</b> {booking.assignment_metadata ? JSON.stringify(booking.assignment_metadata) : '—'}</Typography>
-              <Typography><b>Explanation:</b> {booking.assignment_explanation ?? '—'}</Typography>
-              <Typography><b>Available actions (role-aware):</b> {availableActions.join(', ')}</Typography>
-              <Typography><b>Status action map:</b> {bookingActionAvailabilityMap[booking.status].join(', ')}</Typography>
-              <Alert severity="info">
-                Текущий статус может измениться из-за background sync. Кнопки операций проверяются backend на каждом запросе.
-              </Alert>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                <Button
-                  variant="contained"
-                  color="success"
-                  disabled={!canCheckIn || isLifecyclePending}
-                  onClick={() => booking && checkInMutation.mutate(booking.id)}
-                >
-                  Check-in
+
+              <Alert severity="info">Доступные действия для текущей роли: {availableActions.join(', ') || 'нет'}.</Alert>
+              <Alert severity="info">Карта переходов для статуса «{bookingStatusLabelMap[booking.status]}»: {bookingActionAvailabilityMap[booking.status].join(', ')}.</Alert>
+
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <Button variant="contained" color="success" disabled={!canCheckIn || isLifecyclePending} onClick={() => booking && checkInMutation.mutate(booking.id)}>
+                  Заезд
                 </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  disabled={!canCheckOut || isLifecyclePending}
-                  onClick={() => booking && checkOutMutation.mutate(booking.id)}
-                >
-                  Check-out
+                <Button variant="contained" color="primary" disabled={!canCheckOut || isLifecyclePending} onClick={() => booking && checkOutMutation.mutate(booking.id)}>
+                  Выезд
                 </Button>
-                <Button
-                  variant="outlined"
-                  color="warning"
-                  disabled={!canMarkNoShow || isLifecyclePending}
-                  onClick={() => booking && markNoShowMutation.mutate(booking.id)}
-                >
-                  Mark no-show
+                <Button variant="outlined" color="warning" disabled={!canMarkNoShow || isLifecyclePending} onClick={() => booking && markNoShowMutation.mutate(booking.id)}>
+                  Не заехал
                 </Button>
               </Stack>
+
               {lifecycleError && (
                 <Alert severity="error">
-                  {bookingLifecycleErrorMessage(lifecycleError, 'Lifecycle операция отклонена backend. Обновите данные и попробуйте снова.')}
+                  {bookingLifecycleErrorMessage(lifecycleError, 'Операция не выполнена. Проверьте актуальный статус и повторите попытку.')}
                 </Alert>
               )}
 
-              <TextField label="start_time" type="datetime-local" InputLabelProps={{ shrink: true }} value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={!canEdit || updateMutation.isPending} />
-              <TextField label="end_time" type="datetime-local" InputLabelProps={{ shrink: true }} value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!canEdit || updateMutation.isPending} />
+              <Divider />
+
+              <Typography variant="subtitle2">Редактирование</Typography>
+              <TextField
+                label="Время начала"
+                type="datetime-local"
+                InputLabelProps={{ shrink: true }}
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                helperText="Изменяйте время только если уверены, что интервал свободен."
+                disabled={!canEdit || updateMutation.isPending}
+              />
+              <TextField
+                label="Время окончания"
+                type="datetime-local"
+                InputLabelProps={{ shrink: true }}
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                disabled={!canEdit || updateMutation.isPending}
+              />
 
               <FormControl size="small" disabled={!canEdit || updateMutation.isPending}>
-                <InputLabel id="booking-type">type</InputLabel>
-                <Select labelId="booking-type" label="type" value={bookingType} onChange={(e) => setBookingType(e.target.value as BookingType)}>
-                  {bookingTypeOptions.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                <InputLabel id="booking-type">Тип бронирования</InputLabel>
+                <Select labelId="booking-type" label="Тип бронирования" value={bookingType} onChange={(e) => setBookingType(e.target.value as BookingType)}>
+                  {bookingTypeOptions.map((option) => <MenuItem key={option} value={option}>{bookingTypeLabelMap[option]}</MenuItem>)}
                 </Select>
               </FormControl>
 
               <FormControl size="small" disabled={!canChangeStatus || updateMutation.isPending}>
-                <InputLabel id="booking-status">status</InputLabel>
-                <Select labelId="booking-status" label="status" value={nextStatus} onChange={(e) => setNextStatus(e.target.value as BookingStatus)}>
-                  {bookingStatuses.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                <InputLabel id="booking-status">Новый статус</InputLabel>
+                <Select labelId="booking-status" label="Новый статус" value={nextStatus} onChange={(e) => setNextStatus(e.target.value as BookingStatus)}>
+                  {bookingStatuses.map((option) => <MenuItem key={option} value={option}>{bookingStatusLabelMap[option]}</MenuItem>)}
                 </Select>
               </FormControl>
 
               {(updateMutation.isError || cancelMutation.isError) && (
                 <Alert severity="error">
-                  {bookingApiErrorMessage(updateMutation.error ?? cancelMutation.error, 'Переход статуса отклонен backend или данные невалидны.')}
+                  {bookingApiErrorMessage(updateMutation.error ?? cancelMutation.error, 'Не удалось применить изменения. Проверьте данные и попробуйте снова.')}
                 </Alert>
               )}
 
-              <Stack direction="row" spacing={1}>
+              <Stack direction="row" spacing={1.5}>
                 <Button
                   variant="contained"
                   disabled={updateMutation.isPending || (!canEdit && !canChangeStatus) || !hasEditableChanges}
                   onClick={() => updateMutation.mutate(updatePayload)}
                 >
-                  PATCH /bookings/{booking.id}
+                  Сохранить изменения
                 </Button>
                 <Button color="error" variant="outlined" disabled={!canCancel || cancelMutation.isPending} onClick={() => cancelMutation.mutate()}>
-                  DELETE /bookings/{booking.id}
+                  Отменить бронирование
                 </Button>
               </Stack>
             </Stack>

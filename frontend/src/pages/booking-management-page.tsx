@@ -1,16 +1,17 @@
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import {
   Alert,
+  Box,
   Button,
-  Checkbox,
+  Chip,
   FormControl,
   FormControlLabel,
   Grid,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -23,13 +24,23 @@ import {
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { useCurrentUser } from '../features/auth/use-current-user';
 import { BookingDetailsPanel } from '../features/bookings/components/booking-details-panel';
 import { GuardOperationalPanel } from '../features/bookings/components/guard-operational-panel';
 import { bookingSortByOptions, bookingSortOrderOptions, bookingStatuses } from '../features/bookings/constants';
-import { useBookingsQuery, useCheckInBookingMutation, useCheckOutBookingMutation, useMarkNoShowBookingMutation } from '../features/bookings/hooks';
 import { bookingLifecycleErrorMessage } from '../features/bookings/error-messages';
-import { useCurrentUser } from '../features/auth/use-current-user';
+import { useBookingsQuery, useCheckInBookingMutation, useCheckOutBookingMutation, useMarkNoShowBookingMutation } from '../features/bookings/hooks';
+import {
+  bookingSortByLabelMap,
+  bookingSortOrderLabelMap,
+  bookingStatusLabelMap,
+  formatBookingDurationLabel,
+  formatBookingInterval,
+} from '../shared/config/booking-ui';
 import { bookingStatusMap } from '../shared/config/status-map';
+import { ContentCard } from '../shared/ui/content-card';
+import { FiltersSection } from '../shared/ui/filters-section';
+import { DataListPageTemplate } from '../shared/ui/page-templates';
 import { StatusChip } from '../shared/ui/status-chip';
 import type { BookingStatus, SortOrder } from '../shared/types/common';
 import type { BookingsQuery } from '../shared/types/booking';
@@ -157,142 +168,217 @@ export function BookingManagementPage() {
     applyQuery({ statuses: Array.from(statuses), status: undefined }, true);
   };
 
+  const activeStatuses = query.statuses ?? [];
+
   return (
-    <Stack spacing={2}>
-      <Alert severity="info">Booking management: GET /bookings с фильтрами, сортировкой, pagination и панелью операций.</Alert>
-      <Alert severity="warning">
-        Статусы могут меняться фоново. После lifecycle операций UI всегда делает refetch деталей, списков и доступности мест.
-      </Alert>
+    <>
+      <DataListPageTemplate
+        title="Управление бронированиями"
+        subtitle="Операционный экран для контроля статусов, интервалов и lifecycle-операций по всем бронированиям."
+        headerMeta="Booking operations"
+        topBanner={(
+          <Stack spacing={1.5}>
+            <Alert severity="info">Фильтры помогают быстро найти конфликтные или срочные бронирования по времени и статусам.</Alert>
+            <Alert severity="warning">Статус может измениться в фоне. После операции список и детали автоматически обновляются.</Alert>
+            {isGuardView && <GuardOperationalPanel />}
+            {lifecycleError && (
+              <Alert severity="error">
+                {bookingLifecycleErrorMessage(lifecycleError, 'Операция не выполнена. Обновите данные и проверьте текущий статус бронирования.')}
+              </Alert>
+            )}
+            {(checkInMutation.isSuccess || checkOutMutation.isSuccess || markNoShowMutation.isSuccess) && (
+              <Alert severity="success">Операция применена. Данные в таблице синхронизированы.</Alert>
+            )}
+          </Stack>
+        )}
+        filters={(
+          <FiltersSection
+            onReset={() => setSearchParams(writeQuery({ limit: DEFAULT_LIMIT, offset: 0, sort_by: 'start_time', sort_order: 'desc' }))}
+            resetLabel="Сбросить"
+          >
+            <Stack spacing={2}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="ID парковки"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    value={query.parking_lot_id ?? ''}
+                    onChange={(e) => applyQuery({ parking_lot_id: e.target.value ? Number(e.target.value) : undefined }, true)}
+                    disabled={isGuardView}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="ID места"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    value={query.parking_spot_id ?? ''}
+                    onChange={(e) => applyQuery({ parking_spot_id: e.target.value ? Number(e.target.value) : undefined }, true)}
+                    disabled={isGuardView}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Начало периода"
+                    type="datetime-local"
+                    size="small"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    value={query.from ?? ''}
+                    onChange={(e) => applyQuery({ from: e.target.value || undefined }, true)}
+                    disabled={isGuardView}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    label="Окончание периода"
+                    type="datetime-local"
+                    size="small"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    value={query.to ?? ''}
+                    onChange={(e) => applyQuery({ to: e.target.value || undefined }, true)}
+                    disabled={isGuardView}
+                  />
+                </Grid>
 
-      {isGuardView && <GuardOperationalPanel />}
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small" disabled={isGuardView}>
+                    <InputLabel id="booking-status">Статус</InputLabel>
+                    <Select
+                      labelId="booking-status"
+                      label="Статус"
+                      value={query.status ?? ''}
+                      onChange={(e) => applyQuery({ status: (e.target.value as BookingStatus) || undefined, statuses: undefined }, true)}
+                    >
+                      <MenuItem value="">Все статусы</MenuItem>
+                      {bookingStatuses.map((status) => <MenuItem key={status} value={status}>{bookingStatusLabelMap[status]}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small" disabled={isGuardView}>
+                    <InputLabel id="booking-mine">Принадлежность</InputLabel>
+                    <Select
+                      labelId="booking-mine"
+                      label="Принадлежность"
+                      value={query.mine === undefined ? '' : String(query.mine)}
+                      onChange={(e) => applyQuery({ mine: parseBooleanParam(e.target.value || null) }, true)}
+                    >
+                      <MenuItem value="">Все</MenuItem>
+                      <MenuItem value="true">Только мои</MenuItem>
+                      <MenuItem value="false">Чужие</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small" disabled={isGuardView}>
+                    <InputLabel id="booking-sort-by">Сортировка</InputLabel>
+                    <Select
+                      labelId="booking-sort-by"
+                      label="Сортировка"
+                      value={query.sort_by ?? 'start_time'}
+                      onChange={(e) => applyQuery({ sort_by: e.target.value as SortBy }, true)}
+                    >
+                      {bookingSortByOptions.map((item) => <MenuItem key={item} value={item}>{bookingSortByLabelMap[item]}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small" disabled={isGuardView}>
+                    <InputLabel id="booking-sort-order">Порядок</InputLabel>
+                    <Select
+                      labelId="booking-sort-order"
+                      label="Порядок"
+                      value={query.sort_order ?? 'desc'}
+                      onChange={(e) => applyQuery({ sort_order: e.target.value as SortOrder }, true)}
+                    >
+                      {bookingSortOrderOptions.map((item) => <MenuItem key={item} value={item}>{bookingSortOrderLabelMap[item]}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
 
-      <Paper sx={{ p: 2 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={2}><TextField label="parking_lot_id" type="number" size="small" fullWidth value={query.parking_lot_id ?? ''} onChange={(e) => applyQuery({ parking_lot_id: e.target.value ? Number(e.target.value) : undefined }, true)} disabled={isGuardView} /></Grid>
-          <Grid item xs={12} md={2}><TextField label="parking_spot_id" type="number" size="small" fullWidth value={query.parking_spot_id ?? ''} onChange={(e) => applyQuery({ parking_spot_id: e.target.value ? Number(e.target.value) : undefined }, true)} disabled={isGuardView} /></Grid>
-          <Grid item xs={12} md={2}><TextField label="from" type="datetime-local" size="small" fullWidth InputLabelProps={{ shrink: true }} value={query.from ?? ''} onChange={(e) => applyQuery({ from: e.target.value || undefined }, true)} disabled={isGuardView} /></Grid>
-          <Grid item xs={12} md={2}><TextField label="to" type="datetime-local" size="small" fullWidth InputLabelProps={{ shrink: true }} value={query.to ?? ''} onChange={(e) => applyQuery({ to: e.target.value || undefined }, true)} disabled={isGuardView} /></Grid>
-
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="booking-status">status</InputLabel>
-              <Select labelId="booking-status" label="status" value={query.status ?? ''} onChange={(e) => applyQuery({ status: (e.target.value as BookingStatus) || undefined, statuses: undefined }, true)} disabled={isGuardView}>
-                <MenuItem value="">all</MenuItem>
-                {bookingStatuses.map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="booking-mine">mine</InputLabel>
-              <Select labelId="booking-mine" label="mine" value={query.mine === undefined ? '' : String(query.mine)} onChange={(e) => applyQuery({ mine: parseBooleanParam(e.target.value || null) }, true)} disabled={isGuardView}>
-                <MenuItem value="">all</MenuItem>
-                <MenuItem value="true">true</MenuItem>
-                <MenuItem value="false">false</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="booking-sort-by">sort_by</InputLabel>
-              <Select labelId="booking-sort-by" label="sort_by" value={query.sort_by ?? 'start_time'} onChange={(e) => applyQuery({ sort_by: e.target.value as SortBy }, true)} disabled={isGuardView}>
-                {bookingSortByOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="booking-sort-order">sort_order</InputLabel>
-              <Select labelId="booking-sort-order" label="sort_order" value={query.sort_order ?? 'desc'} onChange={(e) => applyQuery({ sort_order: e.target.value as SortOrder }, true)} disabled={isGuardView}>
-                {bookingSortOrderOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={2}><Button fullWidth variant="outlined" onClick={() => setSearchParams(writeQuery({ limit: DEFAULT_LIMIT, offset: 0, sort_by: 'start_time', sort_order: 'desc' }))} disabled={isGuardView}>Сбросить</Button></Grid>
-        </Grid>
-
-        <Stack direction="row" gap={1} flexWrap="wrap" sx={{ mt: 2 }}>
-          {bookingStatuses.map((status) => (
-            <FormControlLabel
-              key={status}
-              control={<Checkbox size="small" checked={(query.statuses ?? []).includes(status)} onChange={(e) => updateStatuses(status, e.target.checked)} disabled={isGuardView} />}
-              label={`statuses: ${status}`}
-            />
-          ))}
-        </Stack>
-      </Paper>
-
-      {lifecycleError && (
-        <Alert severity="error">
-          {bookingLifecycleErrorMessage(lifecycleError, 'Lifecycle операция отклонена backend. Статус мог измениться в фоне.')}
-        </Alert>
-      )}
-      {(checkInMutation.isSuccess || checkOutMutation.isSuccess || markNoShowMutation.isSuccess) && (
-        <Alert severity="success">Lifecycle-операция выполнена. Данные в таблице уже обновлены.</Alert>
-      )}
-
-      {listQuery.isError && (
-        <Alert severity="error">Не удалось загрузить бронирования для management-экрана.</Alert>
-      )}
-
-      {listQuery.data && visibleItems.length > 0 && (
-        <Paper>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>User</TableCell>
-                <TableCell>Spot</TableCell>
-                <TableCell>Interval</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {visibleItems.map((booking) => (
-                <TableRow key={booking.id} hover>
-                  <TableCell>{booking.id}</TableCell>
-                  <TableCell>{booking.user_id}</TableCell>
-                  <TableCell>{booking.parking_spot_id}</TableCell>
-                  <TableCell>{new Date(booking.start_time).toLocaleString()} — {new Date(booking.end_time).toLocaleString()}</TableCell>
-                  <TableCell><StatusChip status={booking.status} mapping={bookingStatusMap} /></TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Button size="small" startIcon={<VisibilityOutlinedIcon />} onClick={() => setSelectedBookingId(booking.id)}>Details / Ops</Button>
-                      <Button size="small" color="success" variant="contained" disabled={isLifecyclePending || !['confirmed', 'active'].includes(booking.status)} onClick={() => checkInMutation.mutate(booking.id)}>Check-in</Button>
-                      <Button size="small" color="primary" variant="contained" disabled={isLifecyclePending || booking.status !== 'active'} onClick={() => checkOutMutation.mutate(booking.id)}>Check-out</Button>
-                      <Button size="small" color="warning" variant="outlined" disabled={isLifecyclePending || !['confirmed', 'active'].includes(booking.status)} onClick={() => markNoShowMutation.mutate(booking.id)}>No-show</Button>
-                    </Stack>
-                  </TableCell>
+              <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+                {bookingStatuses.map((status) => (
+                  <FormControlLabel
+                    key={status}
+                    control={<Switch size="small" checked={activeStatuses.includes(status)} onChange={(e) => updateStatuses(status, e.target.checked)} disabled={isGuardView} />}
+                    label={bookingStatusLabelMap[status]}
+                  />
+                ))}
+              </Stack>
+            </Stack>
+          </FiltersSection>
+        )}
+        isLoading={listQuery.isLoading}
+        errorText={listQuery.isError ? 'Не удалось загрузить бронирования для управления.' : undefined}
+        isEmpty={!listQuery.isLoading && !listQuery.isError && visibleItems.length === 0}
+        emptyText="Бронирования по выбранным фильтрам не найдены."
+        dataView={(
+          <ContentCard padded={false}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Бронь</TableCell>
+                  <TableCell>Пользователь</TableCell>
+                  <TableCell>Статус</TableCell>
+                  <TableCell>Интервал</TableCell>
+                  <TableCell>Длительность</TableCell>
+                  <TableCell align="right">Операции</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <TablePagination
-            component="div"
-            count={(query.statuses?.length ?? 0) > 0 ? filteredItems.length : listQuery.data.meta.total}
-            page={Math.floor((query.offset ?? 0) / (query.limit ?? DEFAULT_LIMIT))}
-            rowsPerPage={query.limit ?? DEFAULT_LIMIT}
-            onPageChange={(_, page) => applyQuery({ offset: page * (query.limit ?? DEFAULT_LIMIT) })}
-            onRowsPerPageChange={(e) => applyQuery({ limit: Number(e.target.value), offset: 0 })}
-            rowsPerPageOptions={[5, 10, 20, 50]}
-          />
-        </Paper>
-      )}
-      {listQuery.data && visibleItems.length === 0 && (
-        <Paper sx={{ p: 4 }}>
-          <Typography variant="h6">Бронирования не найдены</Typography>
-          <Typography color="text.secondary">
-            Измените фильтры, период или статус, чтобы увидеть данные для управления lifecycle.
-          </Typography>
-        </Paper>
-      )}
+              </TableHead>
+              <TableBody>
+                {visibleItems.map((booking) => (
+                  <TableRow key={booking.id} hover>
+                    <TableCell>
+                      <Stack spacing={0.5}>
+                        <Typography variant="subtitle2">#{booking.id}</Typography>
+                        <Typography variant="caption" color="text.secondary">Место #{booking.parking_spot_id}</Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>{booking.user_id}</TableCell>
+                    <TableCell><StatusChip status={booking.status} mapping={bookingStatusMap} /></TableCell>
+                    <TableCell>{formatBookingInterval(booking.start_time, booking.end_time)}</TableCell>
+                    <TableCell>{formatBookingDurationLabel(booking.start_time, booking.end_time)}</TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
+                        <Button size="small" startIcon={<VisibilityOutlinedIcon />} onClick={() => setSelectedBookingId(booking.id)}>Детали</Button>
+                        <Button size="small" color="success" variant="contained" disabled={isLifecyclePending || !['confirmed', 'active'].includes(booking.status)} onClick={() => checkInMutation.mutate(booking.id)}>Заезд</Button>
+                        <Button size="small" color="primary" variant="contained" disabled={isLifecyclePending || booking.status !== 'active'} onClick={() => checkOutMutation.mutate(booking.id)}>Выезд</Button>
+                        <Button size="small" color="warning" variant="outlined" disabled={isLifecyclePending || !['confirmed', 'active'].includes(booking.status)} onClick={() => markNoShowMutation.mutate(booking.id)}>Не заехал</Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {activeStatuses.length > 0 && (
+              <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Typography variant="caption" color="text.secondary">Выбраны статусы:</Typography>
+                  {activeStatuses.map((status) => <Chip key={status} label={bookingStatusLabelMap[status]} size="small" />)}
+                </Stack>
+              </Box>
+            )}
+            <TablePagination
+              component="div"
+              count={activeStatuses.length > 0 ? filteredItems.length : (listQuery.data?.meta.total ?? 0)}
+              page={Math.floor((query.offset ?? 0) / (query.limit ?? DEFAULT_LIMIT))}
+              rowsPerPage={query.limit ?? DEFAULT_LIMIT}
+              onPageChange={(_, page) => applyQuery({ offset: page * (query.limit ?? DEFAULT_LIMIT) })}
+              onRowsPerPageChange={(e) => applyQuery({ limit: Number(e.target.value), offset: 0 })}
+              rowsPerPageOptions={[5, 10, 20, 50]}
+              labelRowsPerPage="Записей на странице"
+            />
+          </ContentCard>
+        )}
+      />
 
       <BookingDetailsPanel bookingId={selectedBookingId} onClose={() => setSelectedBookingId(null)} />
-    </Stack>
+    </>
   );
 }

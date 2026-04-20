@@ -1,4 +1,4 @@
-import { Alert, Button, FormControlLabel, MenuItem, Radio, RadioGroup, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Button, Divider, FormControlLabel, Grid, MenuItem, Radio, RadioGroup, Stack, TextField, Typography } from '@mui/material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -6,11 +6,12 @@ import { useNavigate } from 'react-router-dom';
 import { parkingSpotsApi } from '../entities/parking-spots/api';
 import { recommendationsApi } from '../entities/recommendations/api';
 import { useCurrentUser } from '../features/auth/use-current-user';
-import { useCreateBookingMutation } from '../features/bookings/use-create-booking-mutation';
+import { AvailabilityTable } from '../features/bookings/components/availability-table';
 import { IntervalPicker } from '../features/bookings/components/interval-picker';
 import { RecommendationList } from '../features/bookings/components/recommendation-list';
-import { AvailabilityTable } from '../features/bookings/components/availability-table';
+import { useCreateBookingMutation } from '../features/bookings/use-create-booking-mutation';
 import { useParkingLotsQuery } from '../features/parking-lots/hooks';
+import { bookingAssignmentModeLabelMap } from '../shared/config/booking-ui';
 import { ActionBar } from '../shared/ui/action-bar';
 import { FormSection } from '../shared/ui/form-section';
 import { FormPageTemplate } from '../shared/ui/page-templates';
@@ -25,8 +26,6 @@ interface IntervalErrors {
 }
 
 function toApiDateTime(value: string): string {
-  // Keep browser-local wall clock time (YYYY-MM-DDTHH:mm) so backend timezone normalization
-  // does not receive UTC-converted values and shift the booking window.
   return value;
 }
 
@@ -69,20 +68,20 @@ function getStatusErrorMessage(error: ApiError | null): string | null {
   }
 
   if (error.status === 400) {
-    return `400: ${error.detail ?? 'Некорректные параметры запроса. Проверьте интервал/лот и повторите попытку.'}`;
+    return error.detail ?? 'Проверьте выбранный интервал и параметры парковки.';
   }
 
   if (error.status === 403) {
-    return '403: Недостаточно прав для бронирования выбранного лота/места.';
+    return 'Недостаточно прав для бронирования выбранной парковки или места.';
   }
 
   if (error.status === 409) {
-    return '409: Конфликт доступности. Интервал пересекается или место уже занято. Обновите данные и выберите другой вариант.';
+    return 'Интервал пересекается с другим бронированием. Выберите другое время или место.';
   }
 
   if (error.status === 422) {
     const details = error.fieldErrors?.map((item) => `${item.loc.join('.')}: ${item.msg}`).join('; ');
-    return `422: Ошибка валидации.${details ? ` ${details}` : ''}`;
+    return `Проверьте заполнение полей.${details ? ` ${details}` : ''}`;
   }
 
   return error.message;
@@ -147,10 +146,7 @@ export function CreateBookingPage() {
   const [vehicleType, setVehicleType] = useState<VehicleType | ''>('');
   const [sizeCategory, setSizeCategory] = useState<SizeCategory | ''>('');
 
-  const intervalErrors = useMemo(
-    () => validateInterval(startTimeLocal, endTimeLocal),
-    [startTimeLocal, endTimeLocal],
-  );
+  const intervalErrors = useMemo(() => validateInterval(startTimeLocal, endTimeLocal), [startTimeLocal, endTimeLocal]);
 
   const hasIntervalErrors = Boolean(intervalErrors.start || intervalErrors.end);
   const hasValidSelection = typeof parkingLotId === 'number' && !hasIntervalErrors;
@@ -288,15 +284,13 @@ export function CreateBookingPage() {
     return (
       <FormPageTemplate
         title={`Бронирование #${successBooking.id} создано`}
-        subtitle="Заявка успешно сохранена и готова к дальнейшей работе."
-        helperText={<Alert severity="success">Режим назначения: {successBooking.assignment_mode}.</Alert>}
+        subtitle="Заявка успешно сохранена. Сейчас вы будете перенаправлены в список бронирований."
+        helperText={<Alert severity="success">Режим назначения: {bookingAssignmentModeLabelMap[successBooking.assignment_mode] ?? successBooking.assignment_mode}.</Alert>}
         formSections={(
-          <FormSection title="Результат операции">
+          <FormSection title="Результат" subtitle="Сводка по выполненной операции.">
             <Stack spacing={1.5}>
               {successBooking.assignment_explanation && <Alert severity="info">{successBooking.assignment_explanation}</Alert>}
-              {successBooking.assignment_metadata && (
-                <Alert severity="info">Metadata: {JSON.stringify(successBooking.assignment_metadata, null, 2)}</Alert>
-              )}
+              {successBooking.assignment_metadata && <Alert severity="info">Технические метаданные назначения: {JSON.stringify(successBooking.assignment_metadata, null, 2)}</Alert>}
             </Stack>
           </FormSection>
         )}
@@ -304,10 +298,8 @@ export function CreateBookingPage() {
           <ActionBar
             actions={(
               <>
-                <Button variant="contained" onClick={() => navigate('/my-bookings')}>Перейти в мои бронирования</Button>
-                <Button variant="outlined" onClick={() => navigate(NEXT_ROUTE_BY_ROLE[role] ?? '/my-bookings')}>
-                  Перейти к списку бронирований
-                </Button>
+                <Button variant="contained" onClick={() => navigate(NEXT_ROUTE_BY_ROLE[role] ?? '/my-bookings')}>К списку бронирований</Button>
+                <Button variant="outlined" onClick={() => navigate('/bookings/new')}>Создать ещё одно</Button>
               </>
             )}
           />
@@ -319,11 +311,11 @@ export function CreateBookingPage() {
   return (
     <FormPageTemplate
       title="Создание бронирования"
-      subtitle="Выберите интервал и парковку, затем создайте бронь вручную или через рекомендательную логику."
-      helperText={<Alert severity="info">Форма поддерживает ручной и автоматический режим назначения места.</Alert>}
+      subtitle="Сначала выберите период и парковку, затем режим назначения места — ручной или автоматический."
+      helperText={<Alert severity="info">Мы не меняем бизнес-логику: экран только упрощает принятие решения и снижает риск ошибки ввода.</Alert>}
       formSections={(
         <>
-          <FormSection title="Параметры бронирования">
+          <FormSection title="1. Время и парковка" subtitle="Базовые параметры заявки, обязательные в любом режиме.">
             <IntervalPicker
               startTimeLocal={startTimeLocal}
               endTimeLocal={endTimeLocal}
@@ -338,91 +330,108 @@ export function CreateBookingPage() {
               label="Парковка"
               value={parkingLotId}
               onChange={(event) => setParkingLotId(Number(event.target.value))}
-              helperText="Выберите парковку для ручного или авто-назначения."
+              helperText="Выберите лот, в котором нужно найти место на указанный интервал."
               disabled={parkingLotsQuery.isLoading || !parkingLotsQuery.data?.items.length}
             >
               {parkingLotsQuery.data?.items.map((lot) => (
                 <MenuItem key={lot.id} value={lot.id}>{lot.name} (#{lot.id})</MenuItem>
               ))}
             </TextField>
-            {parkingLotsQuery.isError && <Alert severity="error">Не удалось загрузить список парковок. Без этого шага создать бронирование нельзя.</Alert>}
+            {parkingLotsQuery.isError && <Alert severity="error">Не удалось загрузить список парковок. Попробуйте позже.</Alert>}
             {!parkingLotsQuery.isLoading && !parkingLotsQuery.isError && parkingLotsQuery.data?.items.length === 0 && (
-              <Alert severity="warning">Нет доступных парковок для бронирования. Попросите администратора создать парковку и места.</Alert>
+              <Alert severity="warning">Нет доступных парковок для бронирования. Обратитесь к администратору.</Alert>
             )}
+          </FormSection>
 
-            <Stack spacing={0.5}>
-              <Typography variant="subtitle2">Режим назначения</Typography>
-              <RadioGroup row value={mode} onChange={(event) => setMode(event.target.value as 'manual' | 'auto')}>
-                <FormControlLabel value="manual" control={<Radio />} label="manual (выбор места вручную)" />
-                <FormControlLabel value="auto" control={<Radio />} label="auto (рекомендации + auto_assign)" />
-              </RadioGroup>
-            </Stack>
+          <FormSection title="2. Способ назначения места" subtitle="Выберите удобный сценарий бронирования.">
+            <RadioGroup row value={mode} onChange={(event) => setMode(event.target.value as 'manual' | 'auto')}>
+              <FormControlLabel value="manual" control={<Radio />} label="Ручной выбор" />
+              <FormControlLabel value="auto" control={<Radio />} label="Автоподбор" />
+            </RadioGroup>
+            <Typography variant="body2" color="text.secondary">
+              {mode === 'manual'
+                ? 'Ручной режим подходит, когда вы точно знаете, какое место нужно выбрать.'
+                : 'Автоподбор учитывает ограничения и предпочтения, чтобы предложить лучшие варианты.'}
+            </Typography>
             {bookingErrorMessage && <Alert severity="error">{bookingErrorMessage}</Alert>}
           </FormSection>
 
           {mode === 'manual' && (
-            <FormSection title="Ручной выбор места">
+            <FormSection title="3. Выберите место" subtitle="Нажмите на строку в таблице, чтобы выбрать свободное место.">
               {availableSpotsQuery.error && <Alert severity="error">{getStatusErrorMessage(availableSpotsQuery.error as unknown as ApiError)}</Alert>}
               <AvailabilityTable items={availableSpotsQuery.data?.items ?? []} selectedSpotId={selectedSpotId} onSelect={setSelectedSpotId} />
             </FormSection>
           )}
 
           {mode === 'auto' && (
-            <FormSection title="Автоподбор места" subtitle="Настройте ограничения и предпочтения для рекомендации">
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <TextField
-                  type="number"
-                  label="Максимум вариантов"
-                  value={maxResults}
-                  onChange={(event) => setMaxResults(Math.max(1, Number(event.target.value) || 1))}
-                  sx={{ maxWidth: 220 }}
-                />
-                <TextField select label="Требуется зарядка" value={requiresCharger ? 'yes' : 'no'} onChange={(event) => setRequiresCharger(event.target.value === 'yes')} sx={{ maxWidth: 220 }}>
-                  <MenuItem value="no">Нет</MenuItem>
-                  <MenuItem value="yes">Да</MenuItem>
-                </TextField>
-                <TextField select label="Предпочесть зарядку" value={preferCharger ? 'yes' : 'no'} onChange={(event) => setPreferCharger(event.target.value === 'yes')} sx={{ maxWidth: 220 }}>
-                  <MenuItem value="no">Нет</MenuItem>
-                  <MenuItem value="yes">Да</MenuItem>
-                </TextField>
+            <FormSection title="3. Параметры автоподбора" subtitle="Настройте ограничения и предпочтения перед запросом рекомендаций.">
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    type="number"
+                    label="Максимум рекомендаций"
+                    value={maxResults}
+                    onChange={(event) => setMaxResults(Math.max(1, Number(event.target.value) || 1))}
+                    fullWidth
+                    helperText="Обычно достаточно 3–5 вариантов."
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField select label="Зарядка обязательна" value={requiresCharger ? 'yes' : 'no'} onChange={(event) => setRequiresCharger(event.target.value === 'yes')} fullWidth>
+                    <MenuItem value="no">Нет</MenuItem>
+                    <MenuItem value="yes">Да</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField select label="Зарядка желательна" value={preferCharger ? 'yes' : 'no'} onChange={(event) => setPreferCharger(event.target.value === 'yes')} fullWidth>
+                    <MenuItem value="no">Нет</MenuItem>
+                    <MenuItem value="yes">Да</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField select label="Тип транспорта" value={vehicleType} onChange={(event) => setVehicleType(event.target.value as VehicleType | '')} fullWidth>
+                    <MenuItem value="">Любой</MenuItem>
+                    {VEHICLE_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField select label="Размер места" value={sizeCategory} onChange={(event) => setSizeCategory(event.target.value as SizeCategory | '')} fullWidth>
+                    <MenuItem value="">Любой</MenuItem>
+                    {SIZE_CATEGORY_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    select
+                    label="Типы мест"
+                    SelectProps={{ multiple: true }}
+                    value={spotTypes}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setSpotTypes(Array.isArray(next) ? (next as SpotType[]) : (String(next).split(',') as SpotType[]));
+                    }}
+                    fullWidth
+                  >
+                    {SPOT_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              </Grid>
+              <Divider />
+              <Stack spacing={1.5}>
+                <Button variant="outlined" onClick={requestRecommendations} disabled={!hasValidSelection || recommendationsMutation.isPending}>
+                  Получить рекомендации
+                </Button>
+                {recommendationErrorMessage && <Alert severity="error">{recommendationErrorMessage}</Alert>}
+                {recommendationsMutation.data && (
+                  <RecommendationList
+                    result={recommendationsMutation.data}
+                    selectedSpotId={selectedSpotId}
+                    onSelectSpot={setSelectedSpotId}
+                    onConfirmAuto={submitAuto}
+                    isSubmitting={createBookingMutation.isPending}
+                  />
+                )}
               </Stack>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <TextField select label="Тип транспорта" value={vehicleType} onChange={(event) => setVehicleType(event.target.value as VehicleType | '')} sx={{ maxWidth: 240 }}>
-                  <MenuItem value="">Любой</MenuItem>
-                  {VEHICLE_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
-                </TextField>
-                <TextField select label="Размер места" value={sizeCategory} onChange={(event) => setSizeCategory(event.target.value as SizeCategory | '')} sx={{ maxWidth: 240 }}>
-                  <MenuItem value="">Любой</MenuItem>
-                  {SIZE_CATEGORY_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
-                </TextField>
-                <TextField
-                  select
-                  label="Типы мест"
-                  SelectProps={{ multiple: true }}
-                  value={spotTypes}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    setSpotTypes(Array.isArray(next) ? (next as SpotType[]) : (String(next).split(',') as SpotType[]));
-                  }}
-                  sx={{ minWidth: 260 }}
-                >
-                  {SPOT_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
-                </TextField>
-              </Stack>
-              <Button variant="outlined" onClick={requestRecommendations} disabled={!hasValidSelection || recommendationsMutation.isPending}>
-                Получить рекомендации
-              </Button>
-              {recommendationErrorMessage && <Alert severity="error">{recommendationErrorMessage}</Alert>}
-
-              {recommendationsMutation.data && (
-                <RecommendationList
-                  result={recommendationsMutation.data}
-                  selectedSpotId={selectedSpotId}
-                  onSelectSpot={setSelectedSpotId}
-                  onConfirmAuto={submitAuto}
-                  isSubmitting={createBookingMutation.isPending}
-                />
-              )}
             </FormSection>
           )}
         </>
@@ -433,12 +442,12 @@ export function CreateBookingPage() {
             <>
               {mode === 'manual' ? (
                 <Button variant="contained" onClick={submitManual} disabled={!selectedSpotId || createBookingMutation.isPending || !hasValidSelection}>
-                  Создать бронирование (manual)
+                  Создать бронирование
                 </Button>
               ) : (
                 <>
                   <Button variant="contained" onClick={submitAuto} disabled={!hasValidSelection || createBookingMutation.isPending}>
-                    Создать бронирование (auto)
+                    Создать с автоподбором
                   </Button>
                   <Button variant="outlined" disabled={!selectedSpotId || createBookingMutation.isPending} onClick={submitRecommendedSpot}>
                     Создать по выбранной рекомендации
@@ -449,7 +458,7 @@ export function CreateBookingPage() {
           )}
         >
           <Typography variant="body2" color="text.secondary">
-            Убедитесь, что интервал и парковка выбраны корректно перед отправкой формы.
+            Проверьте интервал и парковку перед отправкой. Если видите конфликт — измените время или выберите другое место.
           </Typography>
         </ActionBar>
       )}

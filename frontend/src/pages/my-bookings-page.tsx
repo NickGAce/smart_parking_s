@@ -1,22 +1,23 @@
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import {
-  Alert,
+  Box,
   Button,
-  Checkbox,
+  Chip,
   FormControl,
   FormControlLabel,
   Grid,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
   TextField,
+  Typography,
 } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -24,8 +25,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BookingDetailsPanel } from '../features/bookings/components/booking-details-panel';
 import { bookingStatuses } from '../features/bookings/constants';
 import { useMyBookingsQuery } from '../features/bookings/hooks';
+import { bookingStatusLabelMap, formatBookingDurationLabel, formatBookingInterval } from '../shared/config/booking-ui';
 import { bookingStatusMap } from '../shared/config/status-map';
-import { PageState } from '../shared/ui/page-state';
+import { ContentCard } from '../shared/ui/content-card';
+import { FiltersSection } from '../shared/ui/filters-section';
+import { DataListPageTemplate } from '../shared/ui/page-templates';
 import { StatusChip } from '../shared/ui/status-chip';
 import type { BookingStatus } from '../shared/types/common';
 import type { BookingsQuery } from '../shared/types/booking';
@@ -81,83 +85,134 @@ export function MyBookingsPage() {
     setSearchParams(writeQuery({ ...query, statuses: Array.from(statuses), status: undefined }));
   };
 
+  const hasAdvancedStatuses = Boolean((query.statuses?.length ?? 0) > 0);
+
   return (
-    <Stack spacing={2}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Alert severity="info">My bookings использует GET /bookings?mine=true с фильтрами по статусам и датам.</Alert>
-        <Button variant="contained" onClick={() => navigate('/bookings/new')}>
-          Создать бронирование
-        </Button>
-      </Stack>
+    <>
+      <DataListPageTemplate
+        title="Мои бронирования"
+        subtitle="Планируйте поездки заранее: фильтруйте заявки по периоду и быстро открывайте детали для изменений или отмены."
+        headerMeta="Booking flow"
+        headerActions={(
+          <Button variant="contained" onClick={() => navigate('/bookings/new')}>
+            Новое бронирование
+          </Button>
+        )}
+        filters={(
+          <FiltersSection
+            onReset={() => setSearchParams(writeQuery({ sort_by: 'start_time', sort_order: 'desc' }))}
+            resetLabel="Сбросить фильтры"
+          >
+            <Stack spacing={2}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="Начало периода"
+                    type="datetime-local"
+                    size="small"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    value={query.from ?? ''}
+                    onChange={(e) => setSearchParams(writeQuery({ ...query, from: e.target.value || undefined }))}
+                    helperText="Показываем бронирования, которые начинаются не раньше этого времени."
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="Окончание периода"
+                    type="datetime-local"
+                    size="small"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    value={query.to ?? ''}
+                    onChange={(e) => setSearchParams(writeQuery({ ...query, to: e.target.value || undefined }))}
+                    helperText="Показываем бронирования, которые заканчиваются до выбранного времени."
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="my-bookings-status">Статус</InputLabel>
+                    <Select
+                      labelId="my-bookings-status"
+                      label="Статус"
+                      value={query.status ?? ''}
+                      onChange={(e) => setSearchParams(writeQuery({ ...query, status: (e.target.value as BookingStatus) || undefined, statuses: undefined }))}
+                    >
+                      <MenuItem value="">Все статусы</MenuItem>
+                      {bookingStatuses.map((status) => (
+                        <MenuItem key={status} value={status}>{bookingStatusLabelMap[status]}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
 
-      <Paper sx={{ p: 2 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={3}><TextField label="from" type="datetime-local" size="small" fullWidth InputLabelProps={{ shrink: true }} value={query.from ?? ''} onChange={(e) => setSearchParams(writeQuery({ ...query, from: e.target.value || undefined }))} /></Grid>
-          <Grid item xs={12} md={3}><TextField label="to" type="datetime-local" size="small" fullWidth InputLabelProps={{ shrink: true }} value={query.to ?? ''} onChange={(e) => setSearchParams(writeQuery({ ...query, to: e.target.value || undefined }))} /></Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel id="my-bookings-status">status</InputLabel>
-              <Select labelId="my-bookings-status" label="status" value={query.status ?? ''} onChange={(e) => setSearchParams(writeQuery({ ...query, status: (e.target.value as BookingStatus) || undefined, statuses: undefined }))}>
-                <MenuItem value="">all</MenuItem>
-                {bookingStatuses.map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Button fullWidth variant="outlined" onClick={() => setSearchParams(writeQuery({ sort_by: 'start_time', sort_order: 'desc' }))}>Сбросить фильтры</Button>
-          </Grid>
-        </Grid>
-
-        <Stack direction="row" gap={1} flexWrap="wrap" sx={{ mt: 2 }}>
-          {bookingStatuses.map((status) => (
-            <FormControlLabel
-              key={status}
-              control={<Checkbox size="small" checked={(query.statuses ?? []).includes(status)} onChange={(e) => updateStatuses(status, e.target.checked)} />}
-              label={`statuses: ${status}`}
-            />
-          ))}
-        </Stack>
-      </Paper>
-
-      <PageState
+              <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+                {bookingStatuses.map((status) => (
+                  <FormControlLabel
+                    key={status}
+                    control={<Switch size="small" checked={(query.statuses ?? []).includes(status)} onChange={(e) => updateStatuses(status, e.target.checked)} />}
+                    label={bookingStatusLabelMap[status]}
+                  />
+                ))}
+              </Stack>
+            </Stack>
+          </FiltersSection>
+        )}
         isLoading={isLoading}
-        errorText={error ? 'Не удалось загрузить бронирования.' : undefined}
+        errorText={error ? 'Не удалось загрузить список бронирований. Попробуйте обновить страницу.' : undefined}
         isEmpty={!isLoading && !error && filteredItems.length === 0}
-        emptyText="У вас пока нет бронирований."
+        emptyText="Бронирования не найдены. Измените период или статусы в фильтрах."
+        dataView={(
+          <ContentCard padded={false}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Бронь</TableCell>
+                  <TableCell>Статус</TableCell>
+                  <TableCell>Интервал</TableCell>
+                  <TableCell>Длительность</TableCell>
+                  <TableCell align="right">Действия</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredItems.map((booking) => (
+                  <TableRow key={booking.id} hover>
+                    <TableCell>
+                      <Stack spacing={0.5}>
+                        <Typography variant="subtitle2">#{booking.id}</Typography>
+                        <Typography variant="caption" color="text.secondary">Место #{booking.parking_spot_id}</Typography>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <StatusChip status={booking.status} mapping={bookingStatusMap} />
+                    </TableCell>
+                    <TableCell>{formatBookingInterval(booking.start_time, booking.end_time)}</TableCell>
+                    <TableCell>{formatBookingDurationLabel(booking.start_time, booking.end_time)}</TableCell>
+                    <TableCell align="right">
+                      <Button size="small" startIcon={<VisibilityOutlinedIcon />} onClick={() => setSelectedBookingId(booking.id)}>
+                        Детали
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {hasAdvancedStatuses && (
+              <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Typography variant="caption" color="text.secondary">Применены статусы:</Typography>
+                  {(query.statuses ?? []).map((status) => (
+                    <Chip key={status} size="small" label={bookingStatusLabelMap[status]} />
+                  ))}
+                </Stack>
+              </Box>
+            )}
+          </ContentCard>
+        )}
       />
 
-      {data && filteredItems.length > 0 && (
-        <Paper>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Spot</TableCell>
-                <TableCell>Interval</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredItems.map((booking) => (
-                <TableRow key={booking.id} hover>
-                  <TableCell>{booking.id}</TableCell>
-                  <TableCell>{booking.parking_spot_id}</TableCell>
-                  <TableCell>{new Date(booking.start_time).toLocaleString()} — {new Date(booking.end_time).toLocaleString()}</TableCell>
-                  <TableCell>
-                    <StatusChip status={booking.status} mapping={bookingStatusMap} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button size="small" startIcon={<VisibilityOutlinedIcon />} onClick={() => setSelectedBookingId(booking.id)}>Открыть</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Paper>
-      )}
-
       <BookingDetailsPanel bookingId={selectedBookingId} onClose={() => setSelectedBookingId(null)} />
-    </Stack>
+    </>
   );
 }

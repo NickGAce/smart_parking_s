@@ -8,13 +8,13 @@ export interface StatusMeta {
 }
 
 export const bookingStatusMap: Record<BookingStatus, StatusMeta> = {
-  pending: { label: 'Pending', color: 'warning' },
-  confirmed: { label: 'Confirmed', color: 'info' },
-  active: { label: 'Active', color: 'primary' },
-  completed: { label: 'Completed', color: 'success' },
-  cancelled: { label: 'Cancelled', color: 'default' },
-  expired: { label: 'Expired', color: 'error' },
-  no_show: { label: 'No show', color: 'error' },
+  pending: { label: 'Ожидает подтверждения', color: 'warning' },
+  confirmed: { label: 'Подтверждено', color: 'info' },
+  active: { label: 'Активно', color: 'primary' },
+  completed: { label: 'Завершено', color: 'success' },
+  cancelled: { label: 'Отменено', color: 'default' },
+  expired: { label: 'Просрочено', color: 'error' },
+  no_show: { label: 'Не заехал', color: 'error' },
 };
 
 export const effectiveStatusMap: Record<SpotEffectiveStatus, StatusMeta> = {
