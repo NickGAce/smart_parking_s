@@ -22,6 +22,7 @@ export function FiltersSection({
 }: FiltersSectionProps) {
   return (
     <ActionBar
+      sx={{ borderRadius: (theme) => theme.foundation.radius.xs, overflow: 'hidden' }}
       actions={(
         <>
           {onReset ? (

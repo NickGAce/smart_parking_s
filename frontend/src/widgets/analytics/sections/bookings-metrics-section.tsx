@@ -35,9 +35,9 @@ export function BookingsMetricsSection({ isLoading, isError, data }: { isLoading
         />
       </Grid>
       <Grid item xs={12} md={4}>
-        <ContentCard sx={{ p: 2, height: '100%' }}>
+        <ContentCard sx={{ p: 2, height: '100%', textAlign: 'center' }}>
           <Typography variant="cardTitle" gutterBottom>Качество потока</Typography>
-          <Stack spacing={0.75}>
+          <Stack spacing={0.75} alignItems="center">
             <Typography variant="body2" color="text.secondary">Отмены: {(data.cancellation_rate * 100).toFixed(1)}%</Typography>
             <Typography variant="body2" color="text.secondary">No-show: {(data.no_show_rate * 100).toFixed(1)}%</Typography>
           </Stack>

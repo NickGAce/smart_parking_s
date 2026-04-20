@@ -36,9 +36,9 @@ export function ForecastSection({ isLoading, isError, data }: { isLoading: boole
   const hiddenBuckets = sortedBuckets.slice(12);
 
   return (
-    <Stack spacing={1.5}>
+    <Stack spacing={1.5} textAlign="center">
       <ContentCard sx={{ p: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1}>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={1} alignItems="center">
           <Typography variant="body2" color="text.secondary">
             Горизонт прогноза: {formatBucketTime(sortedBuckets[0].time_bucket)} — {formatBucketTime(sortedBuckets[sortedBuckets.length - 1].time_bucket)}
           </Typography>
@@ -50,8 +50,8 @@ export function ForecastSection({ isLoading, isError, data }: { isLoading: boole
         {previewBuckets.map((bucket) => (
           <Grid key={bucket.time_bucket} item xs={12} md={6}>
             <ContentCard sx={{ p: 1.5, height: '100%' }}>
-              <Stack spacing={0.5}>
-                <Stack direction="row" justifyContent="space-between" spacing={1}>
+              <Stack spacing={0.5} alignItems="center">
+                <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="center">
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatBucketTime(bucket.time_bucket)}</Typography>
                   <Chip size="small" variant="outlined" label={confidenceLabel(bucket.confidence)} color={confidenceColor(bucket.confidence)} />
                 </Stack>
@@ -68,10 +68,10 @@ export function ForecastSection({ isLoading, isError, data }: { isLoading: boole
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Дополнительно: {hiddenBuckets.length} бакетов (полный список)
           </Typography>
-          <Stack spacing={1} sx={{ maxHeight: 260, overflowY: 'auto', pr: 0.5 }}>
+          <Stack spacing={1} sx={{ maxHeight: 260, overflowY: 'auto', pr: 0.5 }} alignItems="stretch">
             {hiddenBuckets.map((bucket) => (
               <Stack key={bucket.time_bucket} spacing={0.4}>
-                <Stack direction="row" justifyContent="space-between" spacing={1}>
+                <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="center">
                   <Typography variant="body2">{formatBucketTime(bucket.time_bucket)}</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>{bucket.predicted_occupancy_percent.toFixed(1)}%</Typography>
                 </Stack>
