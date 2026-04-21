@@ -9,7 +9,7 @@ import type { AccessMode, ParkingLotRules, ScheduleExceptionItem, WorkingHourIte
 
 const accessModes: AccessMode[] = ['employees_only', 'guests_only', 'mixed'];
 const roles: UserRole[] = ALL_USER_ROLES;
-const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const weekdayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 function defaultWorkingHours(): WorkingHourItem[] {
   return weekdayLabels.map((_, index) => ({ day_of_week: index, open_time: '09:00', close_time: '18:00', is_closed: false }));
@@ -32,7 +32,7 @@ function validate(rules: Omit<ParkingLotRules, 'parking_lot_id'>) {
   const errors: string[] = [];
 
   if (rules.max_booking_minutes < rules.min_booking_minutes) {
-    errors.push('max_booking_minutes не может быть меньше min_booking_minutes.');
+    errors.push('Максимальная длительность не может быть меньше минимальной.');
   }
 
   rules.working_hours.forEach((item) => {
@@ -46,7 +46,7 @@ function validate(rules: Omit<ParkingLotRules, 'parking_lot_id'>) {
       errors.push(`Исключение #${idx + 1}: обязательна дата.`);
     }
     if (!item.is_closed && (!item.open_time || !item.close_time)) {
-      errors.push(`Исключение #${idx + 1}: укажите open/close time.`);
+      errors.push(`Исключение #${idx + 1}: укажите время открытия и закрытия.`);
     }
   });
 
@@ -81,19 +81,19 @@ export function RulesEditor({ initial, disabled, readOnly, serverError, onSubmit
       onSubmit(rules);
     }}>
       <Typography variant="h6">Правила парковки</Typography>
-      <Alert severity="info">Этот редактор отправляет ПОЛНЫЙ набор rules через PUT (full replace semantics).</Alert>
+      <Alert severity="info">Редактор сохраняет полный набор правил парковки.</Alert>
       {serverError && <Alert severity="error">{serverError}</Alert>}
-      {readOnly && <Alert severity="info">Только просмотр: сохранение доступно admin/owner.</Alert>}
+      {readOnly && <Alert severity="info">Только просмотр: сохранение доступно администратору и владельцу парковки.</Alert>}
       {validationErrors.length > 0 && <Alert severity="warning">{validationErrors[0]}</Alert>}
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-        <TextField select label="Access mode" value={rules.access_mode} onChange={(e) => setRules((prev) => ({ ...prev, access_mode: e.target.value as AccessMode }))} disabled={disabled || readOnly} fullWidth>
+        <TextField select label="Режим доступа" value={rules.access_mode} onChange={(e) => setRules((prev) => ({ ...prev, access_mode: e.target.value as AccessMode }))} disabled={disabled || readOnly} fullWidth>
           {accessModes.map((mode) => <MenuItem key={mode} value={mode}>{mode}</MenuItem>)}
         </TextField>
         <TextField
           select
           SelectProps={{ multiple: true }}
-          label="Allowed roles"
+          label="Разрешенные роли"
           value={rules.allowed_user_roles}
           onChange={(e) => {
             const value = e.target.value;
@@ -109,30 +109,30 @@ export function RulesEditor({ initial, disabled, readOnly, serverError, onSubmit
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
         <TextField type="number" label="Минимальная длительность (мин)" value={rules.min_booking_minutes} onChange={(e) => setRules((prev) => ({ ...prev, min_booking_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
         <TextField type="number" label="Максимальная длительность (мин)" value={rules.max_booking_minutes} onChange={(e) => setRules((prev) => ({ ...prev, max_booking_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
-        <TextField type="number" label="Step (min)" value={rules.booking_step_minutes} onChange={(e) => setRules((prev) => ({ ...prev, booking_step_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
-        <TextField type="number" label="Advance (min)" value={rules.max_advance_minutes} onChange={(e) => setRules((prev) => ({ ...prev, max_advance_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
+        <TextField type="number" label="Шаг бронирования (мин)" value={rules.booking_step_minutes} onChange={(e) => setRules((prev) => ({ ...prev, booking_step_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
+        <TextField type="number" label="Горизонт бронирования (мин)" value={rules.max_advance_minutes} onChange={(e) => setRules((prev) => ({ ...prev, max_advance_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
       </Stack>
 
       <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle1" mb={1}>Working hours</Typography>
+        <Typography variant="subtitle1" mb={1}>Часы работы</Typography>
         <Stack spacing={1}>
           {rules.working_hours.map((item, index) => (
             <Stack key={`wh-${item.day_of_week}`} direction={{ xs: 'column', md: 'row' }} spacing={1}>
-              <TextField label="Day" value={weekdayLabels[item.day_of_week] ?? `D${item.day_of_week}`} InputProps={{ readOnly: true }} fullWidth />
-              <TextField type="time" label="Open" value={item.open_time ?? ''} onChange={(e) => setRules((prev) => ({
+              <TextField label="День" value={weekdayLabels[item.day_of_week] ?? `День ${item.day_of_week + 1}`} InputProps={{ readOnly: true }} fullWidth />
+              <TextField type="time" label="Открытие" value={item.open_time ?? ''} onChange={(e) => setRules((prev) => ({
                 ...prev,
                 working_hours: prev.working_hours.map((wh, idx) => (idx === index ? { ...wh, open_time: e.target.value || null } : wh)),
               }))} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} />
-              <TextField type="time" label="Close" value={item.close_time ?? ''} onChange={(e) => setRules((prev) => ({
+              <TextField type="time" label="Закрытие" value={item.close_time ?? ''} onChange={(e) => setRules((prev) => ({
                 ...prev,
                 working_hours: prev.working_hours.map((wh, idx) => (idx === index ? { ...wh, close_time: e.target.value || null } : wh)),
               }))} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} />
-              <TextField select label="Closed" value={item.is_closed ? 'yes' : 'no'} onChange={(e) => setRules((prev) => ({
+              <TextField select label="Выходной" value={item.is_closed ? 'yes' : 'no'} onChange={(e) => setRules((prev) => ({
                 ...prev,
                 working_hours: prev.working_hours.map((wh, idx) => (idx === index ? { ...wh, is_closed: e.target.value === 'yes' } : wh)),
               }))} disabled={disabled || readOnly} fullWidth>
-                <MenuItem value="no">No</MenuItem>
-                <MenuItem value="yes">Yes</MenuItem>
+                <MenuItem value="no">Нет</MenuItem>
+                <MenuItem value="yes">Да</MenuItem>
               </TextField>
             </Stack>
           ))}
@@ -141,18 +141,18 @@ export function RulesEditor({ initial, disabled, readOnly, serverError, onSubmit
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-          <Typography variant="subtitle1">Schedule exceptions</Typography>
+          <Typography variant="subtitle1">Исключения в расписании</Typography>
           <Button startIcon={<AddIcon />} onClick={() => setRules((prev) => ({ ...prev, exceptions: [...prev.exceptions, { date: '', open_time: null, close_time: null, is_closed: false }] }))} disabled={disabled || readOnly}>Добавить</Button>
         </Stack>
         <Stack spacing={1}>
           {rules.exceptions.map((item, index) => (
             <Stack key={`exception-${index}`} direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">
-              <TextField type="date" label="Date" value={item.date} onChange={(e) => setException(index, { date: e.target.value })} disabled={disabled || readOnly} fullWidth InputLabelProps={{ shrink: true }} />
-              <TextField type="time" label="Open" value={item.open_time ?? ''} onChange={(e) => setException(index, { open_time: e.target.value || null })} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} />
-              <TextField type="time" label="Close" value={item.close_time ?? ''} onChange={(e) => setException(index, { close_time: e.target.value || null })} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} />
-              <TextField select label="Closed" value={item.is_closed ? 'yes' : 'no'} onChange={(e) => setException(index, { is_closed: e.target.value === 'yes' })} disabled={disabled || readOnly} fullWidth>
-                <MenuItem value="no">No</MenuItem>
-                <MenuItem value="yes">Yes</MenuItem>
+              <TextField type="date" label="Дата" value={item.date} onChange={(e) => setException(index, { date: e.target.value })} disabled={disabled || readOnly} fullWidth InputLabelProps={{ shrink: true }} />
+              <TextField type="time" label="Открытие" value={item.open_time ?? ''} onChange={(e) => setException(index, { open_time: e.target.value || null })} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} />
+              <TextField type="time" label="Закрытие" value={item.close_time ?? ''} onChange={(e) => setException(index, { close_time: e.target.value || null })} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} />
+              <TextField select label="Выходной" value={item.is_closed ? 'yes' : 'no'} onChange={(e) => setException(index, { is_closed: e.target.value === 'yes' })} disabled={disabled || readOnly} fullWidth>
+                <MenuItem value="no">Нет</MenuItem>
+                <MenuItem value="yes">Да</MenuItem>
               </TextField>
               <IconButton onClick={() => setRules((prev) => ({ ...prev, exceptions: prev.exceptions.filter((_, idx) => idx !== index) }))} disabled={disabled || readOnly}>
                 <DeleteOutlineIcon />
@@ -162,7 +162,7 @@ export function RulesEditor({ initial, disabled, readOnly, serverError, onSubmit
         </Stack>
       </Paper>
 
-      <Button type="submit" variant="contained" disabled={disabled || readOnly || validationErrors.length > 0}>Сохранить rules</Button>
+      <Button type="submit" variant="contained" disabled={disabled || readOnly || validationErrors.length > 0}>Сохранить правила</Button>
     </Stack>
   );
 }

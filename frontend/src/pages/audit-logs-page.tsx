@@ -99,7 +99,7 @@ export function AuditLogsPage() {
   return (
     <Stack spacing={2}>
       <StateFeedback severity="info">
-        Логи аудита показывают действия пользователей и системные изменения. Используйте фильтры, чтобы быстро найти нужный эпизод.
+        Журнал изменений показывает действия пользователей и системные изменения. Используйте фильтры, чтобы быстро найти нужный эпизод.
       </StateFeedback>
 
       <FiltersToolbar onReset={clearFilters}>
@@ -216,7 +216,7 @@ export function AuditLogsPage() {
                       <Stack spacing={0.5}>
                         <Typography variant="body2">{log.entity_type}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          entity_id: {log.entity_id ?? '—'}
+                          ID сущности: {log.entity_id ?? '—'}
                         </Typography>
                       </Stack>
                     </TableCell>

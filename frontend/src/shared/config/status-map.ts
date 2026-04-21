@@ -18,8 +18,8 @@ export const bookingStatusMap: Record<BookingStatus, StatusMeta> = {
 };
 
 export const effectiveStatusMap: Record<SpotEffectiveStatus, StatusMeta> = {
-  available: { label: 'Свободно', color: 'success' },
-  booked: { label: 'Забронировано', color: 'warning' },
+  available: { label: 'Доступно', color: 'success' },
+  booked: { label: 'Занято', color: 'warning' },
   blocked: { label: 'Заблокировано', color: 'error' },
 };
 
