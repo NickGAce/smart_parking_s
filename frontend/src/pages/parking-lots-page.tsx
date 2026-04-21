@@ -1,5 +1,6 @@
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
 import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import {
@@ -9,7 +10,9 @@ import {
   DialogContent,
   FormControl,
   Grid,
+  IconButton,
   InputLabel,
+  Menu,
   MenuItem,
   Select,
   Stack,
@@ -21,7 +24,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 
 import { useCurrentUser } from '../features/auth/use-current-user';
@@ -52,12 +55,25 @@ export function ParkingLotsPage() {
   const { role } = useCurrentUser();
   const [query, setQuery] = useState<ParkingLotsQuery>({ limit: 10, offset: 0, sort_by: 'name', sort_order: 'asc' });
   const [createOpen, setCreateOpen] = useState(false);
+  const [actionsAnchor, setActionsAnchor] = useState<HTMLElement | null>(null);
+  const [actionsLotId, setActionsLotId] = useState<number | null>(null);
 
   const canManage = hasRole(role, MANAGEMENT_ROLES);
   const lotsQuery = useParkingLotsQuery(query);
   const createMutation = useCreateParkingLotMutation();
   const totalLots = lotsQuery.data?.meta.total ?? 0;
   const totalSpots = lotsQuery.data?.items.reduce((sum, lot) => sum + lot.total_spots, 0) ?? 0;
+  const selectedLot = lotsQuery.data?.items.find((lot) => lot.id === actionsLotId);
+
+  const openActionsMenu = (event: MouseEvent<HTMLElement>, lotId: number) => {
+    setActionsAnchor(event.currentTarget);
+    setActionsLotId(lotId);
+  };
+
+  const closeActionsMenu = () => {
+    setActionsAnchor(null);
+    setActionsLotId(null);
+  };
 
   return (
     <>
@@ -142,7 +158,7 @@ export function ParkingLotsPage() {
             <Box sx={{ p: { xs: 1.5, md: 2.5 }, overflowX: 'auto' }}>
               <Table sx={{ minWidth: 840 }}>
                 <TableHead>
-                  <TableRow>
+                  <TableRow sx={{ '& .MuiTableCell-root': { bgcolor: 'action.hover', whiteSpace: 'nowrap' } }}>
                     <TableCell>ID</TableCell>
                     <TableCell>Название</TableCell>
                     <TableCell>Адрес</TableCell>
@@ -167,18 +183,12 @@ export function ParkingLotsPage() {
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <Button component={RouterLink} to={`/parking-lots/${lot.id}`} startIcon={<VisibilityOutlinedIcon />} size="small">
+                        <Button component={RouterLink} to={`/parking-lots/${lot.id}`} startIcon={<VisibilityOutlinedIcon />} size="small" variant="contained">
                           Открыть
                         </Button>
-                        <Button
-                          component={RouterLink}
-                          to={`/parking-lots/${lot.id}?mode=edit`}
-                          startIcon={<EditOutlinedIcon />}
-                          size="small"
-                          disabled={!canManage}
-                        >
-                          Редактировать
-                        </Button>
+                        <IconButton size="small" onClick={(event) => openActionsMenu(event, lot.id)} aria-label={`Дополнительные действия для парковки ${lot.name}`}>
+                          <MoreVertOutlinedIcon fontSize="small" />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -211,6 +221,23 @@ export function ParkingLotsPage() {
           </Box>
         </DialogContent>
       </Dialog>
+      <Menu
+        anchorEl={actionsAnchor}
+        open={Boolean(actionsAnchor)}
+        onClose={closeActionsMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          component={RouterLink}
+          to={selectedLot ? `/parking-lots/${selectedLot.id}?mode=edit` : '#'}
+          disabled={!selectedLot || !canManage}
+          onClick={closeActionsMenu}
+        >
+          <EditOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
+          Редактировать
+        </MenuItem>
+      </Menu>
     </>
   );
 }

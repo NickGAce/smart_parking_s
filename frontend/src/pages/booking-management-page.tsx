@@ -1,9 +1,14 @@
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
+import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import {
   Alert,
   Box,
   Button,
   Chip,
+  IconButton,
+  Menu,
+  ListSubheader,
   FormControl,
   FormControlLabel,
   Grid,
@@ -20,9 +25,10 @@ import {
   TableRow,
   TableContainer,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { useCurrentUser } from '../features/auth/use-current-user';
@@ -50,6 +56,7 @@ const DEFAULT_LIMIT = 10;
 const BACKEND_MAX_LIMIT = 100;
 
 type SortBy = NonNullable<BookingsQuery['sort_by']>;
+type LifecycleAction = 'check-in' | 'check-out';
 
 const parseNumberParam = (value: string | null): number | undefined => {
   if (!value) return undefined;
@@ -70,6 +77,18 @@ const normalizeLimit = (value: number | undefined): number => {
 
   return Math.min(value, BACKEND_MAX_LIMIT);
 };
+
+function getPrimaryLifecycleAction(status: BookingStatus): { action: LifecycleAction; label: string; color: 'success' | 'primary' } | null {
+  if (status === 'active') {
+    return { action: 'check-out', label: 'Выезд', color: 'primary' };
+  }
+
+  if (status === 'confirmed') {
+    return { action: 'check-in', label: 'Заезд', color: 'success' };
+  }
+
+  return null;
+}
 
 function parseQuery(searchParams: URLSearchParams): BookingsQuery {
   const statuses = [...searchParams.getAll('statuses[]'), ...searchParams.getAll('statuses')] as BookingStatus[];
@@ -113,6 +132,8 @@ export function BookingManagementPage() {
   const isGuardView = role === 'guard';
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
+  const [actionsAnchor, setActionsAnchor] = useState<HTMLElement | null>(null);
+  const [actionsBookingId, setActionsBookingId] = useState<number | null>(null);
   const query = useMemo(() => parseQuery(searchParams), [searchParams]);
   const requestQuery: BookingsQuery = useMemo(() => {
     if ((query.statuses?.length ?? 0) === 0) {
@@ -170,6 +191,19 @@ export function BookingManagementPage() {
   };
 
   const activeStatuses = query.statuses ?? [];
+  const selectedBooking = visibleItems.find((booking) => booking.id === actionsBookingId);
+  const canMarkNoShow = Boolean(selectedBooking && ['confirmed', 'active'].includes(selectedBooking.status));
+  const canCheckInFromMenu = Boolean(selectedBooking && selectedBooking.status === 'active');
+
+  const openActionsMenu = (event: MouseEvent<HTMLElement>, bookingId: number) => {
+    setActionsAnchor(event.currentTarget);
+    setActionsBookingId(bookingId);
+  };
+
+  const closeActionsMenu = () => {
+    setActionsAnchor(null);
+    setActionsBookingId(null);
+  };
 
   return (
     <>
@@ -196,9 +230,13 @@ export function BookingManagementPage() {
           <FiltersSection
             onReset={() => setSearchParams(writeQuery({ limit: DEFAULT_LIMIT, offset: 0, sort_by: 'start_time', sort_order: 'desc' }))}
             resetLabel="Сбросить"
+            actions={<Chip icon={<TuneOutlinedIcon />} label={`Активных статусов: ${activeStatuses.length}`} size="small" variant="outlined" />}
           >
             <Stack spacing={2}>
               <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="tableLabel" color="text.secondary">Локация и период</Typography>
+                </Grid>
                 <Grid item xs={12} md={3}>
                   <TextField
                     label="ID парковки"
@@ -246,6 +284,9 @@ export function BookingManagementPage() {
                   />
                 </Grid>
 
+                <Grid item xs={12}>
+                  <Typography variant="tableLabel" color="text.secondary">Статусы и сортировка</Typography>
+                </Grid>
                 <Grid item xs={12} md={3}>
                   <FormControl fullWidth size="small" disabled={isGuardView}>
                     <InputLabel id="booking-status">Статус</InputLabel>
@@ -304,6 +345,7 @@ export function BookingManagementPage() {
               </Grid>
 
               <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+                <Typography variant="tableLabel" color="text.secondary" sx={{ alignSelf: 'center' }}>Быстрые статусы:</Typography>
                 {bookingStatuses.map((status) => (
                   <FormControlLabel
                     key={status}
@@ -324,7 +366,7 @@ export function BookingManagementPage() {
             <TableContainer sx={{ overflowX: 'auto' }}>
               <Table aria-label="Таблица управления бронированиями" sx={{ minWidth: 900 }}>
                 <TableHead>
-                  <TableRow>
+                  <TableRow sx={{ '& .MuiTableCell-root': { bgcolor: 'action.hover', whiteSpace: 'nowrap' } }}>
                     <TableCell scope="col">Бронь</TableCell>
                     <TableCell scope="col">Пользователь</TableCell>
                     <TableCell scope="col">Статус</TableCell>
@@ -347,45 +389,44 @@ export function BookingManagementPage() {
                       <TableCell>{formatBookingInterval(booking.start_time, booking.end_time)}</TableCell>
                       <TableCell>{formatBookingDurationLabel(booking.start_time, booking.end_time)}</TableCell>
                       <TableCell align="right">
-                        <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap" useFlexGap>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end" useFlexGap>
+                          {getPrimaryLifecycleAction(booking.status) ? (
+                            <Button
+                              size="small"
+                              color={getPrimaryLifecycleAction(booking.status)?.color}
+                              variant="contained"
+                              disabled={isLifecyclePending}
+                              onClick={() => {
+                                const action = getPrimaryLifecycleAction(booking.status);
+                                if (!action) return;
+                                if (action.action === 'check-in') checkInMutation.mutate(booking.id);
+                                else checkOutMutation.mutate(booking.id);
+                              }}
+                              aria-label={`Основное действие по бронированию №${booking.id}`}
+                            >
+                              {getPrimaryLifecycleAction(booking.status)?.label}
+                            </Button>
+                          ) : null}
                           <Button
                             size="small"
+                            variant="outlined"
                             startIcon={<VisibilityOutlinedIcon />}
                             onClick={() => setSelectedBookingId(booking.id)}
                             aria-label={`Открыть детали бронирования №${booking.id}`}
                           >
                             Детали
                           </Button>
-                          <Button
-                            size="small"
-                            color="success"
-                            variant="contained"
-                            disabled={isLifecyclePending || !['confirmed', 'active'].includes(booking.status)}
-                            onClick={() => checkInMutation.mutate(booking.id)}
-                            aria-label={`Отметить заезд для бронирования №${booking.id}`}
-                          >
-                            Заезд
-                          </Button>
-                          <Button
-                            size="small"
-                            color="primary"
-                            variant="contained"
-                            disabled={isLifecyclePending || booking.status !== 'active'}
-                            onClick={() => checkOutMutation.mutate(booking.id)}
-                            aria-label={`Отметить выезд для бронирования №${booking.id}`}
-                          >
-                            Выезд
-                          </Button>
-                          <Button
-                            size="small"
-                            color="warning"
-                            variant="outlined"
-                            disabled={isLifecyclePending || !['confirmed', 'active'].includes(booking.status)}
-                            onClick={() => markNoShowMutation.mutate(booking.id)}
-                            aria-label={`Отметить незаезд для бронирования №${booking.id}`}
-                          >
-                            Не заехал
-                          </Button>
+                          <Tooltip title="Дополнительные действия">
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={(event) => openActionsMenu(event, booking.id)}
+                                aria-label={`Дополнительные действия для бронирования №${booking.id}`}
+                              >
+                                <MoreVertOutlinedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
                         </Stack>
                       </TableCell>
                     </TableRow>
@@ -416,6 +457,36 @@ export function BookingManagementPage() {
       />
 
       <BookingDetailsPanel bookingId={selectedBookingId} onClose={() => setSelectedBookingId(null)} />
+      <Menu
+        anchorEl={actionsAnchor}
+        open={Boolean(actionsAnchor)}
+        onClose={closeActionsMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <ListSubheader disableSticky>Дополнительные операции</ListSubheader>
+        <MenuItem
+          disabled={!canCheckInFromMenu || isLifecyclePending || !actionsBookingId}
+          onClick={() => {
+            if (!actionsBookingId) return;
+            checkInMutation.mutate(actionsBookingId);
+            closeActionsMenu();
+          }}
+        >
+          Принудительный заезд
+        </MenuItem>
+        <MenuItem
+          disabled={!canMarkNoShow || isLifecyclePending || !actionsBookingId}
+          onClick={() => {
+            if (!actionsBookingId) return;
+            markNoShowMutation.mutate(actionsBookingId);
+            closeActionsMenu();
+          }}
+          sx={{ color: 'warning.main' }}
+        >
+          Отметить «не заехал»
+        </MenuItem>
+      </Menu>
     </>
   );
 }

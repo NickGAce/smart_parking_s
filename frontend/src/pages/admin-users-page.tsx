@@ -3,6 +3,7 @@ import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined
 import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
 import {
   Alert,
+  Box,
   Button,
   Grid,
   MenuItem,
@@ -408,6 +409,7 @@ export function AdminUsersPage() {
                 setSearchTerm('');
                 setRoleFilter('');
               }}
+              actions={<Typography variant="caption" color="text.secondary">Фильтры применяются сразу по мере ввода.</Typography>}
             >
               <TextField
                 label="Поиск"
@@ -446,10 +448,10 @@ export function AdminUsersPage() {
                 description="Измените параметры поиска или сбросьте фильтры."
               />
             ) : (
-              <TableContainer>
+              <TableContainer sx={{ overflowX: 'auto' }}>
                 <Table size="small" aria-label="Сессионный реестр пользователей">
                   <TableHead>
-                    <TableRow>
+                    <TableRow sx={{ '& .MuiTableCell-root': { bgcolor: 'action.hover', whiteSpace: 'nowrap' } }}>
                       <TableCell scope="col">ID</TableCell>
                       <TableCell scope="col">Email</TableCell>
                       <TableCell scope="col">Роль</TableCell>
@@ -467,17 +469,19 @@ export function AdminUsersPage() {
                           <StatusChip status={entry.status} mapping={userOperationStatusMap} variant="outlined" />
                         </TableCell>
                         <TableCell align="right">
-                          <Button
-                            size="small"
-                            variant="text"
-                            onClick={() => {
-                              setUserId(String(entry.id));
-                              setUpdateRole(entry.role);
-                            }}
-                            aria-label={`Подставить пользователя ${entry.email} с ID ${entry.id} в форму редактирования`}
-                          >
-                            Подставить в редактирование
-                          </Button>
+                          <Box sx={{ minWidth: 210, display: 'flex', justifyContent: 'flex-end' }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => {
+                                setUserId(String(entry.id));
+                                setUpdateRole(entry.role);
+                              }}
+                              aria-label={`Подставить пользователя ${entry.email} с ID ${entry.id} в форму редактирования`}
+                            >
+                              Подставить в редактирование
+                            </Button>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}
