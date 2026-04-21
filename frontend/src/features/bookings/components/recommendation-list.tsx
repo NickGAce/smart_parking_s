@@ -40,8 +40,12 @@ const factorLabels: Record<string, string> = {
   charger: 'Наличие зарядки',
   availability: 'Доступность в интервале',
   zone_match: 'Совпадение зоны',
+  zone: 'Зона',
+  spot_type: 'Тип места',
   vehicle_type: 'Соответствие типу транспорта',
   size_category: 'Соответствие размеру',
+  role: 'Доступ по роли',
+  conflict: 'Риск конфликта',
 };
 
 function formatFactorLabel(factor: string) {
@@ -49,12 +53,7 @@ function formatFactorLabel(factor: string) {
     return factorLabels[factor];
   }
 
-  return factor
-    .replaceAll('_', ' ')
-    .replaceAll('spot', 'место')
-    .replaceAll('zone', 'зона')
-    .replaceAll('charger', 'зарядка')
-    .replaceAll('availability', 'доступность');
+  return factor.replaceAll('_', ' ');
 }
 
 const numberFormatter = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 });
@@ -79,15 +78,26 @@ function formatDateTime(value: string) {
 }
 
 function localizeReason(reason: string) {
-  return reason
-    .replaceAll('_', ' ')
-    .replace(/preferred/gi, 'предпочтительный')
-    .replace(/required/gi, 'обязательный')
-    .replace(/available/gi, 'доступен')
-    .replace(/charger/gi, 'зарядка')
-    .replace(/zone/gi, 'зона')
-    .replace(/spot/gi, 'место')
-    .replace(/vehicle/gi, 'транспорт');
+  const exactMap: Record<string, string> = {
+    'Spot is free in requested interval': 'Место свободно в выбранном интервале.',
+    'No explicit spot type preference': 'Явное предпочтение по типу места не задано.',
+    'No explicit zone preference': 'Явное предпочтение по зоне не задано.',
+    'No charger preference; spot acceptable': 'Предпочтение по зарядке не задано, место подходит.',
+    'Lower risk of near-term conflicts': 'Низкий риск конфликтов в ближайшее время.',
+  };
+
+  if (exactMap[reason]) {
+    return exactMap[reason];
+  }
+
+  const roleMatch = reason.match(/^Role '([^']+)' is allowed for this spot$/);
+  if (roleMatch) {
+    const role = roleMatch[1];
+    const roleLabel = userRoleLabels[role as keyof typeof userRoleLabels] ?? role;
+    return `Роль «${roleLabel}» имеет доступ к этому месту.`;
+  }
+
+  return reason;
 }
 
 function SpotCard({
@@ -128,16 +138,19 @@ function SpotCard({
             <Divider sx={{ my: 1.5 }} />
             <Typography variant="subtitle2" sx={{ mb: 0.75 }}>Почему система рекомендует это место</Typography>
             <List dense disablePadding>
-              {spot.explainability.map((factor, index) => (
+              {spot.explainability.map((factor, index) => {
+                const localizedReason = localizeReason(factor.reason);
+                return (
                 <ListItem key={`${factor.factor}-${index}`} disableGutters>
                   <ListItemText
-                    primary={`${formatFactorLabel(factor.factor)}: ${factor.reason}`}
-                    secondary={`Параметры: значение ${formatNumber(factor.value)}, вес ${formatNumber(factor.weight)}, вклад ${formatNumber(factor.contribution)}. Комментарий: ${localizeReason(factor.reason)}.`}
+                    primary={`${formatFactorLabel(factor.factor)}: ${localizedReason}`}
+                    secondary={`Параметры: значение ${formatNumber(factor.value)}, вес ${formatNumber(factor.weight)}, вклад ${formatNumber(factor.contribution)}.`}
                     primaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
                     secondaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
                   />
                 </ListItem>
-              ))}
+                );
+              })}
             </List>
           </>
         )}
