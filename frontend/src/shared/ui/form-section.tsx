@@ -15,9 +15,9 @@ interface FormSectionProps {
 
 export function FormSection({ title, subtitle, helperText, actions, children, sx }: FormSectionProps) {
   return (
-    <ContentCard sx={{ p: { xs: 1.5, md: 2 }, ...sx }}>
+    <ContentCard sx={{ p: { xs: 2, md: 2.75 }, ...sx }}>
       {title ? <SectionHeader title={title} subtitle={subtitle} actions={actions} compact /> : null}
-      <Stack spacing={2}>
+      <Stack spacing={2.25}>
         {helperText ? <Typography variant="body2" color="text.secondary">{helperText}</Typography> : null}
         {children}
       </Stack>

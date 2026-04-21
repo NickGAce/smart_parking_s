@@ -143,11 +143,11 @@ function getDesignTokens(mode: PaletteMode) {
     },
     foundation: {
       radius: {
-        xs: 4,
-        sm: 6,
-        md: 8,
-        lg: 10,
-        xl: 12,
+        xs: 3,
+        sm: 5,
+        md: 7,
+        lg: 8,
+        xl: 10,
         pill: 999,
       },
       shadows: {
@@ -316,6 +316,9 @@ export const appTheme = (() => {
             borderRadius: baseTheme.foundation.radius.sm,
             textTransform: 'none',
             fontWeight: 600,
+            whiteSpace: 'normal',
+            textAlign: 'center',
+            maxWidth: '100%',
             boxShadow: 'none',
             '&:focus-visible': {
               boxShadow: baseTheme.foundation.focusRing.boxShadow,
@@ -445,6 +448,8 @@ export const appTheme = (() => {
         styleOverrides: {
           root: {
             borderColor: baseTheme.palette.border.subtle,
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
           },
           head: {
             ...baseTheme.typography.tableLabel,

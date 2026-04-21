@@ -2,7 +2,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
 
 export const surfacePanelSx: SxProps<Theme> = {
   p: { xs: 2, md: 3 },
-  borderRadius: (theme) => theme.foundation.radius.lg,
+  borderRadius: (theme) => theme.foundation.radius.md,
   borderColor: 'border.subtle',
 };
 
