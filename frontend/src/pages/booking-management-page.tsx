@@ -175,8 +175,8 @@ export function BookingManagementPage() {
     <>
       <DataListPageTemplate
         title="Управление бронированиями"
-        subtitle="Операционный экран для контроля статусов, интервалов и lifecycle-операций по всем бронированиям."
-        headerMeta="Booking operations"
+        subtitle="Операционный экран для контроля статусов, интервалов и действий по жизненному циклу бронирований."
+        headerMeta="Операционные действия"
         topBanner={(
           <Stack spacing={1.5}>
             <Alert severity="info">Фильтры помогают быстро найти конфликтные или срочные бронирования по времени и статусам.</Alert>

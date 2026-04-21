@@ -72,7 +72,7 @@ export function AnalyticsPage() {
               variant="outlined"
             />
           </Stack>
-          <Typography variant="caption" color="text.secondary">Данные обновляются через агрегированный клиентский дашборд endpoint-ов.</Typography>
+          <Typography variant="caption" color="text.secondary">Данные обновляются через единый клиентский слой аналитики.</Typography>
         </Stack>
       </Stack>
 
@@ -115,7 +115,7 @@ export function AnalyticsPage() {
 
       <Grid container spacing={2}>
         <Grid item xs={12} xl={8}>
-          <DataPanel title="Сводные KPI" subtitle="Базовые показатели эффективности за выбранный период.">
+          <DataPanel title="Ключевые показатели" subtitle="Базовые показатели эффективности за выбранный период.">
             <SummaryKpiSection
               isLoading={queries.summaryQuery.isLoading}
               isError={queries.summaryQuery.isError}

@@ -12,11 +12,11 @@ export function SummaryKpiSection({ isLoading, isError, data }: { isLoading: boo
   }
 
   if (isError) {
-    return <ErrorState message="Не удалось загрузить сводные KPI." />;
+    return <ErrorState message="Не удалось загрузить ключевые показатели." />;
   }
 
   if (!data) {
-    return <EmptyStateIllustrated title="Нет данных KPI" description="Попробуйте изменить период или параметры фильтра." />;
+    return <EmptyStateIllustrated title="Нет данных по показателям" description="Попробуйте изменить период или параметры фильтра." />;
   }
 
   return (
@@ -48,7 +48,7 @@ export function SummaryKpiSection({ isLoading, isError, data }: { isLoading: boo
       <Grid item xs={12} sm={6} md={6}>
         <MetricCard
           align="center"
-          label="Доля no-show"
+          label="Доля незаездов"
           value={`${(data.no_show_rate * 100).toFixed(1)}%`}
           badgeLabel={data.no_show_rate > 0.1 ? 'Внимание' : 'Норма'}
           badgeColor={data.no_show_rate > 0.1 ? 'warning' : 'success'}

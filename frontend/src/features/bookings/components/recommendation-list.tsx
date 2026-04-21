@@ -13,6 +13,16 @@ import {
 } from '@mui/material';
 
 import type { RecommendedSpot, RecommendationResult } from '../../../shared/types/recommendation';
+import type { SpotType } from '../../../shared/types/common';
+
+const spotTypeLabels: Record<SpotType, string> = {
+  regular: 'Обычное',
+  guest: 'Гостевое',
+  disabled: 'Для МГН',
+  ev: 'Электро',
+  reserved: 'Служебное',
+  vip: 'VIP',
+};
 
 interface RecommendationListProps {
   result: RecommendationResult;
@@ -41,7 +51,7 @@ function SpotCard({
           <Chip label={`оценка: ${spot.score.toFixed(3)}`} color="primary" variant="outlined" />
         </Stack>
         <Typography variant="body2" color="text.secondary">
-          лот #{spot.parking_lot_id} · зона {spot.zone_name ?? '—'} · {spot.spot_type} · зарядка: {spot.has_charger ? 'да' : 'нет'}
+          парковка #{spot.parking_lot_id} · зона {spot.zone_name ?? '—'} · {spotTypeLabels[spot.spot_type] ?? spot.spot_type} · зарядка: {spot.has_charger ? 'да' : 'нет'}
         </Typography>
 
         {spot.explainability.length > 0 && (

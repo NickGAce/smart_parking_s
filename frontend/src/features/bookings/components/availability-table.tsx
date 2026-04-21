@@ -1,12 +1,22 @@
 import { Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 
 import { StatusChip } from '../../../shared/ui/status-chip';
+import type { SpotType } from '../../../shared/types/common';
 import type { ParkingSpot } from '../../../shared/types/parking';
 
 const effectiveStatusMap: Record<string, { label: string; color: 'default' | 'success' | 'warning' | 'error' | 'info' }> = {
   available: { label: 'Доступно', color: 'success' },
   booked: { label: 'Занято', color: 'warning' },
   blocked: { label: 'Заблокировано', color: 'error' },
+};
+
+const spotTypeLabels: Record<SpotType, string> = {
+  regular: 'Обычное',
+  guest: 'Гостевое',
+  disabled: 'Для МГН',
+  ev: 'Электро',
+  reserved: 'Служебное',
+  vip: 'VIP',
 };
 
 interface AvailabilityTableProps {
@@ -44,7 +54,7 @@ export function AvailabilityTable({ items, selectedSpotId, onSelect }: Availabil
             >
               <TableCell>{spot.id}</TableCell>
               <TableCell>{spot.spot_number}</TableCell>
-              <TableCell>{spot.spot_type}</TableCell>
+              <TableCell>{spotTypeLabels[spot.spot_type as SpotType] ?? spot.spot_type}</TableCell>
               <TableCell>{spot.zone_name ?? '—'}</TableCell>
               <TableCell>{spot.has_charger ? 'Да' : 'Нет'}</TableCell>
               <TableCell>
