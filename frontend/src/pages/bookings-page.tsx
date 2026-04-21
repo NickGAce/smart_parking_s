@@ -17,9 +17,9 @@ export function BookingsPage() {
 
   return (
     <DataListPageTemplate
-      headerMeta="legacy-путь"
+      headerMeta="служебный маршрут"
       title="Бронирования"
-      subtitle="Маршрут /bookings объединен с актуальными экранами бронирований."
+      subtitle="Маршрут /bookings перенаправляет на актуальные экраны бронирований."
       isEmpty
       emptyText="Выберите нужный сценарий"
       dataView={null}

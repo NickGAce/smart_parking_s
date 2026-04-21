@@ -8,6 +8,7 @@ import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import LocalParkingRoundedIcon from '@mui/icons-material/LocalParkingRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
+import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded';
 import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
 import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
 import { alpha } from '@mui/material/styles';
@@ -46,20 +47,21 @@ const drawerWidth = 288;
 type NavSectionKey = 'main' | 'operations' | 'platform';
 
 const navSectionTitles: Record<NavSectionKey, string> = {
-  main: 'Обзор',
-  operations: 'Операции',
+  main: 'Демо-сценарий',
+  operations: 'Справочники и операции',
   platform: 'Платформа',
 };
 
 const navSectionByPath: Record<string, NavSectionKey> = {
   '/dashboard': 'main',
   '/analytics': 'main',
+  '/bookings/new': 'main',
+  '/my-bookings': 'main',
+  '/booking-management': 'main',
   '/parking-lots': 'operations',
   '/parking-spots': 'operations',
-  '/my-bookings': 'operations',
-  '/bookings/new': 'operations',
-  '/booking-management': 'operations',
   '/notifications': 'platform',
+  '/admin': 'platform',
   '/admin-users': 'platform',
   '/audit-logs': 'platform',
 };
@@ -73,6 +75,7 @@ const navIconByPath: Record<string, ReactNode> = {
   '/bookings/new': <AddRoundedIcon fontSize="small" />,
   '/booking-management': <ChevronRightRoundedIcon fontSize="small" />,
   '/notifications': <NotificationsRoundedIcon fontSize="small" />,
+  '/admin': <SecurityRoundedIcon fontSize="small" />,
   '/admin-users': <AccountCircleRoundedIcon fontSize="small" />,
   '/audit-logs': <HistoryRoundedIcon fontSize="small" />,
 };
@@ -166,9 +169,7 @@ export function AppShell() {
               <Typography variant="body2" fontWeight={600} noWrap>
                 {user.email}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Рабочая сессия
-              </Typography>
+              <Typography variant="caption" color="text.secondary">Демо-сессия</Typography>
             </Box>
           </Stack>
           <Chip size="small" variant="outlined" label={userRoleLabels[user.role]} sx={{ alignSelf: 'flex-start' }} />

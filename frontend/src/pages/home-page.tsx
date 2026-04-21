@@ -14,9 +14,9 @@ export function HomePage() {
 
   return (
     <DataListPageTemplate
-      headerMeta="legacy-путь"
+      headerMeta="служебный маршрут"
       title="Главная"
-      subtitle="Маршрут /home оставлен для обратной совместимости и ведет к актуальному входу в продукт."
+      subtitle="Маршрут /home ведет на актуальный вход в продукт."
       topBanner={(
         <Stack spacing={1}>
           <Typography color="text.secondary">
