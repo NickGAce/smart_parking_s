@@ -224,16 +224,16 @@ export function AdminUsersPage() {
   return (
     <>
       <FormPageTemplate
-      meta="администрирование / пользователи"
-      title="Пользователи и роли"
-      subtitle="Операционный сценарий создания и изменения ролей с единым UX-паттерном для админской зоны."
-      helperText={(
-        <StateFeedback severity="info">
-          API администрирования поддерживает только <code>POST /admin/users</code> и <code>PATCH /admin/users/{'{user_id}'}</code>. Список пользователей не приходит с сервера,
-          поэтому таблица ниже показывает записи, созданные или обновленные в рамках текущей сессии оператора.
-        </StateFeedback>
-      )}
-      formSections={(
+        meta="администрирование / пользователи"
+        title="Пользователи и роли"
+        subtitle="Операционный сценарий создания и изменения ролей с единым UX-паттерном для админской зоны."
+        helperText={(
+          <StateFeedback severity="info">
+            API администрирования поддерживает только <code>POST /admin/users</code> и <code>PATCH /admin/users/{'{user_id}'}</code>. Список пользователей не приходит с сервера,
+            поэтому таблица ниже показывает записи, созданные или обновленные в рамках текущей сессии оператора.
+          </StateFeedback>
+        )}
+        formSections={(
         <Stack spacing={2.5}>
           <ActionBar
             actions={(
@@ -448,8 +448,8 @@ export function AdminUsersPage() {
                 description="Измените параметры поиска или сбросьте фильтры."
               />
             ) : (
-              <TableContainer sx={{ overflowX: 'auto' }}>
-                <Table size="small" aria-label="Сессионный реестр пользователей">
+              <TableContainer sx={{ overflowX: 'auto', maxHeight: 520 }}>
+                <Table stickyHeader size="small" aria-label="Сессионный реестр пользователей">
                   <TableHead>
                     <TableRow sx={{ '& .MuiTableCell-root': { bgcolor: 'action.hover', whiteSpace: 'nowrap' } }}>
                       <TableCell scope="col">ID</TableCell>
