@@ -13,7 +13,7 @@ const statusLabels: Record<string, string> = {
   active: 'Активно',
   completed: 'Завершено',
   cancelled: 'Отменено',
-  no_show: 'Неявка',
+  no_show: 'Не заехал',
 };
 
 export function BookingsMetricsSection({ isLoading, isError, data }: { isLoading: boolean; isError: boolean; data?: AnalyticsBookings }) {
@@ -36,10 +36,10 @@ export function BookingsMetricsSection({ isLoading, isError, data }: { isLoading
       </Grid>
       <Grid item xs={12} md={4}>
         <ContentCard sx={{ p: 2, height: '100%', textAlign: 'center' }}>
-          <Typography variant="cardTitle" gutterBottom>Качество потока</Typography>
+          <Typography variant="cardTitle" gutterBottom>Качество бронирований</Typography>
           <Stack spacing={0.75} alignItems="center">
             <Typography variant="body2" color="text.secondary">Отмены: {(data.cancellation_rate * 100).toFixed(1)}%</Typography>
-            <Typography variant="body2" color="text.secondary">Неявка: {(data.no_show_rate * 100).toFixed(1)}%</Typography>
+            <Typography variant="body2" color="text.secondary">Незаезды: {(data.no_show_rate * 100).toFixed(1)}%</Typography>
           </Stack>
         </ContentCard>
       </Grid>
