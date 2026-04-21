@@ -541,7 +541,19 @@ export function ParkingSpotsPage() {
         }}
       />
 
-      <Drawer anchor="right" open={drawerSpotId !== null} onClose={() => setDrawerSpotId(null)}>
+      <Drawer
+        anchor="right"
+        open={drawerSpotId !== null}
+        onClose={() => setDrawerSpotId(null)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          zIndex: (theme) => theme.zIndex.appBar + 2,
+          '& .MuiDrawer-paper': {
+            top: { xs: 64, md: 72 },
+            height: { xs: 'calc(100% - 64px)', md: 'calc(100% - 72px)' },
+          },
+        }}
+      >
         <Box sx={{ width: { xs: 340, md: 420 }, p: 2.5 }}>
           <Typography variant="h6" sx={{ mb: 1 }}>Карточка парковочного места</Typography>
           {detailsQuery.isLoading ? <Typography color="text.secondary">Загрузка...</Typography> : null}

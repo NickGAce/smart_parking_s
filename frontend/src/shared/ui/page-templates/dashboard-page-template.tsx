@@ -30,8 +30,8 @@ export function DashboardPageTemplate({
     <PageContentLayout maxWidth="100%" spacing={2.5}>
       <ContentCard
         sx={{
-          p: { xs: 2, md: 3 },
-          borderRadius: (theme) => theme.foundation.radius.md,
+          p: { xs: 2.5, md: 3.5 },
+          borderRadius: (theme) => theme.foundation.radius.sm,
           background: (theme) => `linear-gradient(120deg, ${theme.palette.background.paper} 0%, ${theme.palette.surface.overlay} 100%)`,
         }}
       >
@@ -44,7 +44,7 @@ export function DashboardPageTemplate({
           {heroActions ? <ToolbarActions>{heroActions}</ToolbarActions> : null}
         </Stack>
         {heroExtra ? (
-          <ContentCard sx={{ mt: 2, p: { xs: 1.5, md: 2 }, borderRadius: (theme) => theme.foundation.radius.xs }}>
+          <ContentCard sx={{ mt: 2.5, p: { xs: 2, md: 2.75 }, borderRadius: (theme) => theme.foundation.radius.sm }}>
             {heroExtra}
           </ContentCard>
         ) : null}

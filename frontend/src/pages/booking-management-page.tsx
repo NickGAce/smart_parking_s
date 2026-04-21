@@ -305,7 +305,12 @@ export function BookingManagementPage() {
           <FiltersSection
             onReset={() => setSearchParams(writeQuery({ limit: DEFAULT_LIMIT, offset: 0, sort_by: 'start_time', sort_order: 'desc' }))}
             resetLabel="Сбросить"
-            actions={<Chip icon={<TuneOutlinedIcon />} label={`Активных статусов: ${activeStatuses.length}`} size="small" variant="outlined" />}
+            actions={(
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ minHeight: 32 }}>
+                <Typography variant="caption" color="text.secondary">Выбрано:</Typography>
+                <Chip icon={<TuneOutlinedIcon />} label={`${activeStatuses.length} активных статусов`} size="small" variant="outlined" />
+              </Stack>
+            )}
           >
             <Stack spacing={2}>
               <Grid container spacing={2}>
@@ -419,8 +424,8 @@ export function BookingManagementPage() {
                 </Grid>
               </Grid>
 
-              <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
-                <Typography variant="tableLabel" color="text.secondary" sx={{ alignSelf: 'center' }}>Быстрые статусы:</Typography>
+              <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
+                <Typography variant="tableLabel" color="text.secondary">Быстрые статусы:</Typography>
                 {bookingStatuses.map((status) => (
                   <FormControlLabel
                     key={status}

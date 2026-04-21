@@ -64,9 +64,9 @@ export function ParkingLotDetailsPage() {
       )}
       summaryCards={lotQuery.data ? (
         <>
-          <Grid item xs={12} sm={4}><MetricCard label="Всего мест" value={lotQuery.data.total_spots} /></Grid>
-          <Grid item xs={12} sm={4}><MetricCard label="Гостевые места" value={`${lotQuery.data.guest_spot_percentage}%`} /></Grid>
-          <Grid item xs={12} sm={4}><MetricCard label="Режим доступа" value={accessModeLabels[lotQuery.data.access_mode]} /></Grid>
+          <Grid item xs={12} sm={4}><MetricCard align="center" label="Всего мест" value={lotQuery.data.total_spots} /></Grid>
+          <Grid item xs={12} sm={4}><MetricCard align="center" label="Гостевые места" value={`${lotQuery.data.guest_spot_percentage}%`} /></Grid>
+          <Grid item xs={12} sm={4}><MetricCard align="center" label="Режим доступа" value={accessModeLabels[lotQuery.data.access_mode]} /></Grid>
         </>
       ) : null}
       relatedSections={(
@@ -75,7 +75,7 @@ export function ParkingLotDetailsPage() {
           {lotQuery.data && (
             <Grid container spacing={2}>
               <Grid item xs={12} lg={6}>
-                <FormSection title="Базовая информация">
+                <FormSection title="Базовая информация" sx={{ height: '100%' }}>
                   {isEditMode ? (
                     <ParkingLotForm
                       initial={lotQuery.data}
@@ -107,7 +107,7 @@ export function ParkingLotDetailsPage() {
               </Grid>
 
               <Grid item xs={12} lg={6}>
-                <FormSection title="Правила">
+                <FormSection title="Правила" sx={{ height: '100%' }}>
                   {rulesQuery.data ? (
                     <RulesEditor
                       initial={rulesQuery.data}
