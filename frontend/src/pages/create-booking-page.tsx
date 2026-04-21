@@ -90,6 +90,24 @@ function getStatusErrorMessage(error: ApiError | null): string | null {
 const SPOT_TYPE_OPTIONS: SpotType[] = ['regular', 'guest', 'disabled', 'ev', 'reserved', 'vip'];
 const VEHICLE_TYPE_OPTIONS: VehicleType[] = ['car', 'bike', 'truck'];
 const SIZE_CATEGORY_OPTIONS: SizeCategory[] = ['small', 'medium', 'large'];
+const SPOT_TYPE_LABELS: Record<SpotType, string> = {
+  regular: 'Обычное',
+  guest: 'Гостевое',
+  disabled: 'Для МГН',
+  ev: 'Электро',
+  reserved: 'Служебное',
+  vip: 'VIP',
+};
+const VEHICLE_TYPE_LABELS: Record<VehicleType, string> = {
+  car: 'Автомобиль',
+  bike: 'Мото/вело',
+  truck: 'Грузовой',
+};
+const SIZE_CATEGORY_LABELS: Record<SizeCategory, string> = {
+  small: 'Малый',
+  medium: 'Средний',
+  large: 'Большой',
+};
 
 const NEXT_ROUTE_BY_ROLE: Record<UserRole, string> = {
   admin: '/booking-management',
@@ -290,7 +308,7 @@ export function CreateBookingPage() {
           <FormSection title="Результат" subtitle="Сводка по выполненной операции.">
             <Stack spacing={1.5}>
               {successBooking.assignment_explanation && <Alert severity="info">{successBooking.assignment_explanation}</Alert>}
-              {successBooking.assignment_metadata && <Alert severity="info">Технические метаданные назначения: {JSON.stringify(successBooking.assignment_metadata, null, 2)}</Alert>}
+              {successBooking.assignment_metadata && <Alert severity="info">Служебные детали назначения сохранены.</Alert>}
             </Stack>
           </FormSection>
         )}
@@ -391,13 +409,13 @@ export function CreateBookingPage() {
                 <Grid item xs={12} md={4}>
                   <TextField select label="Тип транспорта" value={vehicleType} onChange={(event) => setVehicleType(event.target.value as VehicleType | '')} fullWidth>
                     <MenuItem value="">Любой</MenuItem>
-                    {VEHICLE_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                    {VEHICLE_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{VEHICLE_TYPE_LABELS[option]}</MenuItem>)}
                   </TextField>
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <TextField select label="Размер места" value={sizeCategory} onChange={(event) => setSizeCategory(event.target.value as SizeCategory | '')} fullWidth>
                     <MenuItem value="">Любой</MenuItem>
-                    {SIZE_CATEGORY_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                    {SIZE_CATEGORY_OPTIONS.map((option) => <MenuItem key={option} value={option}>{SIZE_CATEGORY_LABELS[option]}</MenuItem>)}
                   </TextField>
                 </Grid>
                 <Grid item xs={12} md={4}>
@@ -412,7 +430,7 @@ export function CreateBookingPage() {
                     }}
                     fullWidth
                   >
-                    {SPOT_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                    {SPOT_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{SPOT_TYPE_LABELS[option]}</MenuItem>)}
                   </TextField>
                 </Grid>
               </Grid>

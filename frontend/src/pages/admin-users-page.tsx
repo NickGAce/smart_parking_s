@@ -61,7 +61,7 @@ export function AdminUsersPage() {
 
       <Alert severity="info">
         Сервер поддерживает только <code>POST /admin/users</code> и <code>PATCH /admin/users/{'{user_id}'}</code>.
-        Endpoint списка пользователей отсутствует, поэтому изменение роли выполняется по известному ID пользователя.
+        Списка пользователей в API нет, поэтому роль меняется по известному ID пользователя.
       </Alert>
 
       <Grid container spacing={2}>
@@ -160,7 +160,7 @@ export function AdminUsersPage() {
               <Typography variant="h6">Изменение роли пользователя</Typography>
               <Typography variant="body2" color="text.secondary">
                 По API это сценарий <code>PATCH /admin/users/{'{user_id}'}</code>. ID вводится вручную,
-                потому что backend не предоставляет <code>GET /admin/users</code>.
+                потому что сервер не предоставляет <code>GET /admin/users</code>.
               </Typography>
 
               <Divider />

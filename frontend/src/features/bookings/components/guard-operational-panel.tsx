@@ -44,7 +44,7 @@ export function GuardOperationalPanel() {
       <Stack spacing={1.5}>
         <Typography variant="h6">Операционная панель охраны</Typography>
         <Alert severity="info">
-          Упрощённый view: только актуальные брони и быстрые lifecycle действия. Данные автообновляются каждые 10 секунд.
+          Упрощённый режим: только актуальные бронирования и быстрые действия по статусу. Данные обновляются каждые 10 секунд.
         </Alert>
         <Stack direction="row" spacing={1} flexWrap="wrap">
           {operationalStatuses.map((status) => (

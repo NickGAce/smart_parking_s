@@ -51,7 +51,7 @@ export function ParkingSpotForm({ initial, mode, onSubmit, disabled = false, rea
     if (zoneId.trim() || zoneName.trim()) {
       return 'Укажите только одно значение: ID зоны или название зоны.';
     }
-    return 'Если указать новое название зоны, backend может создать ее автоматически.';
+    return 'Если указать новое название зоны, сервер может создать её автоматически.';
   }, [zoneId, zoneName]);
 
   const handleSubmit = () => {

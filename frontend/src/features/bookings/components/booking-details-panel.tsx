@@ -51,6 +51,12 @@ interface Props {
 }
 
 const bookingTypeOptions: BookingType[] = ['guest', 'employee'];
+const bookingActionLabels: Record<string, string> = {
+  open_details: 'Открыть детали',
+  edit: 'Редактировать',
+  change_status: 'Изменить статус',
+  cancel: 'Отменить',
+};
 
 const asInputDateTime = (value: string) => value.slice(0, 16);
 
@@ -136,8 +142,8 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
                 <StatusChip status={booking.status} mapping={bookingStatusMap} />
               </Stack>
 
-              <Alert severity="info">Доступные действия для текущей роли: {availableActions.join(', ') || 'нет'}.</Alert>
-              <Alert severity="info">Карта переходов для статуса «{bookingStatusLabelMap[booking.status]}»: {bookingActionAvailabilityMap[booking.status].join(', ')}.</Alert>
+              <Alert severity="info">Доступные действия для текущей роли: {availableActions.map((action) => bookingActionLabels[action] ?? action).join(', ') || 'нет'}.</Alert>
+              <Alert severity="info">Допустимые действия для статуса «{bookingStatusLabelMap[booking.status]}»: {bookingActionAvailabilityMap[booking.status].map((action) => bookingActionLabels[action] ?? action).join(', ')}.</Alert>
 
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 <Button variant="contained" color="success" disabled={!canCheckIn || isLifecyclePending} onClick={() => booking && checkInMutation.mutate(booking.id)}>

@@ -107,8 +107,8 @@ export function RulesEditor({ initial, disabled, readOnly, serverError, onSubmit
       </Stack>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-        <TextField type="number" label="Min booking (min)" value={rules.min_booking_minutes} onChange={(e) => setRules((prev) => ({ ...prev, min_booking_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
-        <TextField type="number" label="Max booking (min)" value={rules.max_booking_minutes} onChange={(e) => setRules((prev) => ({ ...prev, max_booking_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
+        <TextField type="number" label="Минимальная длительность (мин)" value={rules.min_booking_minutes} onChange={(e) => setRules((prev) => ({ ...prev, min_booking_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
+        <TextField type="number" label="Максимальная длительность (мин)" value={rules.max_booking_minutes} onChange={(e) => setRules((prev) => ({ ...prev, max_booking_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
         <TextField type="number" label="Step (min)" value={rules.booking_step_minutes} onChange={(e) => setRules((prev) => ({ ...prev, booking_step_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
         <TextField type="number" label="Advance (min)" value={rules.max_advance_minutes} onChange={(e) => setRules((prev) => ({ ...prev, max_advance_minutes: Number(e.target.value) }))} disabled={disabled || readOnly} fullWidth />
       </Stack>
