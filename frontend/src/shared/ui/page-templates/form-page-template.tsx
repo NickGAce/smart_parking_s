@@ -28,11 +28,11 @@ export function FormPageTemplate({
   topBanner,
 }: FormPageTemplateProps) {
   return (
-    <PageContentLayout maxWidth={1100} spacing={2.5}>
+    <PageContentLayout maxWidth={1100} spacing={3}>
       <EntityHeader title={title} subtitle={subtitle} meta={meta} actions={headerActions} />
       {topBanner}
-      {helperText ? <ContentCard sx={{ p: { xs: 1.5, md: 2 } }}>{helperText}</ContentCard> : null}
-      <Stack spacing={2.5}>{formSections}</Stack>
+      {helperText ? <ContentCard sx={{ p: { xs: 2, md: 2.75 } }}>{helperText}</ContentCard> : null}
+      <Stack spacing={3}>{formSections}</Stack>
       {stickyActions ? <StickyActionBar>{stickyActions}</StickyActionBar> : null}
     </PageContentLayout>
   );

@@ -14,7 +14,7 @@ export function ContentCard({ children, padded = true, sx }: ContentCardProps) {
         borderRadius: (theme) => theme.foundation.radius.sm,
         border: 1,
         borderColor: 'border.subtle',
-        p: padded ? { xs: 2, md: 3 } : 0,
+        p: padded ? { xs: 2.5, md: 3.5 } : 0,
         boxShadow: (theme) => theme.foundation.shadows.xs,
         width: '100%',
         ...sx,
