@@ -92,7 +92,7 @@ export function MyBookingsPage() {
       <DataListPageTemplate
         title="Мои бронирования"
         subtitle="Планируйте поездки заранее: фильтруйте заявки по периоду и быстро открывайте детали для изменений или отмены."
-        headerMeta="Booking flow"
+        headerMeta="Поток бронирований"
         headerActions={(
           <Button variant="contained" onClick={() => navigate('/bookings/new')}>
             Новое бронирование

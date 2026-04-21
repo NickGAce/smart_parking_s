@@ -52,13 +52,13 @@ export function DashboardPage() {
 
   return (
     <DashboardPageTemplate
-      title="Smart Parking Control Center"
-      subtitle="Данные в этом блоке берутся из реальных analytics endpoint-ов (summary, occupancy, anomalies, notifications)."
+      title="Центр управления Smart Parking"
+      subtitle="Данные в этом блоке берутся из реальных аналитических API (сводка, загрузка, аномалии, уведомления)."
       meta="Главный экран"
       heroActions={(
         <>
           <Button component={RouterLink} to="/analytics" variant="contained">Открыть аналитику</Button>
-          <Button component={RouterLink} to="/create-booking" variant="outlined">Новое бронирование</Button>
+          <Button component={RouterLink} to="/bookings/new" variant="outlined">Новое бронирование</Button>
         </>
       )}
       heroExtra={(
@@ -83,7 +83,7 @@ export function DashboardPage() {
                 size="small"
                 variant="outlined"
               />
-              <Chip label="Обновление: live" size="small" variant="outlined" />
+              <Chip label="Обновление: онлайн" size="small" variant="outlined" />
             </Stack>
           </Stack>
           <Alert severity={criticalAnomalies > 0 ? 'warning' : 'info'}>
@@ -118,7 +118,7 @@ export function DashboardPage() {
               align="center"
               label="Доля отмен"
               value={formatPercent(cancellationRate)}
-              secondaryValue={summary ? `No-show: ${formatPercent(noShowRate)}` : 'No-show: —'}
+              secondaryValue={summary ? `Неявка: ${formatPercent(noShowRate)}` : 'Неявка: —'}
               badgeLabel={cancellationRate !== undefined && cancellationRate > 15 ? 'Риск' : 'Норма'}
               badgeColor={cancellationRate !== undefined && cancellationRate > 15 ? 'warning' : 'success'}
               helperText="Источник: analytics/summary"
