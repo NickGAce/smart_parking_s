@@ -2,6 +2,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
 import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import {
@@ -15,6 +16,7 @@ import {
   Grid,
   IconButton,
   InputLabel,
+  Menu,
   MenuItem,
   Select,
   Stack,
@@ -27,7 +29,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { useCurrentUser } from '../features/auth/use-current-user';
@@ -192,6 +194,8 @@ export function ParkingSpotsPage() {
   const [editingSpot, setEditingSpot] = useState<ParkingSpot | null>(null);
   const [deletingSpot, setDeletingSpot] = useState<ParkingSpot | null>(null);
   const [drawerSpotId, setDrawerSpotId] = useState<number | null>(null);
+  const [actionsAnchor, setActionsAnchor] = useState<HTMLElement | null>(null);
+  const [actionsSpotId, setActionsSpotId] = useState<number | null>(null);
 
   const canManage = hasRole(role, MANAGEMENT_ROLES);
 
@@ -235,6 +239,17 @@ export function ParkingSpotsPage() {
     || query.parking_lot_id !== undefined
     || query.status,
   );
+  const selectedSpot = listQuery.data?.items.find((spot) => spot.id === actionsSpotId);
+
+  const openActionsMenu = (event: MouseEvent<HTMLElement>, spotId: number) => {
+    setActionsAnchor(event.currentTarget);
+    setActionsSpotId(spotId);
+  };
+
+  const closeActionsMenu = () => {
+    setActionsAnchor(null);
+    setActionsSpotId(null);
+  };
 
   return (
     <>
@@ -288,6 +303,19 @@ export function ParkingSpotsPage() {
                     Применить
                   </Button>
                 </Stack>
+              </Stack>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                <StatusChip
+                  status={hasActiveFilters ? 'filtered' : 'default'}
+                  mapping={{
+                    filtered: { label: 'Фильтры активны', color: 'info' },
+                    default: { label: 'Без дополнительных фильтров', color: 'default' },
+                  }}
+                  variant="outlined"
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                  Сначала примените фильтры, затем работайте со строковыми действиями.
+                </Typography>
               </Stack>
 
               <Grid container spacing={2}>
@@ -387,7 +415,7 @@ export function ParkingSpotsPage() {
             <Box sx={{ overflowX: 'auto', p: { xs: 1.5, md: 2.5 } }}>
               <Table size="medium" sx={{ minWidth: 980 }}>
                 <TableHead>
-                  <TableRow>
+                  <TableRow sx={{ '& .MuiTableCell-root': { bgcolor: 'action.hover', whiteSpace: 'nowrap' } }}>
                     <TableCell>Место</TableCell>
                     <TableCell>Тип</TableCell>
                     <TableCell>Текущий статус</TableCell>
@@ -422,24 +450,13 @@ export function ParkingSpotsPage() {
                       </TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                          <Tooltip title="Детали">
+                          <Button size="small" variant="contained" startIcon={<VisibilityOutlinedIcon />} onClick={() => setDrawerSpotId(spot.id)}>
+                            Детали
+                          </Button>
+                          <Tooltip title="Дополнительные действия">
                             <span>
-                              <IconButton size="small" color="primary" onClick={() => setDrawerSpotId(spot.id)}>
-                                <VisibilityOutlinedIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                          <Tooltip title="Редактировать">
-                            <span>
-                              <IconButton size="small" onClick={() => setEditingSpot(spot)} disabled={!canManage}>
-                                <EditOutlinedIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                          <Tooltip title="Удалить">
-                            <span>
-                              <IconButton size="small" color="error" onClick={() => setDeletingSpot(spot)} disabled={!canManage}>
-                                <DeleteOutlineIcon fontSize="small" />
+                              <IconButton size="small" onClick={(event) => openActionsMenu(event, spot.id)}>
+                                <MoreVertOutlinedIcon fontSize="small" />
                               </IconButton>
                             </span>
                           </Tooltip>
@@ -530,6 +547,35 @@ export function ParkingSpotsPage() {
           ) : null}
         </Box>
       </Drawer>
+      <Menu
+        anchorEl={actionsAnchor}
+        open={Boolean(actionsAnchor)}
+        onClose={closeActionsMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          disabled={!selectedSpot || !canManage}
+          onClick={() => {
+            if (selectedSpot) setEditingSpot(selectedSpot);
+            closeActionsMenu();
+          }}
+        >
+          <EditOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
+          Редактировать
+        </MenuItem>
+        <MenuItem
+          disabled={!selectedSpot || !canManage}
+          onClick={() => {
+            if (selectedSpot) setDeletingSpot(selectedSpot);
+            closeActionsMenu();
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          <DeleteOutlineIcon fontSize="small" sx={{ mr: 1 }} />
+          Удалить
+        </MenuItem>
+      </Menu>
     </>
   );
 }
