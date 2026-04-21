@@ -23,6 +23,10 @@ const ParkingLotDetailsPage = lazyNamed(() => import('../../pages/parking-lot-de
 const ParkingSpotsPage = lazyNamed(() => import('../../pages/parking-spots-page'), 'ParkingSpotsPage');
 const AdminUsersPage = lazyNamed(() => import('../../pages/admin-users-page'), 'AdminUsersPage');
 
+const AdminPage = lazyNamed(() => import('../../pages/admin-page'), 'AdminPage');
+const BookingsPage = lazyNamed(() => import('../../pages/bookings-page'), 'BookingsPage');
+const HomePage = lazyNamed(() => import('../../pages/home-page'), 'HomePage');
+
 export interface AppRouteConfig {
   path: string;
   title: string;
@@ -36,6 +40,7 @@ export interface AppRouteConfig {
 export const routeConfig: AppRouteConfig[] = [
   { path: '/login', title: 'Вход в систему', component: LoginPage, isPublic: true },
   { path: '/register', title: 'Регистрация', component: RegisterPage, isPublic: true },
+  { path: '/home', title: 'Главная', component: HomePage, isPublic: true, showInMenu: false },
   { path: '/403', title: 'Доступ запрещен', component: ForbiddenPage },
   {
     path: '/dashboard',
@@ -67,6 +72,13 @@ export const routeConfig: AppRouteConfig[] = [
     menuLabel: 'Парковочные места',
     roles: ROLES_WITH_SPOT_CATALOG_ACCESS,
     showInMenu: true,
+  },
+  {
+    path: '/bookings',
+    title: 'Бронирования',
+    component: BookingsPage,
+    roles: ALL_USER_ROLES,
+    showInMenu: false,
   },
   {
     path: '/my-bookings',
@@ -108,6 +120,13 @@ export const routeConfig: AppRouteConfig[] = [
     menuLabel: 'Аналитика',
     roles: ['admin', 'owner', 'tenant'],
     showInMenu: true,
+  },
+  {
+    path: '/admin',
+    title: 'Администрирование',
+    component: AdminPage,
+    roles: ['admin'],
+    showInMenu: false,
   },
   {
     path: '/admin-users',
