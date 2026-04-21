@@ -11,7 +11,7 @@ export function AdminPage() {
     <DashboardPageTemplate
       meta="центр администрирования"
       title="Администрирование"
-      subtitle="Короткий навигационный экран для перехода к управлению пользователями и журналу аудита."
+      subtitle="Единый экран для контроля доступа и проверки событий безопасности."
       heroActions={(
         <Button component={RouterLink} to="/dashboard" variant="outlined">
           Назад на панель управления
@@ -20,7 +20,7 @@ export function AdminPage() {
       heroExtra={(
         <Stack spacing={1}>
           <Typography color="text.secondary">
-            Этот маршрут сохранен для обратной совместимости и теперь служит единой точкой входа в административные разделы.
+            Используйте этот раздел как единую точку входа в административные функции во время внешнего показа.
           </Typography>
         </Stack>
       )}
