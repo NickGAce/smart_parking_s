@@ -1,10 +1,8 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import { matchPath } from 'react-router-dom';
 
-import { DashboardPage } from '../../pages/dashboard-page';
 import { ForbiddenPage } from '../../pages/forbidden-page';
 import { LoginPage } from '../../pages/login-page';
-import { ParkingLotsPage } from '../../pages/parking-lots-page';
 import { RegisterPage } from '../../pages/register-page';
 import { ALL_USER_ROLES, ROLES_WITH_SPOT_CATALOG_ACCESS } from '../../shared/config/roles';
 import type { UserRole } from '../../shared/types/common';
@@ -19,6 +17,8 @@ const BookingManagementPage = lazyNamed(() => import('../../pages/booking-manage
 const CreateBookingPage = lazyNamed(() => import('../../pages/create-booking-page'), 'CreateBookingPage');
 const MyBookingsPage = lazyNamed(() => import('../../pages/my-bookings-page'), 'MyBookingsPage');
 const NotificationsPage = lazyNamed(() => import('../../pages/notifications-page'), 'NotificationsPage');
+const DashboardPage = lazyNamed(() => import('../../pages/dashboard-page'), 'DashboardPage');
+const ParkingLotsPage = lazyNamed(() => import('../../pages/parking-lots-page'), 'ParkingLotsPage');
 const ParkingLotDetailsPage = lazyNamed(() => import('../../pages/parking-lot-details-page'), 'ParkingLotDetailsPage');
 const ParkingSpotsPage = lazyNamed(() => import('../../pages/parking-spots-page'), 'ParkingSpotsPage');
 const AdminUsersPage = lazyNamed(() => import('../../pages/admin-users-page'), 'AdminUsersPage');

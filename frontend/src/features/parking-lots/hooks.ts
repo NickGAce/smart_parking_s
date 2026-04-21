@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { parkingApi } from '../../entities/parking/api';
 import type { CreateParkingLotPayload, ParkingLotRules, ParkingLotsQuery, UpdateParkingLotPayload } from '../../shared/types/parking';
@@ -9,6 +9,9 @@ export function useParkingLotsQuery(params: ParkingLotsQuery) {
   return useQuery({
     queryKey: [...parkingLotsQueryKey, params],
     queryFn: () => parkingApi.getLots(params),
+    placeholderData: keepPreviousData,
+    staleTime: 20_000,
+    gcTime: 5 * 60_000,
   });
 }
 
