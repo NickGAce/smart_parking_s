@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 
 import type { RecommendedSpot, RecommendationResult } from '../../../shared/types/recommendation';
+import { userRoleLabels } from '../../../shared/config/display-labels';
 import type { SpotType } from '../../../shared/types/common';
 
 const spotTypeLabels: Record<SpotType, string> = {
@@ -44,7 +45,49 @@ const factorLabels: Record<string, string> = {
 };
 
 function formatFactorLabel(factor: string) {
-  return factorLabels[factor] ?? factor.replaceAll('_', ' ');
+  if (factorLabels[factor]) {
+    return factorLabels[factor];
+  }
+
+  return factor
+    .replaceAll('_', ' ')
+    .replaceAll('spot', 'место')
+    .replaceAll('zone', 'зона')
+    .replaceAll('charger', 'зарядка')
+    .replaceAll('availability', 'доступность');
+}
+
+const numberFormatter = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 });
+
+function formatNumber(value: number) {
+  return numberFormatter.format(value);
+}
+
+function formatDateTime(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function localizeReason(reason: string) {
+  return reason
+    .replaceAll('_', ' ')
+    .replace(/preferred/gi, 'предпочтительный')
+    .replace(/required/gi, 'обязательный')
+    .replace(/available/gi, 'доступен')
+    .replace(/charger/gi, 'зарядка')
+    .replace(/zone/gi, 'зона')
+    .replace(/spot/gi, 'место')
+    .replace(/vehicle/gi, 'транспорт');
 }
 
 function SpotCard({
@@ -71,7 +114,7 @@ function SpotCard({
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             Место #{spot.spot_number}
           </Typography>
-          <Chip label={`Оценка подбора: ${spot.score.toFixed(3)}`} color="primary" variant="outlined" />
+          <Chip label={`Оценка подбора: ${formatNumber(spot.score)}`} color="primary" variant="outlined" />
         </Stack>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <Chip size="small" label={`Парковка #${spot.parking_lot_id}`} />
@@ -89,7 +132,7 @@ function SpotCard({
                 <ListItem key={`${factor.factor}-${index}`} disableGutters>
                   <ListItemText
                     primary={`${formatFactorLabel(factor.factor)}: ${factor.reason}`}
-                    secondary={`Параметры: значение ${factor.value}, вес ${factor.weight}, вклад ${factor.contribution}`}
+                    secondary={`Параметры: значение ${formatNumber(factor.value)}, вес ${formatNumber(factor.weight)}, вклад ${formatNumber(factor.contribution)}. Комментарий: ${localizeReason(factor.reason)}.`}
                     primaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
                     secondaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
                   />
@@ -119,6 +162,11 @@ export function RecommendationList({ result, selectedSpotId, onSelectSpot, onCon
           <Typography variant="body2" color="text.secondary">
             Выберите место из списка ниже, затем подтвердите создание бронирования.
           </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Chip size="small" variant="outlined" label={`Период: ${formatDateTime(result.from)} — ${formatDateTime(result.to)}`} />
+            <Chip size="small" variant="outlined" label={`Роль: ${userRoleLabels[result.requested_by_role as keyof typeof userRoleLabels] ?? result.requested_by_role}`} />
+            <Chip size="small" variant="outlined" label={`Парковка #${result.parking_lot_id}`} />
+          </Stack>
         </Stack>
       </Paper>
       {result.recommended_spots.length === 0 && (
