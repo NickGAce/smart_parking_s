@@ -325,18 +325,18 @@ export function BookingManagementPage() {
               <Table aria-label="Таблица управления бронированиями" sx={{ minWidth: 900 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Бронь</TableCell>
-                    <TableCell>Пользователь</TableCell>
-                    <TableCell>Статус</TableCell>
-                    <TableCell>Интервал</TableCell>
-                    <TableCell>Длительность</TableCell>
-                    <TableCell align="right">Операции</TableCell>
+                    <TableCell scope="col">Бронь</TableCell>
+                    <TableCell scope="col">Пользователь</TableCell>
+                    <TableCell scope="col">Статус</TableCell>
+                    <TableCell scope="col">Интервал</TableCell>
+                    <TableCell scope="col">Длительность</TableCell>
+                    <TableCell scope="col" align="right">Операции</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {visibleItems.map((booking) => (
                     <TableRow key={booking.id} hover>
-                      <TableCell>
+                      <TableCell component="th" scope="row">
                         <Stack spacing={0.5}>
                           <Typography variant="subtitle2">#{booking.id}</Typography>
                           <Typography variant="caption" color="text.secondary">Место #{booking.parking_spot_id}</Typography>

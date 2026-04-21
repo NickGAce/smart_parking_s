@@ -45,6 +45,8 @@ export function EmptyState({ title, description, icon, actions, compact = false,
 
   return (
     <Stack
+      role="status"
+      aria-live="polite"
       alignItems="center"
       justifyContent="center"
       spacing={1}
