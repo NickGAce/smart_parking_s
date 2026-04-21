@@ -1,10 +1,8 @@
 import {
   Alert,
   Button,
-  Divider,
   Grid,
   MenuItem,
-  Paper,
   Stack,
   TextField,
   Typography,
@@ -15,6 +13,9 @@ import { useCreateUserMutation } from '../features/admin-users/use-create-user-m
 import { useUpdateUserRoleMutation } from '../features/admin-users/use-update-user-role-mutation';
 import { adaptApiError } from '../shared/api/error-adapter';
 import { ALL_USER_ROLES } from '../shared/config/roles';
+import { FormPageTemplate } from '../shared/ui/page-templates';
+import { FormSection } from '../shared/ui/form-section';
+import { StateFeedback } from '../shared/ui/state-feedback';
 import type { UserRole } from '../shared/types/common';
 
 const roleOptions: UserRole[] = ALL_USER_ROLES;
@@ -57,158 +58,165 @@ export function AdminUsersPage() {
   );
 
   return (
-    <Stack spacing={2}>
-
-      <Alert severity="info">
-        Сервер поддерживает только <code>POST /admin/users</code> и <code>PATCH /admin/users/{'{user_id}'}</code>.
-        Списка пользователей в API нет, поэтому роль меняется по известному ID пользователя.
-      </Alert>
-
-      <Grid container spacing={2}>
-        <Grid item xs={12} lg={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Stack
-              spacing={2}
-              component="form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                createMutation.mutate(
-                  { email, password, role: createRole },
-                  {
-                    onSuccess: () => {
-                      setEmail('');
-                      setPassword('');
+    <FormPageTemplate
+      meta="администрирование"
+      title="Пользователи и роли"
+      subtitle="Операции управления пользователями через административный API."
+      helperText={(
+        <StateFeedback severity="info">
+          Сервер поддерживает только <code>POST /admin/users</code> и <code>PATCH /admin/users/{'{user_id}'}</code>. 
+          Списка пользователей в API нет, поэтому роль меняется по известному ID пользователя.
+        </StateFeedback>
+      )}
+      formSections={(
+        <Grid container spacing={2}>
+          <Grid item xs={12} lg={6}>
+            <FormSection
+              title="Создание пользователя"
+              subtitle="Создайте учетную запись и назначьте стартовую роль"
+            >
+              <Stack
+                spacing={2}
+                component="form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  createMutation.mutate(
+                    { email, password, role: createRole },
+                    {
+                      onSuccess: () => {
+                        setEmail('');
+                        setPassword('');
+                      },
                     },
-                  },
-                );
-              }}
+                  );
+                }}
+              >
+                {createMutation.isError && (
+                  <Alert severity="error">
+                    {mutationErrorMessage(createMutation.error, 'Не удалось создать пользователя.')}
+                    {createErrorDetails.length > 0 && (
+                      <Stack sx={{ mt: 1 }}>
+                        {createErrorDetails.map((detail) => (
+                          <Typography key={detail} variant="body2">• {detail}</Typography>
+                        ))}
+                      </Stack>
+                    )}
+                  </Alert>
+                )}
+
+                {createMutation.isSuccess && (
+                  <Alert severity="success">Пользователь успешно создан.</Alert>
+                )}
+
+                <TextField
+                  label="Email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                />
+
+                <TextField
+                  label="Пароль"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+
+                <TextField
+                  select
+                  label="Роль"
+                  value={createRole}
+                  onChange={(event) => setCreateRole(event.target.value as UserRole)}
+                >
+                  {roleOptions.map((roleOption) => (
+                    <MenuItem key={roleOption} value={roleOption}>
+                      {roleOption}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                <Button type="submit" variant="contained" disabled={createMutation.isPending}>
+                  Создать пользователя
+                </Button>
+              </Stack>
+            </FormSection>
+          </Grid>
+
+          <Grid item xs={12} lg={6}>
+            <FormSection
+              title="Изменение роли пользователя"
+              subtitle="Обновление роли по известному идентификатору"
+              helperText={(
+                <>
+                  По API это сценарий <code>PATCH /admin/users/{'{user_id}'}</code>. ID вводится вручную,
+                  потому что сервер не предоставляет <code>GET /admin/users</code>.
+                </>
+              )}
             >
-              <Typography variant="h6">Создание пользователя</Typography>
+              <Stack
+                spacing={2}
+                component="form"
+                onSubmit={(event) => {
+                  event.preventDefault();
 
-              {createMutation.isError && (
-                <Alert severity="error">
-                  {mutationErrorMessage(createMutation.error, 'Не удалось создать пользователя.')}
-                  {createErrorDetails.length > 0 && (
-                    <Stack sx={{ mt: 1 }}>
-                      {createErrorDetails.map((detail) => (
-                        <Typography key={detail} variant="body2">• {detail}</Typography>
-                      ))}
-                    </Stack>
-                  )}
-                </Alert>
-              )}
+                  const normalizedId = Number(userId);
+                  if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+                    return;
+                  }
 
-              {createMutation.isSuccess && (
-                <Alert severity="success">Пользователь успешно создан.</Alert>
-              )}
-
-              <TextField
-                label="Email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-              />
-
-              <TextField
-                label="Пароль"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-
-              <TextField
-                select
-                label="Роль"
-                value={createRole}
-                onChange={(event) => setCreateRole(event.target.value as UserRole)}
+                  updateRoleMutation.mutate({
+                    userId: normalizedId,
+                    payload: { role: updateRole },
+                  });
+                }}
               >
-                {roleOptions.map((roleOption) => (
-                  <MenuItem key={roleOption} value={roleOption}>
-                    {roleOption}
-                  </MenuItem>
-                ))}
-              </TextField>
+                {updateRoleMutation.isError && (
+                  <Alert severity="error">
+                    {mutationErrorMessage(updateRoleMutation.error, 'Не удалось обновить роль пользователя.')}
+                  </Alert>
+                )}
 
-              <Button type="submit" variant="contained" disabled={createMutation.isPending}>
-                Создать пользователя
-              </Button>
-            </Stack>
-          </Paper>
+                {updateRoleMutation.isSuccess && (
+                  <Alert severity="success">Роль пользователя обновлена.</Alert>
+                )}
+
+                <TextField
+                  label="ID пользователя"
+                  type="number"
+                  value={userId}
+                  onChange={(event) => setUserId(event.target.value)}
+                  required
+                  inputProps={{ min: 1 }}
+                  helperText="Введите существующий идентификатор пользователя"
+                />
+
+                <TextField
+                  select
+                  label="Новая роль"
+                  value={updateRole}
+                  onChange={(event) => setUpdateRole(event.target.value as UserRole)}
+                >
+                  {roleOptions.map((roleOption) => (
+                    <MenuItem key={roleOption} value={roleOption}>
+                      {roleOption}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={updateRoleMutation.isPending || !userId || Number(userId) <= 0}
+                >
+                  Обновить роль
+                </Button>
+              </Stack>
+            </FormSection>
+          </Grid>
         </Grid>
-
-        <Grid item xs={12} lg={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
-            <Stack
-              spacing={2}
-              component="form"
-              onSubmit={(event) => {
-                event.preventDefault();
-
-                const normalizedId = Number(userId);
-                if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
-                  return;
-                }
-
-                updateRoleMutation.mutate({
-                  userId: normalizedId,
-                  payload: { role: updateRole },
-                });
-              }}
-            >
-              <Typography variant="h6">Изменение роли пользователя</Typography>
-              <Typography variant="body2" color="text.secondary">
-                По API это сценарий <code>PATCH /admin/users/{'{user_id}'}</code>. ID вводится вручную,
-                потому что сервер не предоставляет <code>GET /admin/users</code>.
-              </Typography>
-
-              <Divider />
-
-              {updateRoleMutation.isError && (
-                <Alert severity="error">
-                  {mutationErrorMessage(updateRoleMutation.error, 'Не удалось обновить роль пользователя.')}
-                </Alert>
-              )}
-
-              {updateRoleMutation.isSuccess && (
-                <Alert severity="success">Роль пользователя обновлена.</Alert>
-              )}
-
-              <TextField
-                label="ID пользователя"
-                type="number"
-                value={userId}
-                onChange={(event) => setUserId(event.target.value)}
-                required
-                inputProps={{ min: 1 }}
-                helperText="Введите существующий идентификатор пользователя"
-              />
-
-              <TextField
-                select
-                label="Новая роль"
-                value={updateRole}
-                onChange={(event) => setUpdateRole(event.target.value as UserRole)}
-              >
-                {roleOptions.map((roleOption) => (
-                  <MenuItem key={roleOption} value={roleOption}>
-                    {roleOption}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={updateRoleMutation.isPending || !userId || Number(userId) <= 0}
-              >
-                Обновить роль
-              </Button>
-            </Stack>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Stack>
+      )}
+    />
   );
 }
