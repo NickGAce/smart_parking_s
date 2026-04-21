@@ -415,7 +415,7 @@ export function AdminUsersPage() {
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Email, ID, роль"
-                sx={{ minWidth: 260 }}
+                sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { md: 260 } }}
               />
               <TextField
                 select
@@ -423,7 +423,7 @@ export function AdminUsersPage() {
                 size="small"
                 value={roleFilter}
                 onChange={(event) => setRoleFilter(event.target.value as UserRole | '')}
-                sx={{ minWidth: 220 }}
+                sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { md: 220 } }}
               >
                 <MenuItem value="">Все роли</MenuItem>
                 {roleOptions.map((roleOption) => (

@@ -20,7 +20,12 @@ export function StatusChip({ status, mapping, variant = 'filled' }: StatusChipPr
       sx={{
         fontWeight: 600,
         borderRadius: (theme) => theme.foundation.radius.pill,
-        minWidth: 108,
+        maxWidth: '100%',
+        '& .MuiChip-label': {
+          whiteSpace: 'normal',
+          lineHeight: 1.2,
+          py: 0.25,
+        },
       }}
     />
   );
