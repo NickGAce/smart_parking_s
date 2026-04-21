@@ -26,7 +26,7 @@ function formatFieldErrors(fieldErrors?: Array<{ loc: Array<string | number>; ms
 
   return fieldErrors.map((error) => {
     const fieldPath = error.loc.slice(1).join('.');
-    return `${fieldPath || 'field'}: ${error.msg}`;
+    return `${fieldPath || 'поле'}: ${error.msg}`;
   });
 }
 
@@ -34,7 +34,7 @@ function mutationErrorMessage(error: unknown, fallback: string) {
   const apiError = adaptApiError(error);
 
   if (apiError.status === 409) {
-    return 'Пользователь с таким email уже существует (duplicate email).';
+    return 'Пользователь с таким email уже существует.';
   }
 
   return apiError.detail || apiError.message || fallback;
@@ -60,8 +60,8 @@ export function AdminUsersPage() {
     <Stack spacing={2}>
 
       <Alert severity="info">
-        Backend поддерживает только <code>POST /admin/users</code> и <code>PATCH /admin/users/{'{user_id}'}</code>. 
-        Endpoint для списка пользователей отсутствует, поэтому изменение роли выполняется по known user ID.
+        Сервер поддерживает только <code>POST /admin/users</code> и <code>PATCH /admin/users/{'{user_id}'}</code>.
+        Endpoint списка пользователей отсутствует, поэтому изменение роли выполняется по известному ID пользователя.
       </Alert>
 
       <Grid container spacing={2}>
@@ -83,7 +83,7 @@ export function AdminUsersPage() {
                 );
               }}
             >
-              <Typography variant="h6">Create user</Typography>
+              <Typography variant="h6">Создание пользователя</Typography>
 
               {createMutation.isError && (
                 <Alert severity="error">
@@ -111,7 +111,7 @@ export function AdminUsersPage() {
               />
 
               <TextField
-                label="Password"
+                label="Пароль"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -120,7 +120,7 @@ export function AdminUsersPage() {
 
               <TextField
                 select
-                label="Role"
+                label="Роль"
                 value={createRole}
                 onChange={(event) => setCreateRole(event.target.value as UserRole)}
               >
@@ -132,7 +132,7 @@ export function AdminUsersPage() {
               </TextField>
 
               <Button type="submit" variant="contained" disabled={createMutation.isPending}>
-                Create
+                Создать пользователя
               </Button>
             </Stack>
           </Paper>
@@ -157,7 +157,7 @@ export function AdminUsersPage() {
                 });
               }}
             >
-              <Typography variant="h6">Update user role</Typography>
+              <Typography variant="h6">Изменение роли пользователя</Typography>
               <Typography variant="body2" color="text.secondary">
                 По API это сценарий <code>PATCH /admin/users/{'{user_id}'}</code>. ID вводится вручную,
                 потому что backend не предоставляет <code>GET /admin/users</code>.
@@ -176,18 +176,18 @@ export function AdminUsersPage() {
               )}
 
               <TextField
-                label="User ID"
+                label="ID пользователя"
                 type="number"
                 value={userId}
                 onChange={(event) => setUserId(event.target.value)}
                 required
                 inputProps={{ min: 1 }}
-                helperText="Введите существующий user_id"
+                helperText="Введите существующий идентификатор пользователя"
               />
 
               <TextField
                 select
-                label="New role"
+                label="Новая роль"
                 value={updateRole}
                 onChange={(event) => setUpdateRole(event.target.value as UserRole)}
               >
@@ -203,7 +203,7 @@ export function AdminUsersPage() {
                 variant="contained"
                 disabled={updateRoleMutation.isPending || !userId || Number(userId) <= 0}
               >
-                Update role
+                Обновить роль
               </Button>
             </Stack>
           </Paper>

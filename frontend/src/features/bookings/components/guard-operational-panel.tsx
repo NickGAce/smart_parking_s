@@ -42,7 +42,7 @@ export function GuardOperationalPanel() {
   return (
     <Paper sx={{ p: 2 }}>
       <Stack spacing={1.5}>
-        <Typography variant="h6">Guard operational panel</Typography>
+        <Typography variant="h6">Операционная панель охраны</Typography>
         <Alert severity="info">
           Упрощённый view: только актуальные брони и быстрые lifecycle действия. Данные автообновляются каждые 10 секунд.
         </Alert>
@@ -52,10 +52,10 @@ export function GuardOperationalPanel() {
           ))}
         </Stack>
 
-        {bookingsQuery.isError && <Alert severity="error">Не удалось загрузить актуальные брони для guard панели.</Alert>}
+        {bookingsQuery.isError && <Alert severity="error">Не удалось загрузить актуальные брони для панели охраны.</Alert>}
         {lifecycleError && (
           <Alert severity="error">
-            {bookingLifecycleErrorMessage(lifecycleError, 'Lifecycle операция отклонена backend. Обновите список и попробуйте снова.')}
+            {bookingLifecycleErrorMessage(lifecycleError, 'Операция жизненного цикла отклонена сервером. Обновите список и попробуйте снова.')}
           </Alert>
         )}
 
@@ -63,10 +63,10 @@ export function GuardOperationalPanel() {
           <TableHead>
             <TableRow>
               <TableCell>ID</TableCell>
-              <TableCell>Spot</TableCell>
-              <TableCell>Interval</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Quick actions</TableCell>
+              <TableCell>Место</TableCell>
+              <TableCell>Интервал</TableCell>
+              <TableCell>Статус</TableCell>
+              <TableCell align="right">Быстрые действия</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -90,7 +90,7 @@ export function GuardOperationalPanel() {
                         disabled={!canCheckIn || busy}
                         onClick={() => checkInMutation.mutate(booking.id)}
                       >
-                        Check-in
+                        Заезд
                       </Button>
                       <Button
                         size="small"
@@ -99,7 +99,7 @@ export function GuardOperationalPanel() {
                         disabled={!canCheckOut || busy}
                         onClick={() => checkOutMutation.mutate(booking.id)}
                       >
-                        Check-out
+                        Выезд
                       </Button>
                       <Button
                         size="small"
@@ -108,7 +108,7 @@ export function GuardOperationalPanel() {
                         disabled={!canNoShow || busy}
                         onClick={() => markNoShowMutation.mutate(booking.id)}
                       >
-                        No-show
+                        Неявка
                       </Button>
                     </Stack>
                   </TableCell>

@@ -75,7 +75,7 @@ export function LoginPage() {
             required
           />
           <TextField
-            label="Password"
+            label="Пароль"
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}

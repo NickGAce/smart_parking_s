@@ -208,7 +208,7 @@ export function AuditLogsPage() {
                   <TableRow key={log.id} hover>
                     <TableCell>{log.id}</TableCell>
                     <TableCell>{formatTimestamp(log.timestamp)}</TableCell>
-                    <TableCell>{log.actor_user_id ?? 'system'}</TableCell>
+                    <TableCell>{log.actor_user_id ?? 'система'}</TableCell>
                     <TableCell>
                       <Chip label={log.action_type} size="small" color={actionTone(log.action_type)} />
                     </TableCell>
@@ -223,11 +223,11 @@ export function AuditLogsPage() {
                     <TableCell sx={{ maxWidth: 280 }}>
                       <Stack spacing={1}>
                         <Box>
-                          <Typography variant="caption" color="text.secondary">old_values</Typography>
+                          <Typography variant="caption" color="text.secondary">Старые значения</Typography>
                           <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.old_values)}</Box>
                         </Box>
                         <Box>
-                          <Typography variant="caption" color="text.secondary">new_values</Typography>
+                          <Typography variant="caption" color="text.secondary">Новые значения</Typography>
                           <Box component="pre" sx={tableCodeBlockSx}>{formatValue(log.new_values)}</Box>
                         </Box>
                       </Stack>
