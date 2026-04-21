@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { parkingSpotsApi } from '../../entities/parking-spots/api';
 import type { CreateParkingSpotPayload, ParkingSpotsQuery, UpdateParkingSpotPayload } from '../../shared/types/parking';
@@ -8,6 +8,9 @@ export function useParkingSpotsQuery(params: ParkingSpotsQuery) {
   return useQuery({
     queryKey: parkingSpotsQueryKeys.list(params),
     queryFn: () => parkingSpotsApi.getSpots(params),
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
   });
 }
 

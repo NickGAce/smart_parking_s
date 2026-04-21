@@ -29,7 +29,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { memo, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { useCurrentUser } from '../features/auth/use-current-user';
@@ -178,6 +178,56 @@ function toDraft(query: ParkingSpotsQuery): FiltersDraft {
     sort_order: query.sort_order,
   };
 }
+
+const stickyHeadCellSx = { bgcolor: 'action.hover', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 2 };
+const stickyFirstColumnSx = { position: 'sticky', left: 0, bgcolor: 'background.paper', zIndex: 1 };
+
+interface ParkingSpotRowProps {
+  spot: ParkingSpot;
+  onOpenDetails: (spotId: number) => void;
+  onOpenActionsMenu: (event: MouseEvent<HTMLElement>, spotId: number) => void;
+}
+
+const ParkingSpotRow = memo(function ParkingSpotRow({ spot, onOpenDetails, onOpenActionsMenu }: ParkingSpotRowProps) {
+  return (
+    <TableRow hover>
+      <TableCell sx={stickyFirstColumnSx}>
+        <Stack spacing={0.25}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>#{spot.spot_number}</Typography>
+          <Typography variant="caption" color="text.secondary">ID {spot.id}</Typography>
+        </Stack>
+      </TableCell>
+      <TableCell>{spotTypeLabels[spotTypeValue(spot)]}</TableCell>
+      <TableCell><StatusChip status={spot.effective_status} mapping={effectiveStatusMap} /></TableCell>
+      <TableCell>{parkingSpotRawStatusLabels[spot.status]}</TableCell>
+      <TableCell>
+        <Stack spacing={0.25}>
+          <Typography variant="body2">Парковка #{spot.parking_lot_id}</Typography>
+          <Typography variant="caption" color="text.secondary">{spot.zone_name ? `${spot.zone_name} (ID ${spot.zone_id ?? '—'})` : (spot.zone_id ? `Зона ID ${spot.zone_id}` : 'Без зоны')}</Typography>
+        </Stack>
+      </TableCell>
+      <TableCell>
+        <Typography variant="body2">
+          {spot.has_charger ? 'С зарядкой' : 'Без зарядки'} · {sizeLabels[spot.size_category]} · {vehicleTypeLabels[spot.vehicle_type]}
+        </Typography>
+      </TableCell>
+      <TableCell align="right">
+        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+          <Button size="small" variant="contained" startIcon={<VisibilityOutlinedIcon />} onClick={() => onOpenDetails(spot.id)}>
+            Детали
+          </Button>
+          <Tooltip title="Дополнительные действия">
+            <span>
+              <IconButton size="small" onClick={(event) => onOpenActionsMenu(event, spot.id)}>
+                <MoreVertOutlinedIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
+      </TableCell>
+    </TableRow>
+  );
+});
 
 export function ParkingSpotsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -415,54 +465,19 @@ export function ParkingSpotsPage() {
             <Box sx={{ overflowX: 'auto', p: { xs: 1.5, md: 2.5 } }}>
               <Table size="medium" sx={{ minWidth: 980 }}>
                 <TableHead>
-                  <TableRow sx={{ '& .MuiTableCell-root': { bgcolor: 'action.hover', whiteSpace: 'nowrap' } }}>
-                    <TableCell>Место</TableCell>
-                    <TableCell>Тип</TableCell>
-                    <TableCell>Текущий статус</TableCell>
-                    <TableCell>Базовый статус</TableCell>
-                    <TableCell>Парковка и зона</TableCell>
-                    <TableCell>Параметры</TableCell>
-                    <TableCell align="right">Действия</TableCell>
+                  <TableRow>
+                    <TableCell sx={{ ...stickyHeadCellSx, ...stickyFirstColumnSx, zIndex: 3 }}>Место</TableCell>
+                    <TableCell sx={stickyHeadCellSx}>Тип</TableCell>
+                    <TableCell sx={stickyHeadCellSx}>Текущий статус</TableCell>
+                    <TableCell sx={stickyHeadCellSx}>Базовый статус</TableCell>
+                    <TableCell sx={stickyHeadCellSx}>Парковка и зона</TableCell>
+                    <TableCell sx={stickyHeadCellSx}>Параметры</TableCell>
+                    <TableCell align="right" sx={stickyHeadCellSx}>Действия</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {listQuery.data.items.map((spot) => (
-                    <TableRow key={spot.id} hover>
-                      <TableCell>
-                        <Stack spacing={0.25}>
-                          <Typography variant="body2" sx={{ fontWeight: 700 }}>#{spot.spot_number}</Typography>
-                          <Typography variant="caption" color="text.secondary">ID {spot.id}</Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>{spotTypeLabels[spotTypeValue(spot)]}</TableCell>
-                      <TableCell><StatusChip status={spot.effective_status} mapping={effectiveStatusMap} /></TableCell>
-                      <TableCell>{parkingSpotRawStatusLabels[spot.status]}</TableCell>
-                      <TableCell>
-                        <Stack spacing={0.25}>
-                          <Typography variant="body2">Парковка #{spot.parking_lot_id}</Typography>
-                          <Typography variant="caption" color="text.secondary">{spot.zone_name ? `${spot.zone_name} (ID ${spot.zone_id ?? '—'})` : (spot.zone_id ? `Зона ID ${spot.zone_id}` : 'Без зоны')}</Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {spot.has_charger ? 'С зарядкой' : 'Без зарядки'} · {sizeLabels[spot.size_category]} · {vehicleTypeLabels[spot.vehicle_type]}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                          <Button size="small" variant="contained" startIcon={<VisibilityOutlinedIcon />} onClick={() => setDrawerSpotId(spot.id)}>
-                            Детали
-                          </Button>
-                          <Tooltip title="Дополнительные действия">
-                            <span>
-                              <IconButton size="small" onClick={(event) => openActionsMenu(event, spot.id)}>
-                                <MoreVertOutlinedIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
+                    <ParkingSpotRow key={spot.id} spot={spot} onOpenDetails={setDrawerSpotId} onOpenActionsMenu={openActionsMenu} />
                   ))}
                 </TableBody>
               </Table>

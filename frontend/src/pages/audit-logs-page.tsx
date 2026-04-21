@@ -13,7 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 
 import { useAuditLogsQuery } from '../features/audit/use-audit-logs-query';
 import { EmptyState } from '../shared/ui/empty-state';
@@ -72,16 +72,21 @@ export function AuditLogsPage() {
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(DEFAULT_LIMIT);
+  const deferredActor = useDeferredValue(actor);
+  const deferredAction = useDeferredValue(action);
+  const deferredEntity = useDeferredValue(entity);
+  const deferredFrom = useDeferredValue(from);
+  const deferredTo = useDeferredValue(to);
 
   const query = useMemo<AuditLogsQuery>(() => ({
-    actor_user_id: actor ? Number(actor) : undefined,
-    action_type: cleanString(action),
-    entity_type: cleanString(entity),
-    from: cleanString(from),
-    to: cleanString(to),
+    actor_user_id: deferredActor ? Number(deferredActor) : undefined,
+    action_type: cleanString(deferredAction),
+    entity_type: cleanString(deferredEntity),
+    from: cleanString(deferredFrom),
+    to: cleanString(deferredTo),
     limit: rowsPerPage,
     offset: page * rowsPerPage,
-  }), [action, actor, entity, from, page, rowsPerPage, to]);
+  }), [deferredAction, deferredActor, deferredEntity, deferredFrom, deferredTo, page, rowsPerPage]);
 
   const listQuery = useAuditLogsQuery(query);
 
@@ -194,13 +199,13 @@ export function AuditLogsPage() {
             <Table size="small" aria-label="Журнал аудита" sx={{ minWidth: 1080 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Время</TableCell>
-                  <TableCell>Пользователь</TableCell>
-                  <TableCell>Действие</TableCell>
-                  <TableCell>Сущность</TableCell>
-                  <TableCell>Изменения</TableCell>
-                  <TableCell>Метаданные</TableCell>
+                  <TableCell sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'action.hover' }}>ID</TableCell>
+                  <TableCell sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'action.hover' }}>Время</TableCell>
+                  <TableCell sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'action.hover' }}>Пользователь</TableCell>
+                  <TableCell sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'action.hover' }}>Действие</TableCell>
+                  <TableCell sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'action.hover' }}>Сущность</TableCell>
+                  <TableCell sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'action.hover' }}>Изменения</TableCell>
+                  <TableCell sx={{ position: 'sticky', top: 0, zIndex: 2, bgcolor: 'action.hover' }}>Метаданные</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

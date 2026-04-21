@@ -12,38 +12,47 @@ interface LiveQueryOptions {
 
 async function refreshOperationalData(queryClient: ReturnType<typeof useQueryClient>, bookingId: number) {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: bookingsQueryKeys.all }),
-    queryClient.invalidateQueries({ queryKey: bookingsQueryKeys.detail(bookingId) }),
-    queryClient.invalidateQueries({ queryKey: parkingSpotsQueryKeys.all }),
+    queryClient.invalidateQueries({ queryKey: bookingsQueryKeys.all, refetchType: 'active' }),
+    queryClient.invalidateQueries({ queryKey: bookingsQueryKeys.detail(bookingId), refetchType: 'active' }),
+    queryClient.invalidateQueries({ queryKey: parkingSpotsQueryKeys.all, refetchType: 'active' }),
   ]);
 }
 
 export function useBookingsQuery(params?: BookingsQuery, options?: LiveQueryOptions) {
+  const liveInterval = options?.refetchIntervalMs;
   return useQuery({
     queryKey: bookingsQueryKeys.list(params),
     queryFn: () => bookingApi.getBookings(params),
-    refetchInterval: options?.refetchIntervalMs,
-    staleTime: 0,
+    refetchInterval: liveInterval,
+    refetchOnWindowFocus: liveInterval ? false : true,
+    staleTime: liveInterval ? Math.max(3_000, Math.floor(liveInterval / 2)) : 10_000,
+    gcTime: 5 * 60_000,
   });
 }
 
 export function useMyBookingsQuery(params?: Omit<BookingsQuery, 'mine'>, options?: LiveQueryOptions) {
   const query: BookingsQuery = { ...params, mine: true };
+  const liveInterval = options?.refetchIntervalMs;
   return useQuery({
     queryKey: bookingsQueryKeys.mine(query),
     queryFn: () => bookingApi.getBookings(query),
-    refetchInterval: options?.refetchIntervalMs,
-    staleTime: 0,
+    refetchInterval: liveInterval,
+    refetchOnWindowFocus: liveInterval ? false : true,
+    staleTime: liveInterval ? Math.max(3_000, Math.floor(liveInterval / 2)) : 10_000,
+    gcTime: 5 * 60_000,
   });
 }
 
 export function useBookingQuery(bookingId: number, options?: LiveQueryOptions) {
+  const liveInterval = options?.refetchIntervalMs;
   return useQuery({
     queryKey: bookingsQueryKeys.detail(bookingId),
     queryFn: () => bookingApi.getBookingById(bookingId),
     enabled: Number.isFinite(bookingId) && bookingId > 0,
-    refetchInterval: options?.refetchIntervalMs,
-    staleTime: 0,
+    refetchInterval: liveInterval,
+    refetchOnWindowFocus: liveInterval ? false : true,
+    staleTime: liveInterval ? Math.max(3_000, Math.floor(liveInterval / 2)) : 10_000,
+    gcTime: 5 * 60_000,
   });
 }
 

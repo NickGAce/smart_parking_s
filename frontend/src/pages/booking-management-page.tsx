@@ -28,7 +28,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useMemo, useState, type MouseEvent } from 'react';
+import { memo, useMemo, useState, type MouseEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { useCurrentUser } from '../features/auth/use-current-user';
@@ -57,6 +57,7 @@ const BACKEND_MAX_LIMIT = 100;
 
 type SortBy = NonNullable<BookingsQuery['sort_by']>;
 type LifecycleAction = 'check-in' | 'check-out';
+type LifecyclePrimaryAction = { action: LifecycleAction; label: string; color: 'success' | 'primary' };
 
 const parseNumberParam = (value: string | null): number | undefined => {
   if (!value) return undefined;
@@ -78,7 +79,7 @@ const normalizeLimit = (value: number | undefined): number => {
   return Math.min(value, BACKEND_MAX_LIMIT);
 };
 
-function getPrimaryLifecycleAction(status: BookingStatus): { action: LifecycleAction; label: string; color: 'success' | 'primary' } | null {
+function getPrimaryLifecycleAction(status: BookingStatus): LifecyclePrimaryAction | null {
   if (status === 'active') {
     return { action: 'check-out', label: 'Выезд', color: 'primary' };
   }
@@ -89,6 +90,80 @@ function getPrimaryLifecycleAction(status: BookingStatus): { action: LifecycleAc
 
   return null;
 }
+
+const stickyHeadCellSx = { bgcolor: 'action.hover', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 2 };
+const stickyFirstColumnSx = { position: 'sticky', left: 0, bgcolor: 'background.paper', zIndex: 1 };
+
+interface BookingTableRowProps {
+  booking: NonNullable<ReturnType<typeof useBookingsQuery>['data']>['items'][number];
+  isLifecyclePending: boolean;
+  onCheckIn: (bookingId: number) => void;
+  onCheckOut: (bookingId: number) => void;
+  onOpenDetails: (bookingId: number) => void;
+  onOpenActionsMenu: (event: MouseEvent<HTMLElement>, bookingId: number) => void;
+}
+
+const BookingTableRow = memo(function BookingTableRow({
+  booking,
+  isLifecyclePending,
+  onCheckIn,
+  onCheckOut,
+  onOpenDetails,
+  onOpenActionsMenu,
+}: BookingTableRowProps) {
+  const primaryAction = getPrimaryLifecycleAction(booking.status);
+
+  return (
+    <TableRow hover>
+      <TableCell component="th" scope="row" sx={stickyFirstColumnSx}>
+        <Stack spacing={0.5}>
+          <Typography variant="subtitle2">#{booking.id}</Typography>
+          <Typography variant="caption" color="text.secondary">Место #{booking.parking_spot_id}</Typography>
+        </Stack>
+      </TableCell>
+      <TableCell>{booking.user_id}</TableCell>
+      <TableCell><StatusChip status={booking.status} mapping={bookingStatusMap} /></TableCell>
+      <TableCell>{formatBookingInterval(booking.start_time, booking.end_time)}</TableCell>
+      <TableCell>{formatBookingDurationLabel(booking.start_time, booking.end_time)}</TableCell>
+      <TableCell align="right">
+        <Stack direction="row" spacing={1} justifyContent="flex-end" useFlexGap>
+          {primaryAction ? (
+            <Button
+              size="small"
+              color={primaryAction.color}
+              variant="contained"
+              disabled={isLifecyclePending}
+              onClick={() => (primaryAction.action === 'check-in' ? onCheckIn(booking.id) : onCheckOut(booking.id))}
+              aria-label={`Основное действие по бронированию №${booking.id}`}
+            >
+              {primaryAction.label}
+            </Button>
+          ) : null}
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<VisibilityOutlinedIcon />}
+            onClick={() => onOpenDetails(booking.id)}
+            aria-label={`Открыть детали бронирования №${booking.id}`}
+          >
+            Детали
+          </Button>
+          <Tooltip title="Дополнительные действия">
+            <span>
+              <IconButton
+                size="small"
+                onClick={(event) => onOpenActionsMenu(event, booking.id)}
+                aria-label={`Дополнительные действия для бронирования №${booking.id}`}
+              >
+                <MoreVertOutlinedIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
+      </TableCell>
+    </TableRow>
+  );
+});
 
 function parseQuery(searchParams: URLSearchParams): BookingsQuery {
   const statuses = [...searchParams.getAll('statuses[]'), ...searchParams.getAll('statuses')] as BookingStatus[];
@@ -366,70 +441,26 @@ export function BookingManagementPage() {
             <TableContainer sx={{ overflowX: 'auto' }}>
               <Table aria-label="Таблица управления бронированиями" sx={{ minWidth: 900 }}>
                 <TableHead>
-                  <TableRow sx={{ '& .MuiTableCell-root': { bgcolor: 'action.hover', whiteSpace: 'nowrap' } }}>
-                    <TableCell scope="col">Бронь</TableCell>
-                    <TableCell scope="col">Пользователь</TableCell>
-                    <TableCell scope="col">Статус</TableCell>
-                    <TableCell scope="col">Интервал</TableCell>
-                    <TableCell scope="col">Длительность</TableCell>
-                    <TableCell scope="col" align="right">Операции</TableCell>
+                  <TableRow>
+                    <TableCell scope="col" sx={{ ...stickyHeadCellSx, ...stickyFirstColumnSx, zIndex: 3 }}>Бронь</TableCell>
+                    <TableCell scope="col" sx={stickyHeadCellSx}>Пользователь</TableCell>
+                    <TableCell scope="col" sx={stickyHeadCellSx}>Статус</TableCell>
+                    <TableCell scope="col" sx={stickyHeadCellSx}>Интервал</TableCell>
+                    <TableCell scope="col" sx={stickyHeadCellSx}>Длительность</TableCell>
+                    <TableCell scope="col" align="right" sx={stickyHeadCellSx}>Операции</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {visibleItems.map((booking) => (
-                    <TableRow key={booking.id} hover>
-                      <TableCell component="th" scope="row">
-                        <Stack spacing={0.5}>
-                          <Typography variant="subtitle2">#{booking.id}</Typography>
-                          <Typography variant="caption" color="text.secondary">Место #{booking.parking_spot_id}</Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>{booking.user_id}</TableCell>
-                      <TableCell><StatusChip status={booking.status} mapping={bookingStatusMap} /></TableCell>
-                      <TableCell>{formatBookingInterval(booking.start_time, booking.end_time)}</TableCell>
-                      <TableCell>{formatBookingDurationLabel(booking.start_time, booking.end_time)}</TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={1} justifyContent="flex-end" useFlexGap>
-                          {getPrimaryLifecycleAction(booking.status) ? (
-                            <Button
-                              size="small"
-                              color={getPrimaryLifecycleAction(booking.status)?.color}
-                              variant="contained"
-                              disabled={isLifecyclePending}
-                              onClick={() => {
-                                const action = getPrimaryLifecycleAction(booking.status);
-                                if (!action) return;
-                                if (action.action === 'check-in') checkInMutation.mutate(booking.id);
-                                else checkOutMutation.mutate(booking.id);
-                              }}
-                              aria-label={`Основное действие по бронированию №${booking.id}`}
-                            >
-                              {getPrimaryLifecycleAction(booking.status)?.label}
-                            </Button>
-                          ) : null}
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<VisibilityOutlinedIcon />}
-                            onClick={() => setSelectedBookingId(booking.id)}
-                            aria-label={`Открыть детали бронирования №${booking.id}`}
-                          >
-                            Детали
-                          </Button>
-                          <Tooltip title="Дополнительные действия">
-                            <span>
-                              <IconButton
-                                size="small"
-                                onClick={(event) => openActionsMenu(event, booking.id)}
-                                aria-label={`Дополнительные действия для бронирования №${booking.id}`}
-                              >
-                                <MoreVertOutlinedIcon fontSize="small" />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
+                    <BookingTableRow
+                      key={booking.id}
+                      booking={booking}
+                      isLifecyclePending={isLifecyclePending}
+                      onCheckIn={checkInMutation.mutate}
+                      onCheckOut={checkOutMutation.mutate}
+                      onOpenDetails={setSelectedBookingId}
+                      onOpenActionsMenu={openActionsMenu}
+                    />
                   ))}
                 </TableBody>
               </Table>
