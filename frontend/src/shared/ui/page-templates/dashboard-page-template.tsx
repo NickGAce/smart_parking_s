@@ -53,11 +53,11 @@ export function DashboardPageTemplate({
       {kpis ? <Grid container spacing={2}>{kpis}</Grid> : null}
 
       <Grid container spacing={2}>
-        <Grid item xs={12} lg={8}>
-          {analytics ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs }}>{analytics}</ContentCard> : null}
+        <Grid item xs={12} lg={8} sx={{ display: 'flex' }}>
+          {analytics ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs, height: '100%' }}>{analytics}</ContentCard> : null}
         </Grid>
-        <Grid item xs={12} lg={4}>
-          {activity ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs }}>{activity}</ContentCard> : null}
+        <Grid item xs={12} lg={4} sx={{ display: 'flex' }}>
+          {activity ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs, height: '100%' }}>{activity}</ContentCard> : null}
         </Grid>
       </Grid>
     </PageContentLayout>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { SxProps, Theme } from '@mui/material/styles';
 
 import { ContentCard } from './content-card';
 import { SectionHeader } from './section-header';
@@ -8,11 +9,12 @@ interface DataPanelProps {
   subtitle?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
+  sx?: SxProps<Theme>;
 }
 
-export function DataPanel({ title, subtitle, actions, children }: DataPanelProps) {
+export function DataPanel({ title, subtitle, actions, children, sx }: DataPanelProps) {
   return (
-    <ContentCard>
+    <ContentCard sx={sx}>
       {title ? <SectionHeader title={title} subtitle={subtitle} actions={actions} /> : null}
       {children}
     </ContentCard>
