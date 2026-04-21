@@ -328,12 +328,13 @@ export function CreateBookingPage() {
 
   return (
     <FormPageTemplate
+      maxWidth="100%"
       title="Создание бронирования"
       subtitle="Сначала выберите период и парковку, затем режим назначения места — ручной или автоматический."
       helperText={<Alert severity="info">Мы не меняем бизнес-логику: экран только упрощает принятие решения и снижает риск ошибки ввода.</Alert>}
       formSections={(
-        <>
-          <FormSection title="1. Время и парковка" subtitle="Базовые параметры заявки, обязательные в любом режиме.">
+        <Stack spacing={3}>
+          <FormSection title="1. Время и парковка" subtitle="Базовые параметры заявки, обязательные в любом режиме." sx={{ p: { xs: 2.5, md: 3.25 } }}>
             <IntervalPicker
               startTimeLocal={startTimeLocal}
               endTimeLocal={endTimeLocal}
@@ -361,7 +362,7 @@ export function CreateBookingPage() {
             )}
           </FormSection>
 
-          <FormSection title="2. Способ назначения места" subtitle="Выберите удобный сценарий бронирования.">
+          <FormSection title="2. Способ назначения места" subtitle="Выберите удобный сценарий бронирования." sx={{ p: { xs: 2.5, md: 3.25 } }}>
             <RadioGroup row value={mode} onChange={(event) => setMode(event.target.value as 'manual' | 'auto')}>
               <FormControlLabel value="manual" control={<Radio />} label="Ручной выбор" />
               <FormControlLabel value="auto" control={<Radio />} label="Автоподбор" />
@@ -375,14 +376,14 @@ export function CreateBookingPage() {
           </FormSection>
 
           {mode === 'manual' && (
-            <FormSection title="3. Выберите место" subtitle="Нажмите на строку в таблице, чтобы выбрать свободное место.">
+            <FormSection title="3. Выберите место" subtitle="Нажмите на строку в таблице, чтобы выбрать свободное место." sx={{ p: { xs: 2.5, md: 3.25 } }}>
               {availableSpotsQuery.error && <Alert severity="error">{getStatusErrorMessage(availableSpotsQuery.error as unknown as ApiError)}</Alert>}
               <AvailabilityTable items={availableSpotsQuery.data?.items ?? []} selectedSpotId={selectedSpotId} onSelect={setSelectedSpotId} />
             </FormSection>
           )}
 
           {mode === 'auto' && (
-            <FormSection title="3. Параметры автоподбора" subtitle="Настройте ограничения и предпочтения перед запросом рекомендаций.">
+            <FormSection title="3. Параметры автоподбора" subtitle="Настройте ограничения и предпочтения перед запросом рекомендаций." sx={{ p: { xs: 2.5, md: 3.25 } }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
                   <TextField
@@ -452,7 +453,7 @@ export function CreateBookingPage() {
               </Stack>
             </FormSection>
           )}
-        </>
+        </Stack>
       )}
       stickyActions={(
         <ActionBar

@@ -10,6 +10,7 @@ interface FormPageTemplateProps {
   title: ReactNode;
   subtitle?: ReactNode;
   meta?: ReactNode;
+  maxWidth?: number | string;
   headerActions?: ReactNode;
   helperText?: ReactNode;
   formSections: ReactNode;
@@ -21,6 +22,7 @@ export function FormPageTemplate({
   title,
   subtitle,
   meta,
+  maxWidth = 1100,
   headerActions,
   helperText,
   formSections,
@@ -28,7 +30,7 @@ export function FormPageTemplate({
   topBanner,
 }: FormPageTemplateProps) {
   return (
-    <PageContentLayout maxWidth={1100} spacing={3}>
+    <PageContentLayout maxWidth={maxWidth} spacing={3}>
       <EntityHeader title={title} subtitle={subtitle} meta={meta} actions={headerActions} />
       {topBanner}
       {helperText ? <ContentCard sx={{ p: { xs: 2, md: 2.75 } }}>{helperText}</ContentCard> : null}

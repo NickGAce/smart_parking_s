@@ -123,8 +123,16 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
       onClose={onClose}
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
+      ModalProps={{ keepMounted: true }}
+      sx={{
+        zIndex: (theme) => theme.zIndex.appBar + 2,
+        '& .MuiDrawer-paper': {
+          top: { xs: 64, md: 72 },
+          height: { xs: 'calc(100% - 64px)', md: 'calc(100% - 72px)' },
+        },
+      }}
     >
-      <Box sx={{ width: 520, p: 2.5 }}>
+      <Box sx={{ width: { xs: 360, md: 520 }, p: { xs: 2, md: 2.5 } }}>
         <Stack spacing={2}>
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
             <Box>

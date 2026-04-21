@@ -25,11 +25,13 @@ export function AdminPage() {
         </Stack>
       )}
       analytics={(
-        <Box sx={{ p: { xs: 2, md: 2.5 } }}>
-          <Stack spacing={1}>
+        <Box sx={{ p: { xs: 2.5, md: 3 }, minWidth: 0 }}>
+          <Stack spacing={1.25} sx={{ minWidth: 0 }}>
             <Typography variant="tableLabel" color="text.secondary">пользователи и роли</Typography>
             <Typography variant="h6">Управление пользователями</Typography>
-            <Typography color="text.secondary">Создание пользователей и обновление ролей в рамках API администрирования.</Typography>
+            <Typography color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+              Создание пользователей и обновление ролей в рамках API администрирования.
+            </Typography>
             <Button component={RouterLink} to="/admin-users" variant="contained" startIcon={<BadgeOutlinedIcon />}>
               Открыть раздел пользователей
             </Button>
@@ -37,11 +39,13 @@ export function AdminPage() {
         </Box>
       )}
       activity={(
-        <Box sx={{ p: { xs: 2, md: 2.5 } }}>
-          <Stack spacing={1}>
+        <Box sx={{ p: { xs: 2.5, md: 3 }, minWidth: 0 }}>
+          <Stack spacing={1.25} sx={{ minWidth: 0 }}>
             <Typography variant="tableLabel" color="text.secondary">контроль изменений</Typography>
             <Typography variant="h6">Журнал аудита</Typography>
-            <Typography color="text.secondary">Проверка действий в системе, фильтры и экспорт для администраторов.</Typography>
+            <Typography color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+              Проверка действий в системе, фильтры и экспорт для администраторов.
+            </Typography>
             <Button component={RouterLink} to="/audit-logs" variant="contained" startIcon={<FactCheckOutlinedIcon />}>
               Открыть журнал аудита
             </Button>

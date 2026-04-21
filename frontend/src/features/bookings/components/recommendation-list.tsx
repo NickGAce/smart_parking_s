@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   Card,
   CardActions,
@@ -8,11 +9,13 @@ import {
   List,
   ListItem,
   ListItemText,
+  Paper,
   Stack,
   Typography,
 } from '@mui/material';
 
 import type { RecommendedSpot, RecommendationResult } from '../../../shared/types/recommendation';
+import { userRoleLabels } from '../../../shared/config/display-labels';
 import type { SpotType } from '../../../shared/types/common';
 
 const spotTypeLabels: Record<SpotType, string> = {
@@ -32,6 +35,71 @@ interface RecommendationListProps {
   isSubmitting?: boolean;
 }
 
+const factorLabels: Record<string, string> = {
+  distance: 'Близость к целевой зоне',
+  charger: 'Наличие зарядки',
+  availability: 'Доступность в интервале',
+  zone_match: 'Совпадение зоны',
+  zone: 'Зона',
+  spot_type: 'Тип места',
+  vehicle_type: 'Соответствие типу транспорта',
+  size_category: 'Соответствие размеру',
+  role: 'Доступ по роли',
+  conflict: 'Риск конфликта',
+};
+
+function formatFactorLabel(factor: string) {
+  if (factorLabels[factor]) {
+    return factorLabels[factor];
+  }
+
+  return factor.replaceAll('_', ' ');
+}
+
+const numberFormatter = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 });
+
+function formatNumber(value: number) {
+  return numberFormatter.format(value);
+}
+
+function formatDateTime(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function localizeReason(reason: string) {
+  const exactMap: Record<string, string> = {
+    'Spot is free in requested interval': 'Место свободно в выбранном интервале.',
+    'No explicit spot type preference': 'Явное предпочтение по типу места не задано.',
+    'No explicit zone preference': 'Явное предпочтение по зоне не задано.',
+    'No charger preference; spot acceptable': 'Предпочтение по зарядке не задано, место подходит.',
+    'Lower risk of near-term conflicts': 'Низкий риск конфликтов в ближайшее время.',
+  };
+
+  if (exactMap[reason]) {
+    return exactMap[reason];
+  }
+
+  const roleMatch = reason.match(/^Role '([^']+)' is allowed for this spot$/);
+  if (roleMatch) {
+    const role = roleMatch[1];
+    const roleLabel = userRoleLabels[role as keyof typeof userRoleLabels] ?? role;
+    return `Роль «${roleLabel}» имеет доступ к этому месту.`;
+  }
+
+  return reason;
+}
+
 function SpotCard({
   spot,
   selectedSpotId,
@@ -44,29 +112,45 @@ function SpotCard({
   const isSelected = selectedSpotId === spot.spot_id;
 
   return (
-    <Card variant={isSelected ? 'elevation' : 'outlined'} sx={{ borderColor: isSelected ? 'primary.main' : undefined }}>
+    <Card
+      variant={isSelected ? 'elevation' : 'outlined'}
+      sx={{
+        borderColor: isSelected ? 'primary.main' : undefined,
+        borderRadius: 2,
+      }}
+    >
       <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-          <Typography variant="subtitle1">Место #{spot.spot_number}</Typography>
-          <Chip label={`оценка: ${spot.score.toFixed(3)}`} color="primary" variant="outlined" />
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} mb={1.25} spacing={1}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Место #{spot.spot_number}
+          </Typography>
+          <Chip label={`Оценка подбора: ${formatNumber(spot.score)}`} color="primary" variant="outlined" />
         </Stack>
-        <Typography variant="body2" color="text.secondary">
-          парковка #{spot.parking_lot_id} · зона {spot.zone_name ?? '—'} · {spotTypeLabels[spot.spot_type] ?? spot.spot_type} · зарядка: {spot.has_charger ? 'да' : 'нет'}
-        </Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Chip size="small" label={`Парковка #${spot.parking_lot_id}`} />
+          <Chip size="small" label={`Зона: ${spot.zone_name ?? 'не указана'}`} />
+          <Chip size="small" label={`Тип: ${spotTypeLabels[spot.spot_type] ?? spot.spot_type}`} />
+          <Chip size="small" label={spot.has_charger ? 'С зарядкой' : 'Без зарядки'} />
+        </Stack>
 
         {spot.explainability.length > 0 && (
           <>
             <Divider sx={{ my: 1.5 }} />
-            <Typography variant="subtitle2" sx={{ mb: 0.75 }}>Почему эта рекомендация</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 0.75 }}>Почему система рекомендует это место</Typography>
             <List dense disablePadding>
-              {spot.explainability.map((factor, index) => (
+              {spot.explainability.map((factor, index) => {
+                const localizedReason = localizeReason(factor.reason);
+                return (
                 <ListItem key={`${factor.factor}-${index}`} disableGutters>
                   <ListItemText
-                    primary={`${factor.factor}: ${factor.reason}`}
-                    secondary={`значение=${factor.value}, вес=${factor.weight}, вклад=${factor.contribution}`}
+                    primary={`${formatFactorLabel(factor.factor)}: ${localizedReason}`}
+                    secondary={`Параметры: значение ${formatNumber(factor.value)}, вес ${formatNumber(factor.weight)}, вклад ${formatNumber(factor.contribution)}.`}
+                    primaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
+                    secondaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
                   />
                 </ListItem>
-              ))}
+                );
+              })}
             </List>
           </>
         )}
@@ -82,12 +166,29 @@ function SpotCard({
 
 export function RecommendationList({ result, selectedSpotId, onSelectSpot, onConfirmAuto, isSubmitting }: RecommendationListProps) {
   return (
-    <Stack spacing={1.5}>
-      <Typography variant="subtitle2" color="text.secondary">
-        Кандидатов: {result.total_candidates}. Показано: {result.recommended_spots.length}.
-      </Typography>
+    <Stack spacing={2}>
+      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+        <Stack spacing={1}>
+          <Typography variant="subtitle2">
+            Подходящие места: {result.recommended_spots.length} из {result.total_candidates}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Выберите место из списка ниже, затем подтвердите создание бронирования.
+          </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Chip size="small" variant="outlined" label={`Период: ${formatDateTime(result.from)} — ${formatDateTime(result.to)}`} />
+            <Chip size="small" variant="outlined" label={`Роль: ${userRoleLabels[result.requested_by_role as keyof typeof userRoleLabels] ?? result.requested_by_role}`} />
+            <Chip size="small" variant="outlined" label={`Парковка #${result.parking_lot_id}`} />
+          </Stack>
+        </Stack>
+      </Paper>
+      {result.recommended_spots.length === 0 && (
+        <Alert severity="warning">
+          Рекомендации не найдены для выбранных параметров. Попробуйте ослабить фильтры (тип места, размер или обязательную зарядку).
+        </Alert>
+      )}
       <Button variant="contained" onClick={onConfirmAuto} disabled={isSubmitting}>
-        Подтвердить автоподбор
+        Подтвердить выбранную рекомендацию
       </Button>
       {result.recommended_spots.map((spot) => (
         <SpotCard key={spot.spot_id} spot={spot} selectedSpotId={selectedSpotId} onSelectSpot={onSelectSpot} />

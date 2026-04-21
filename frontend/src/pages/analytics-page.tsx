@@ -113,9 +113,9 @@ export function AnalyticsPage() {
         </Grid>
       </Grid>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} xl={8}>
-          <DataPanel title="Ключевые показатели" subtitle="Базовые показатели эффективности за выбранный период.">
+      <Grid container spacing={2} alignItems="stretch">
+        <Grid item xs={12} xl={8} sx={{ display: 'flex' }}>
+          <DataPanel title="Ключевые показатели" subtitle="Базовые показатели эффективности за выбранный период." sx={{ height: '100%' }}>
             <SummaryKpiSection
               isLoading={queries.summaryQuery.isLoading}
               isError={queries.summaryQuery.isError}
@@ -123,8 +123,8 @@ export function AnalyticsPage() {
             />
           </DataPanel>
         </Grid>
-        <Grid item xs={12} xl={4}>
-          <DataPanel title="Операционные акценты" subtitle="Что требует реакции команды.">
+        <Grid item xs={12} xl={4} sx={{ display: 'flex' }}>
+          <DataPanel title="Операционные акценты" subtitle="Что требует реакции команды." sx={{ height: '100%' }}>
             <Stack spacing={1.2}>
               <Alert severity={criticalAnomalies > 0 ? 'warning' : 'success'}>
                 {criticalAnomalies > 0
@@ -148,8 +148,8 @@ export function AnalyticsPage() {
       </DataPanel>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} xl={6}>
-          <DataPanel title="Метрики бронирований" subtitle="Структура статусов и качество пользовательского потока.">
+        <Grid item xs={12} xl={6} sx={{ display: 'flex' }}>
+          <DataPanel title="Метрики бронирований" subtitle="Структура статусов и качество пользовательского потока." sx={{ height: '100%' }}>
             <BookingsMetricsSection
               isLoading={queries.bookingsQuery.isLoading}
               isError={queries.bookingsQuery.isError}
@@ -157,8 +157,8 @@ export function AnalyticsPage() {
             />
           </DataPanel>
         </Grid>
-        <Grid item xs={12} xl={6}>
-          <DataPanel title="Прогноз загрузки" subtitle="Оценка будущей занятости по временным бакетам.">
+        <Grid item xs={12} xl={6} sx={{ display: 'flex' }}>
+          <DataPanel title="Прогноз загрузки" subtitle="Оценка будущей занятости по временным бакетам." sx={{ height: '100%' }}>
             <ForecastSection
               isLoading={queries.forecastQuery.isLoading}
               isError={queries.forecastQuery.isError}

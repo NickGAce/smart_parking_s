@@ -224,6 +224,7 @@ export function AdminUsersPage() {
   return (
     <>
       <FormPageTemplate
+        maxWidth="100%"
         meta="администрирование / пользователи"
         title="Пользователи и роли"
         subtitle="Операционный сценарий создания и изменения ролей с единым UX-паттерном для админской зоны."
@@ -269,6 +270,7 @@ export function AdminUsersPage() {
                 title="Создание пользователя"
                 subtitle="Новая учетная запись с назначением стартовой роли"
                 helperText="Заполните email и пароль. Роль можно изменить позже через блок редактирования."
+                sx={{ p: { xs: 2.5, md: 3.25 }, height: '100%' }}
               >
                 <Stack spacing={2} component="form" onSubmit={onCreateSubmit}>
                   {createMutation.isError && (
@@ -334,6 +336,7 @@ export function AdminUsersPage() {
                 title="Редактирование роли"
                 subtitle="Изменение роли по идентификатору пользователя"
                 helperText="Сначала укажите ID пользователя, затем выберите новую роль. Для подтверждения откроется диалог безопасности."
+                sx={{ p: { xs: 2.5, md: 3.25 }, height: '100%' }}
               >
                 <Stack
                   spacing={2}
@@ -403,6 +406,7 @@ export function AdminUsersPage() {
             title="Сессионный реестр пользователей"
             subtitle="Табличный обзор созданных и измененных записей"
             helperText="Реестр служит операционным буфером: помогает найти пользователя, проверить роль и быстро подставить ID в форму редактирования."
+            sx={{ p: { xs: 2.5, md: 3.25 } }}
           >
             <FiltersToolbar
               onReset={() => {
@@ -463,7 +467,7 @@ export function AdminUsersPage() {
                     {filteredRegistry.map((entry) => (
                       <TableRow key={entry.id} hover>
                         <TableCell component="th" scope="row">{entry.id}</TableCell>
-                        <TableCell>{entry.email}</TableCell>
+                        <TableCell sx={{ overflowWrap: 'anywhere' }}>{entry.email}</TableCell>
                         <TableCell>{userRoleLabels[entry.role]}</TableCell>
                         <TableCell>
                           <StatusChip status={entry.status} mapping={userOperationStatusMap} variant="outlined" />
@@ -478,6 +482,7 @@ export function AdminUsersPage() {
                                 setUpdateRole(entry.role);
                               }}
                               aria-label={`Подставить пользователя ${entry.email} с ID ${entry.id} в форму редактирования`}
+                              sx={{ whiteSpace: 'normal', textAlign: 'right' }}
                             >
                               Подставить в редактирование
                             </Button>

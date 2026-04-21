@@ -30,8 +30,8 @@ export function DashboardPageTemplate({
     <PageContentLayout maxWidth="100%" spacing={2.5}>
       <ContentCard
         sx={{
-          p: { xs: 2, md: 3 },
-          borderRadius: (theme) => theme.foundation.radius.md,
+          p: { xs: 2.5, md: 3.5 },
+          borderRadius: (theme) => theme.foundation.radius.sm,
           background: (theme) => `linear-gradient(120deg, ${theme.palette.background.paper} 0%, ${theme.palette.surface.overlay} 100%)`,
         }}
       >
@@ -44,7 +44,7 @@ export function DashboardPageTemplate({
           {heroActions ? <ToolbarActions>{heroActions}</ToolbarActions> : null}
         </Stack>
         {heroExtra ? (
-          <ContentCard sx={{ mt: 2, p: { xs: 1.5, md: 2 }, borderRadius: (theme) => theme.foundation.radius.xs }}>
+          <ContentCard sx={{ mt: 2.5, p: { xs: 2, md: 2.75 }, borderRadius: (theme) => theme.foundation.radius.sm }}>
             {heroExtra}
           </ContentCard>
         ) : null}
@@ -53,11 +53,11 @@ export function DashboardPageTemplate({
       {kpis ? <Grid container spacing={2}>{kpis}</Grid> : null}
 
       <Grid container spacing={2}>
-        <Grid item xs={12} lg={8}>
-          {analytics ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs }}>{analytics}</ContentCard> : null}
+        <Grid item xs={12} lg={8} sx={{ display: 'flex' }}>
+          {analytics ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs, height: '100%' }}>{analytics}</ContentCard> : null}
         </Grid>
-        <Grid item xs={12} lg={4}>
-          {activity ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs }}>{activity}</ContentCard> : null}
+        <Grid item xs={12} lg={4} sx={{ display: 'flex' }}>
+          {activity ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs, height: '100%' }}>{activity}</ContentCard> : null}
         </Grid>
       </Grid>
     </PageContentLayout>
