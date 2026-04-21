@@ -31,6 +31,9 @@ export function LoadingState({
 
   return (
     <Stack
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
       alignItems="center"
       justifyContent="center"
       spacing={2}

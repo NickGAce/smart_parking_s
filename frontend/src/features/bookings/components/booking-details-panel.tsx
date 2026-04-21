@@ -2,6 +2,7 @@ import {
   Alert,
   Box,
   Button,
+  IconButton,
   Divider,
   Drawer,
   FormControl,
@@ -12,6 +13,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { useEffect, useState } from 'react';
 
 import { useCurrentUser } from '../../auth/use-current-user';
@@ -111,15 +113,30 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
       || booking.status !== nextStatus
     ),
   );
+  const titleId = 'booking-details-title';
+  const descriptionId = 'booking-details-description';
 
   return (
-    <Drawer anchor="right" open={bookingId !== null} onClose={onClose}>
+    <Drawer
+      anchor="right"
+      open={bookingId !== null}
+      onClose={onClose}
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+    >
       <Box sx={{ width: 520, p: 2.5 }}>
         <Stack spacing={2}>
-          <Typography variant="h6">Детали бронирования</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Здесь можно проверить интервал, статус и доступные действия, а также отредактировать бронирование, если это разрешено ролью.
-          </Typography>
+          <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+            <Box>
+              <Typography id={titleId} variant="h6">Детали бронирования</Typography>
+              <Typography id={descriptionId} variant="body2" color="text.secondary">
+                Здесь можно проверить интервал, статус и доступные действия, а также отредактировать бронирование, если это разрешено ролью.
+              </Typography>
+            </Box>
+            <IconButton onClick={onClose} aria-label="Закрыть панель деталей бронирования">
+              <CloseRoundedIcon />
+            </IconButton>
+          </Stack>
 
           {detailsQuery.isError && <Alert severity="error">{bookingApiErrorMessage(detailsQuery.error, 'Не удалось загрузить детали бронирования.')}</Alert>}
 

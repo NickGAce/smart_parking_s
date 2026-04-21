@@ -415,6 +415,7 @@ export function AdminUsersPage() {
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Email, ID, роль"
+                inputProps={{ 'aria-label': 'Поиск по сессионному реестру пользователей' }}
                 sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { md: 260 } }}
               />
               <TextField
@@ -449,17 +450,17 @@ export function AdminUsersPage() {
                 <Table size="small" aria-label="Сессионный реестр пользователей">
                   <TableHead>
                     <TableRow>
-                      <TableCell>ID</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell>Роль</TableCell>
-                      <TableCell>Статус</TableCell>
-                      <TableCell align="right">Действия</TableCell>
+                      <TableCell scope="col">ID</TableCell>
+                      <TableCell scope="col">Email</TableCell>
+                      <TableCell scope="col">Роль</TableCell>
+                      <TableCell scope="col">Статус</TableCell>
+                      <TableCell scope="col" align="right">Действия</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {filteredRegistry.map((entry) => (
                       <TableRow key={entry.id} hover>
-                        <TableCell>{entry.id}</TableCell>
+                        <TableCell component="th" scope="row">{entry.id}</TableCell>
                         <TableCell>{entry.email}</TableCell>
                         <TableCell>{userRoleLabels[entry.role]}</TableCell>
                         <TableCell>
@@ -473,6 +474,7 @@ export function AdminUsersPage() {
                               setUserId(String(entry.id));
                               setUpdateRole(entry.role);
                             }}
+                            aria-label={`Подставить пользователя ${entry.email} с ID ${entry.id} в форму редактирования`}
                           >
                             Подставить в редактирование
                           </Button>

@@ -168,17 +168,17 @@ export function MyBookingsPage() {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Бронь</TableCell>
-                  <TableCell>Статус</TableCell>
-                  <TableCell>Интервал</TableCell>
-                  <TableCell>Длительность</TableCell>
-                  <TableCell align="right">Действия</TableCell>
+                  <TableCell scope="col">Бронь</TableCell>
+                  <TableCell scope="col">Статус</TableCell>
+                  <TableCell scope="col">Интервал</TableCell>
+                  <TableCell scope="col">Длительность</TableCell>
+                  <TableCell scope="col" align="right">Действия</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredItems.map((booking) => (
                   <TableRow key={booking.id} hover>
-                    <TableCell>
+                    <TableCell component="th" scope="row">
                       <Stack spacing={0.5}>
                         <Typography variant="subtitle2">#{booking.id}</Typography>
                         <Typography variant="caption" color="text.secondary">Место #{booking.parking_spot_id}</Typography>
@@ -190,7 +190,12 @@ export function MyBookingsPage() {
                     <TableCell>{formatBookingInterval(booking.start_time, booking.end_time)}</TableCell>
                     <TableCell>{formatBookingDurationLabel(booking.start_time, booking.end_time)}</TableCell>
                     <TableCell align="right">
-                      <Button size="small" startIcon={<VisibilityOutlinedIcon />} onClick={() => setSelectedBookingId(booking.id)}>
+                      <Button
+                        size="small"
+                        startIcon={<VisibilityOutlinedIcon />}
+                        onClick={() => setSelectedBookingId(booking.id)}
+                        aria-label={`Открыть детали бронирования №${booking.id}`}
+                      >
                         Детали
                       </Button>
                     </TableCell>

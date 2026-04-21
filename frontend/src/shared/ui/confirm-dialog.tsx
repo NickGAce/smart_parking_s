@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useId } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, Typography } from '@mui/material';
 
 import { DialogHeader } from './dialog-header';
@@ -28,10 +29,22 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
+  const id = useId();
+  const titleId = `${id}-title`;
+  const descriptionId = `${id}-description`;
+  const subtitleId = subtitle ? `${id}-subtitle` : undefined;
+
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
-      <DialogHeader title={title} subtitle={subtitle} />
-      <DialogContent sx={{ pt: 1 }}>
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      maxWidth="xs"
+      fullWidth
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+    >
+      <DialogHeader title={title} subtitle={subtitle} titleId={titleId} subtitleId={subtitleId} />
+      <DialogContent id={descriptionId} sx={{ pt: 1 }}>
         {typeof description === 'string' ? <Typography>{description}</Typography> : description}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
