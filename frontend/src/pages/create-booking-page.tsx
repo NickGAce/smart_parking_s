@@ -1,4 +1,4 @@
-import { Alert, Button, Divider, FormControlLabel, Grid, MenuItem, Radio, RadioGroup, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Button, Divider, FormControlLabel, Grid, MenuItem, Radio, RadioGroup, Slider, Stack, TextField, Typography } from '@mui/material';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -126,6 +126,7 @@ function getRecommendationPayload(
   preferCharger: boolean,
   maxResults: number,
   spotTypes: SpotType[],
+  zoneIds: number[],
   vehicleType: VehicleType | '',
   sizeCategory: SizeCategory | '',
   weights: RecommendationWeights,
@@ -136,6 +137,7 @@ function getRecommendationPayload(
     to: endIso,
     filters: {
       requires_charger: requiresCharger,
+      zone_ids: zoneIds.length ? zoneIds : undefined,
       vehicle_type: vehicleType || undefined,
       size_category: sizeCategory || undefined,
     },
@@ -165,6 +167,7 @@ export function CreateBookingPage() {
   const [spotTypes, setSpotTypes] = useState<SpotType[]>([]);
   const [vehicleType, setVehicleType] = useState<VehicleType | ''>('');
   const [sizeCategory, setSizeCategory] = useState<SizeCategory | ''>('');
+  const [selectedZoneIds, setSelectedZoneIds] = useState<number[]>([]);
   const [recommendationWeights, setRecommendationWeights] = useState<RecommendationWeights>({
     availability: 0.35,
     spot_type: 0.15,
@@ -196,6 +199,11 @@ export function CreateBookingPage() {
 
   const recommendationsMutation = useMutation<RecommendationResult, ApiError, RecommendationRequestPayload>({
     mutationFn: recommendationsApi.getSpotRecommendations,
+  });
+  const zoneOptionsQuery = useQuery({
+    queryKey: ['booking-create-zones', parkingLotId],
+    queryFn: () => parkingSpotsApi.getSpots({ parking_lot_id: parkingLotId as number, limit: 300, offset: 0 }),
+    enabled: typeof parkingLotId === 'number',
   });
 
   const createBookingMutation = useCreateBookingMutation();
@@ -250,6 +258,7 @@ export function CreateBookingPage() {
       parking_lot_id: parkingLotId as number,
       recommendation_filters: {
         requires_charger: requiresCharger,
+        zone_ids: selectedZoneIds.length ? selectedZoneIds : undefined,
         vehicle_type: vehicleType || undefined,
         size_category: sizeCategory || undefined,
       },
@@ -302,12 +311,24 @@ export function CreateBookingPage() {
         preferCharger,
         maxResults,
         spotTypes,
+        selectedZoneIds,
         vehicleType,
         sizeCategory,
         recommendationWeights,
       ),
     );
   };
+
+  const zoneOptions = useMemo(() => {
+    const source = zoneOptionsQuery.data?.items ?? [];
+    const map = new Map<number, string>();
+    source.forEach((spot) => {
+      if (typeof spot.zone_id === 'number') {
+        map.set(spot.zone_id, spot.zone_name ?? `Зона #${spot.zone_id}`);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [zoneOptionsQuery.data?.items]);
 
   if (successBooking) {
     return (
@@ -426,6 +447,26 @@ export function CreateBookingPage() {
                   </TextField>
                 </Grid>
                 <Grid item xs={12} md={4}>
+                  <TextField
+                    select
+                    label="Зоны"
+                    SelectProps={{ multiple: true }}
+                    value={selectedZoneIds}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setSelectedZoneIds(
+                        Array.isArray(next) ? next.map((item) => Number(item)).filter((item) => Number.isFinite(item)) : [],
+                      );
+                    }}
+                    fullWidth
+                    helperText="Можно выбрать несколько зон для автоподбора."
+                  >
+                    {zoneOptions.map((zone) => (
+                      <MenuItem key={zone.id} value={zone.id}>{zone.name}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={4}>
                   <TextField select label="Размер места" value={sizeCategory} onChange={(event) => setSizeCategory(event.target.value as SizeCategory | '')} fullWidth>
                     <MenuItem value="">Любой</MenuItem>
                     {SIZE_CATEGORY_OPTIONS.map((option) => <MenuItem key={option} value={option}>{SIZE_CATEGORY_LABELS[option]}</MenuItem>)}
@@ -443,20 +484,21 @@ export function CreateBookingPage() {
                   ['conflict', 'Риск конфликта'],
                 ] as const).map(([key, label]) => (
                   <Grid item xs={12} md={4} key={key}>
-                    <TextField
-                      type="number"
-                      label={label}
+                    <Typography variant="body2" sx={{ mb: 0.75 }}>{label}: {(recommendationWeights[key] ?? 0).toFixed(2)}</Typography>
+                    <Slider
+                      min={0}
+                      max={1}
+                      step={0.05}
                       value={recommendationWeights[key] ?? 0}
-                      onChange={(event) =>
+                      onChange={(_, value) =>
                         setRecommendationWeights((prev) => ({
                           ...prev,
-                          [key]: Math.max(0, Math.min(1, Number(event.target.value) || 0)),
+                          [key]: Number(Array.isArray(value) ? value[0] : value),
                         }))
                       }
-                      fullWidth
-                      inputProps={{ min: 0, max: 1, step: 0.05 }}
-                      helperText="0..1, итог нормализуется автоматически."
+                      valueLabelDisplay="auto"
                     />
+                    <Typography variant="caption" color="text.secondary">0..1, итог нормализуется автоматически.</Typography>
                   </Grid>
                 ))}
                 <Grid item xs={12} md={4}>

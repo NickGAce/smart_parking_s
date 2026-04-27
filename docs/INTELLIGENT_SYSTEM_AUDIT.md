@@ -43,6 +43,7 @@ Hard constraints are pass/fail and may reject candidate before ranking:
 - `spot_status_available`
 - `interval_conflict`
 - `role_access`
+- `charger_preference` (when prefer_charger is enabled)
 
 ## Rejected candidates auditability
 Rejected candidates are captured explicitly with machine-readable reason and constraint id.

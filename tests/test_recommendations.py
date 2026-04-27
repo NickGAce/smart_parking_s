@@ -241,3 +241,4 @@ def test_prefer_charger_prioritizes_charger_when_available():
         assert response.status_code == 200
         payload = response.json()
         assert payload["recommended_spots"][0]["has_charger"] is True
+        assert any(item["constraint"] == "charger_preference" for item in payload["rejected_candidates"])

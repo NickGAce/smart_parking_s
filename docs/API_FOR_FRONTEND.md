@@ -205,7 +205,7 @@ Frontend note:
 - Body: interval + lot + optional filters/preferences/weights.
 - Returns ranked spots + explainability factors.
 - `weights` задаются пользователем как относительная значимость факторов (0..1) и нормализуются на backend.
-- `preferences.prefer_charger=true` теперь при наличии доступных мест с зарядкой приоритизирует их в ранжировании.
+- `preferences.prefer_charger=true` теперь при наличии доступных мест с зарядкой отсекает варианты без зарядки (как rejected by `charger_preference`).
 
 Frontend note:
 - `/recommendations/spots` now can include `decision_report` (toggle by `include_decision_report`).

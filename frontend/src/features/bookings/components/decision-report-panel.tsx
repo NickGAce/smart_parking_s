@@ -27,6 +27,7 @@ export function DecisionReportPanel({ report, title = 'Отчёт о приня�
     spot_status_available: 'Доступность статуса',
     interval_conflict: 'Конфликт интервала',
     role_access: 'Доступ по роли',
+    charger_preference: 'Предпочтение по зарядке',
   };
 
   return (

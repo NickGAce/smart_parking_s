@@ -159,6 +159,15 @@ async def recommend_spots(
                 )
             )
             continue
+        if charger_preference_mode == "strict_prefer" and not spot.has_charger:
+            rejected.append(
+                RejectedCandidate(
+                    spot_id=spot.id,
+                    reason="Отклонено по предпочтению: требуется место с зарядкой",
+                    constraint="charger_preference",
+                )
+            )
+            continue
 
         score_ctx = _build_score_context(
             spot=spot,
@@ -250,8 +259,16 @@ async def recommend_spots(
                 name="role_access",
                 passed=True,
                 explanation=f"Роль '{normalized_role.value}' имеет доступ к этому месту",
-            )
+            ),
         ]
+        if charger_preference_mode in {"strict_prefer", "soft_prefer"}:
+            constraints.append(
+                DecisionConstraint(
+                    name="charger_preference",
+                    passed=spot.has_charger,
+                    explanation="Предпочтение по зарядке учтено",
+                )
+            )
         ranked.append(ScoredCandidate(recommended=recommended_spot, factors=factors, constraints=constraints))
 
     ranked.sort(key=lambda item: (-item.recommended.score, item.recommended.spot_number))
