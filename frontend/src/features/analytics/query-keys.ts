@@ -8,4 +8,6 @@ export const analyticsQueryKeys = {
   forecast: (params?: ForecastQuery) => [...analyticsQueryKeys.all, 'forecast', params ?? {}] as const,
   anomalies: (params?: { from?: string; to?: string; parking_lot_id?: number; user_id?: number }) =>
     [...analyticsQueryKeys.all, 'anomalies', params ?? {}] as const,
+  managementRecommendations: (params: { date_from: string; date_to: string; parking_lot_id?: number; severity?: string }) =>
+    [...analyticsQueryKeys.all, 'management-recommendations', params] as const,
 };

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel, Field
+from typing import Literal
 
 
 class AnalyticsFiltersOut(BaseModel):
@@ -68,3 +69,36 @@ class AnalyticsOccupancyForecastOut(BaseModel):
     target_from: datetime
     target_to: datetime
     forecast: list[OccupancyForecastBucketOut]
+
+
+ManagementRecommendationType = Literal[
+    "overload",
+    "no_show",
+    "cancellation",
+    "underutilization",
+    "zone_imbalance",
+    "rule_change",
+    "security",
+]
+ManagementSeverity = Literal["low", "medium", "high", "critical"]
+
+
+class ManagementRecommendationOut(BaseModel):
+    id: str
+    type: ManagementRecommendationType
+    severity: ManagementSeverity
+    title: str
+    description: str
+    recommended_action: str
+    metric_source: str
+    evidence: str
+    expected_effect: str
+    created_at: datetime
+
+
+class ManagementRecommendationsResponse(BaseModel):
+    period_from: datetime
+    period_to: datetime
+    parking_lot_id: int | None = None
+    severity: ManagementSeverity | None = None
+    items: list[ManagementRecommendationOut]

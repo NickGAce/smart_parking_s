@@ -249,6 +249,29 @@ Scoring formula:
 - Explainable anomaly items with severity/reason/related entity.
 - User-level scope restrictions for non-admin/non-owner/non-guard.
 
+### GET `/analytics/management-recommendations`
+- Назначение: управленческие рекомендации по корректировке правил, зонирования, бронирований и контроля доступа.
+- Query:
+  - `parking_lot_id` (optional)
+  - `date_from` (required, ISO datetime)
+  - `date_to` (required, ISO datetime)
+  - `severity` (optional): `low|medium|high|critical`
+- Auth/RBAC:
+  - `admin` — все парковки.
+  - `owner` — только свои парковки (при чужом `parking_lot_id` вернется пустой набор).
+  - `tenant`/прочие роли — `403`.
+- Response item:
+  - `id`
+  - `type`: `overload|no_show|cancellation|underutilization|zone_imbalance|rule_change|security`
+  - `severity`: `low|medium|high|critical`
+  - `title`, `description`
+  - `recommended_action`
+  - `metric_source`
+  - `evidence`
+  - `expected_effect`
+  - `created_at`
+- Источники данных: существующие analytics/anomalies + audit events (ANPR unknown plate).
+
 ---
 
 ## 11) Common response patterns
@@ -310,3 +333,4 @@ Scoring formula:
 | GET | `/analytics/bookings` | yes | auth | booking KPI breakdown |
 | GET | `/analytics/occupancy-forecast` | yes | auth | explainable forecast |
 | GET | `/analytics/anomalies` | yes | auth | scoped anomaly visibility |
+| GET | `/analytics/management-recommendations` | yes | admin/owner | intelligent management actions |
