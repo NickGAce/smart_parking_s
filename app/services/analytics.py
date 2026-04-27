@@ -600,33 +600,37 @@ def _predict_bucket_value(
     )
     day_type_avg = _day_type_average(bucket_start, historical_series, global_avg, half_life_days=half_life_days)
     same_hour_last_week = _same_hour_last_weeks_average(bucket_start, historical_series)
+    spike_signal = _spike_signal(bucket_start, dow_hour_values, hour_values, default=hour_avg, half_life_days=half_life_days)
 
     samples = len(dow_hour_values)
     if samples >= 6:
         base_prediction = (
-            (0.4 * dow_hour_avg)
-            + (0.2 * dow_avg)
-            + (0.15 * hour_avg)
+            (0.33 * dow_hour_avg)
+            + (0.18 * dow_avg)
+            + (0.14 * hour_avg)
             + (0.1 * global_avg)
             + (0.1 * same_hour_last_week)
             + (0.05 * day_type_avg)
+            + (0.1 * spike_signal)
         )
     elif samples >= 3:
         base_prediction = (
-            (0.25 * dow_hour_avg)
-            + (0.3 * dow_avg)
+            (0.2 * dow_hour_avg)
+            + (0.25 * dow_avg)
             + (0.2 * hour_avg)
             + (0.1 * global_avg)
             + (0.1 * same_hour_last_week)
             + (0.05 * day_type_avg)
+            + (0.1 * spike_signal)
         )
     else:
         base_prediction = (
-            (0.3 * dow_avg)
+            (0.25 * dow_avg)
             + (0.25 * hour_avg)
             + (0.2 * global_avg)
             + (0.15 * same_hour_last_week)
             + (0.1 * day_type_avg)
+            + (0.05 * spike_signal)
         )
 
     return base_prediction, samples
@@ -698,6 +702,65 @@ def _day_type_average(
         if (time_bucket.weekday() < 5) == target_is_workday and time_bucket.hour == bucket_start.hour
     ]
     return _recency_weighted_mean(day_type_values, bucket_start, default=default, half_life_days=half_life_days)
+
+
+def _spike_signal(
+    bucket_start: datetime,
+    dow_hour_values: list[tuple[datetime, float]],
+    hour_values: list[tuple[datetime, float]],
+    default: float,
+    half_life_days: float,
+    active_threshold: float = 1.0,
+) -> float:
+    """
+    Spike-aware signal for intermittent demand:
+    expected value = P(active) * mean(active level).
+    """
+    exact_activity = _recency_weighted_activity_rate(
+        dow_hour_values,
+        bucket_start,
+        threshold=active_threshold,
+        half_life_days=half_life_days,
+    )
+    hour_activity = _recency_weighted_activity_rate(
+        hour_values,
+        bucket_start,
+        threshold=active_threshold,
+        half_life_days=half_life_days,
+    )
+    activity_probability = (0.7 * exact_activity) + (0.3 * hour_activity)
+
+    active_exact_values = [(ts, value) for ts, value in dow_hour_values if value >= active_threshold]
+    active_hour_values = [(ts, value) for ts, value in hour_values if value >= active_threshold]
+    active_level_exact = _recency_weighted_mean(active_exact_values, bucket_start, default=default, half_life_days=half_life_days)
+    active_level_hour = _recency_weighted_mean(active_hour_values, bucket_start, default=default, half_life_days=half_life_days)
+    active_level = (0.6 * active_level_exact) + (0.4 * active_level_hour)
+
+    return activity_probability * active_level
+
+
+def _recency_weighted_activity_rate(
+    items: list[tuple[datetime, float]],
+    reference_time: datetime,
+    threshold: float,
+    half_life_days: float,
+) -> float:
+    if not items:
+        return 0.0
+
+    decay = math.log(2) / max(half_life_days, 0.1)
+    active_weight = 0.0
+    total_weight = 0.0
+    for timestamp, value in items:
+        age_days = max((reference_time - timestamp).total_seconds() / 86400.0, 0.0)
+        weight = math.exp(-decay * age_days)
+        total_weight += weight
+        if value >= threshold:
+            active_weight += weight
+
+    if total_weight <= 0:
+        return 0.0
+    return active_weight / total_weight
 
 
 async def get_forecast_quality(

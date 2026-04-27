@@ -21,8 +21,10 @@ from app.services.analytics import (
     _adaptive_half_life_days,
     _calculate_forecast_error_metrics,
     _predict_bucket_value,
+    _recency_weighted_activity_rate,
     _recency_weighted_mean,
     _same_hour_last_weeks_average,
+    _spike_signal,
 )
 
 
@@ -260,6 +262,41 @@ def test_same_hour_last_weeks_average_uses_broader_monthly_memory():
     ]
     value = _same_hour_last_weeks_average(datetime(2026, 2, 26, 9, 0, 0), history)
     assert 20.0 < value < 50.0
+
+
+def test_recency_weighted_activity_rate_for_sparse_series():
+    reference = datetime(2026, 4, 10, 9, 0, 0)
+    rate = _recency_weighted_activity_rate(
+        items=[
+            (datetime(2026, 4, 3, 9, 0, 0), 0.0),
+            (datetime(2026, 4, 4, 9, 0, 0), 0.0),
+            (datetime(2026, 4, 8, 9, 0, 0), 12.0),
+            (datetime(2026, 4, 9, 9, 0, 0), 15.0),
+        ],
+        reference_time=reference,
+        threshold=1.0,
+        half_life_days=5.0,
+    )
+    assert 0.4 < rate < 0.8
+
+
+def test_spike_signal_increases_when_recent_active_levels_present():
+    reference = datetime(2026, 4, 10, 9, 0, 0)
+    weak_signal = _spike_signal(
+        bucket_start=reference,
+        dow_hour_values=[(datetime(2026, 4, 3, 9, 0, 0), 0.0), (datetime(2026, 4, 9, 9, 0, 0), 0.0)],
+        hour_values=[(datetime(2026, 4, 9, 8, 0, 0), 0.0)],
+        default=2.0,
+        half_life_days=7.0,
+    )
+    strong_signal = _spike_signal(
+        bucket_start=reference,
+        dow_hour_values=[(datetime(2026, 4, 3, 9, 0, 0), 0.0), (datetime(2026, 4, 9, 9, 0, 0), 14.0)],
+        hour_values=[(datetime(2026, 4, 9, 8, 0, 0), 10.0), (datetime(2026, 4, 8, 9, 0, 0), 8.0)],
+        default=2.0,
+        half_life_days=7.0,
+    )
+    assert strong_signal > weak_signal
 
 
 def test_forecast_quality_low_data_returns_low_confidence_and_explanation():
