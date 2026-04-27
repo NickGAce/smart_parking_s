@@ -33,6 +33,7 @@ from app.services.analytics import (
 )
 from app.services.management_recommendations import ManagementRecommendationFilters, ManagementRecommendationsService
 from app.models.user import User, UserRole
+from app.services.bookings import normalize_client_datetime
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -188,15 +189,18 @@ async def analytics_management_recommendations(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    normalized_date_from = normalize_client_datetime(date_from, None)
+    normalized_date_to = normalize_client_datetime(date_to, None)
+
     if current_user.role not in [UserRole.admin, UserRole.owner]:
         raise HTTPException(status_code=403, detail="Not enough permissions")
-    if date_from >= date_to:
+    if normalized_date_from >= normalized_date_to:
         raise HTTPException(status_code=400, detail="date_from must be earlier than date_to")
 
     service = ManagementRecommendationsService(session)
     filters = ManagementRecommendationFilters(
-        period_from=date_from,
-        period_to=date_to,
+        period_from=normalized_date_from,
+        period_to=normalized_date_to,
         parking_lot_id=parking_lot_id,
         severity=severity,
     )
@@ -207,8 +211,8 @@ async def analytics_management_recommendations(
     )
 
     return ManagementRecommendationsResponse(
-        period_from=date_from,
-        period_to=date_to,
+        period_from=normalized_date_from,
+        period_to=normalized_date_to,
         parking_lot_id=parking_lot_id,
         severity=severity,
         items=items,

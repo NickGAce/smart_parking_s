@@ -239,3 +239,17 @@ def test_management_recommendations_denies_tenant():
             headers={"Authorization": f"Bearer {tokens['tenant']}"},
         )
         assert response.status_code == 403
+
+
+def test_management_recommendations_accepts_utc_z_datetimes():
+    tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/analytics/management-recommendations",
+            params={
+                "date_from": "2026-04-01T00:00:00.000Z",
+                "date_to": "2026-04-08T00:00:00.000Z",
+            },
+            headers={"Authorization": f"Bearer {tokens['admin']}"},
+        )
+        assert response.status_code == 200
