@@ -176,6 +176,7 @@ export function AnalyticsPage() {
               isLoading={queries.forecastQualityQuery.isLoading}
               isError={queries.forecastQualityQuery.isError}
               data={queries.forecastQualityQuery.data}
+              selectedPeriodLabel={PERIOD_LABELS[filters.period]}
             />
           </DataPanel>
         </Grid>
