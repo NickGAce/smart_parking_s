@@ -20,6 +20,7 @@ from app.schemas.analytics import (
     ManagementSeverity,
     ForecastQualityResponse,
     ForecastQualityEvaluatedPeriodOut,
+    ForecastQualityPointOut,
 )
 from app.services.analytics import (
     AnalyticsFilters,
@@ -266,4 +267,5 @@ async def analytics_forecast_quality(
             to_time=metrics.evaluated_period_to,
             bucket=bucket,
         ),
+        comparison_series=[ForecastQualityPointOut(**point.__dict__) for point in metrics.comparison_series],
     )

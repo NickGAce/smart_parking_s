@@ -232,6 +232,10 @@ def test_forecast_quality_low_data_returns_low_confidence_and_explanation():
         payload = response.json()
         assert payload["confidence"] == "low"
         assert payload["sample_size"] == 2
+        assert len(payload["comparison_series"]) == 2
+        assert {"time_bucket", "actual_occupancy_percent", "predicted_occupancy_percent", "absolute_error"} <= set(
+            payload["comparison_series"][0].keys()
+        )
         assert "мало данных" in payload["explanation"].lower() or "низкая уверенность" in payload["explanation"].lower()
 
 

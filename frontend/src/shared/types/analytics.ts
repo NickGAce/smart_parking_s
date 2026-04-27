@@ -144,6 +144,12 @@ export interface ForecastQuality {
     to_time: string;
     bucket: ForecastQualityBucket;
   };
+  comparison_series: Array<{
+    time_bucket: string;
+    actual_occupancy_percent: number;
+    predicted_occupancy_percent: number;
+    absolute_error: number;
+  }>;
 }
 
 export interface AnalyticsQuery {

@@ -77,6 +77,13 @@ class ForecastQualityEvaluatedPeriodOut(BaseModel):
     bucket: Literal["hour", "day"]
 
 
+class ForecastQualityPointOut(BaseModel):
+    time_bucket: datetime
+    actual_occupancy_percent: float = Field(ge=0, le=100)
+    predicted_occupancy_percent: float = Field(ge=0, le=100)
+    absolute_error: float = Field(ge=0)
+
+
 class ForecastQualityResponse(BaseModel):
     parking_lot_id: int | None = None
     mae: float = Field(ge=0)
@@ -86,6 +93,7 @@ class ForecastQualityResponse(BaseModel):
     confidence: Literal["low", "medium", "high"]
     explanation: str
     evaluated_period: ForecastQualityEvaluatedPeriodOut
+    comparison_series: list[ForecastQualityPointOut] = []
 
 
 ManagementRecommendationType = Literal[

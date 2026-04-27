@@ -263,6 +263,11 @@ Scoring formula:
   - `confidence` — `low|medium|high`.
   - `explanation` — текстовое пояснение надежности.
   - `evaluated_period` — фактический интервал и тип бакета.
+  - `comparison_series[]` — ряд для визуализации факт vs прогноз:
+    - `time_bucket`
+    - `actual_occupancy_percent`
+    - `predicted_occupancy_percent`
+    - `absolute_error`
 
 Формулы:
 - `MAE = (1/n) * Σ |y_true - y_pred|`

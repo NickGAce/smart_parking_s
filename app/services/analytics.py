@@ -77,6 +77,7 @@ class ForecastQualityMetrics:
     evaluated_period_from: datetime
     evaluated_period_to: datetime
     bucket: str
+    comparison_series: list["ForecastQualityPoint"]
 
 
 @dataclass
@@ -85,6 +86,14 @@ class ForecastErrorMetrics:
     mape: float
     rmse: float | None
     sample_size: int
+
+
+@dataclass
+class ForecastQualityPoint:
+    time_bucket: datetime
+    actual_occupancy_percent: float
+    predicted_occupancy_percent: float
+    absolute_error: float
 
 
 class OccupancyForecastModel(Protocol):
@@ -623,6 +632,7 @@ async def get_forecast_quality(
             evaluated_period_from=filters.date_from,
             evaluated_period_to=filters.date_to,
             bucket=filters.bucket,
+            comparison_series=[],
         )
 
     historical_and_eval_bookings = await _get_bookings_for_period(session, spot_ids, history_from, filters.date_to)
@@ -637,6 +647,7 @@ async def get_forecast_quality(
     abs_errors: list[float] = []
     squared_errors: list[float] = []
     pct_errors: list[float] = []
+    comparison_series: list[ForecastQualityPoint] = []
 
     for bucket_start in _iter_buckets(filters.date_from, filters.date_to, bucket_size_hours):
         train_series = sorted(
@@ -650,6 +661,14 @@ async def get_forecast_quality(
         squared_errors.append(error * error)
         if actual > 0:
             pct_errors.append((error / actual) * 100.0)
+        comparison_series.append(
+            ForecastQualityPoint(
+                time_bucket=bucket_start,
+                actual_occupancy_percent=round(actual, 2),
+                predicted_occupancy_percent=round(predicted, 2),
+                absolute_error=round(error, 2),
+            )
+        )
 
     error_metrics = _calculate_forecast_error_metrics(abs_errors, squared_errors, pct_errors)
     sample_size = error_metrics.sample_size
@@ -682,6 +701,7 @@ async def get_forecast_quality(
         evaluated_period_from=filters.date_from,
         evaluated_period_to=filters.date_to,
         bucket=filters.bucket,
+        comparison_series=comparison_series,
     )
 
 
