@@ -42,7 +42,7 @@ async def recognize_access_event(
     current_user: User = Depends(get_current_user),
 ):
     if not _can_operate(current_user):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     try:
         event = await process_recognition_access_event(
@@ -71,7 +71,7 @@ async def recognize_access_event_image(
     current_user: User = Depends(get_current_user),
 ):
     if not _can_operate(current_user):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     stored = await media_storage_service.save(file, folder="images")
     result = await plate_recognition_pipeline.recognize_from_image(file, plate_hint=plate_hint)
@@ -107,7 +107,7 @@ async def recognize_access_event_video(
     current_user: User = Depends(get_current_user),
 ):
     if not _can_operate(current_user):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     stored = await media_storage_service.save(file, folder="videos")
     result = await plate_recognition_pipeline.recognize_from_video(file, plate_hint=plate_hint)
@@ -140,7 +140,7 @@ async def manual_access_event(
     current_user: User = Depends(get_current_user),
 ):
     if not _can_operate(current_user):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     try:
         event = await process_manual_access_event(
@@ -216,7 +216,7 @@ async def get_access_event(
         )
     ).scalar_one_or_none()
     if event is None:
-        raise HTTPException(status_code=404, detail="Access event not found")
+        raise HTTPException(status_code=404, detail="Событие доступа не найдено")
 
     visibility_filter = _build_visibility_filter(current_user)
     if visibility_filter is not None:
@@ -229,6 +229,6 @@ async def get_access_event(
             )
         ).scalar_one_or_none()
         if probe is None:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+            raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     return event

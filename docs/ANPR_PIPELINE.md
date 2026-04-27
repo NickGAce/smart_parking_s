@@ -1,6 +1,6 @@
-# ANPR Pipeline Smart Parking
+# ANPR-конвейер Smart Parking
 
-## Архитектура pipeline
+## Архитектура конвейера
 
 1. **Ingest**
    - `POST /api/v1/access-events/recognize/image`
@@ -26,5 +26,5 @@
    - audit log (`anpr.access_event`, `anpr.unknown_plate_detected`);
    - notifications для guard/owner/admin при `review/denied`.
 
-## Flow (image/video -> decision)
-`upload media -> detect plate -> normalize -> resolve vehicle -> resolve booking -> transition lifecycle -> persist access-event -> notify/audit`
+## Поток обработки (изображение/видео -> решение)
+`загрузка медиа -> распознавание номера -> нормализация -> поиск автомобиля -> поиск бронирования -> переход жизненного цикла -> запись события доступа -> уведомления/аудит`

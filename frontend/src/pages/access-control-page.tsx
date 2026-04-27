@@ -88,9 +88,9 @@ export function AccessControlPage() {
             <Grid item xs={12} md={2}>
               <TextField fullWidth select label="Решение" value={decision} onChange={(e) => setDecision(e.target.value as AccessDecision | '')}>
                 <MenuItem value="">Все</MenuItem>
-                <MenuItem value="allowed">allowed</MenuItem>
-                <MenuItem value="review">review</MenuItem>
-                <MenuItem value="denied">denied</MenuItem>
+                <MenuItem value="allowed">Разрешено</MenuItem>
+                <MenuItem value="review">Проверка</MenuItem>
+                <MenuItem value="denied">Запрещено</MenuItem>
               </TextField>
             </Grid>
             <Grid item xs={12} md={3}><TextField fullWidth label="Фильтр по номеру" value={filterPlate} onChange={(e) => setFilterPlate(e.target.value)} /></Grid>
@@ -116,7 +116,7 @@ export function AccessControlPage() {
                 </Button>
                 {imageFile ? <Typography variant="caption">{imageFile.name}</Typography> : null}
               </Grid>
-              <Grid item xs={12} md={2}><Button variant="contained" fullWidth onClick={submitImage} disabled={!imageFile || parkingLotId === ''}>Распознать image</Button></Grid>
+              <Grid item xs={12} md={2}><Button variant="contained" fullWidth onClick={submitImage} disabled={!imageFile || parkingLotId === ''}>Распознать изображение</Button></Grid>
               <Grid item xs={12} md={5}>
                 <Button component="label" variant="outlined" fullWidth>
                   Выбрать видео
@@ -124,7 +124,7 @@ export function AccessControlPage() {
                 </Button>
                 {videoFile ? <Typography variant="caption">{videoFile.name}</Typography> : null}
               </Grid>
-              <Grid item xs={12} md={2}><Button variant="contained" fullWidth onClick={submitVideo} disabled={!videoFile || parkingLotId === ''}>Распознать video</Button></Grid>
+              <Grid item xs={12} md={2}><Button variant="contained" fullWidth onClick={submitVideo} disabled={!videoFile || parkingLotId === ''}>Распознать видео</Button></Grid>
             </Grid>
           </DataPanel>
 
@@ -152,7 +152,7 @@ export function AccessControlPage() {
                     user: {event.user_id ?? '—'} · vehicle: {event.vehicle_id ?? '—'} · booking: {event.booking_id ?? '—'} · spot: {event.parking_spot_id ?? '—'}
                   </Typography>
                   {(event.image_url || event.video_url) ? (
-                    <Typography variant="caption" display="block" color="text.secondary">media: {event.image_url ?? event.video_url}</Typography>
+                    <Typography variant="caption" display="block" color="text.secondary">медиа: {event.image_url ?? event.video_url}</Typography>
                   ) : null}
                 </Box>
               ))}

@@ -414,8 +414,8 @@ export function CreateBookingPage() {
 
 
           <FormSection
-            title="1.1 Автомобиль"
-            subtitle="Выберите автомобиль; если не выбрать, будет использован primary."
+            title="1.1 Выбор автомобиля"
+            subtitle="Выберите автомобиль; если не выбрать, будет использован основной."
             sx={{ p: { xs: 2.5, md: 3.25 } }}
           >
             <TextField
@@ -424,12 +424,12 @@ export function CreateBookingPage() {
               label="Автомобиль"
               value={selectedVehicleId}
               onChange={(event) => setSelectedVehicleId(event.target.value ? Number(event.target.value) : '')}
-              helperText={primaryVehicle ? `Primary по умолчанию: ${primaryVehicle.plate_number}` : 'Добавьте автомобиль в разделе «Мои автомобили»'}
+              helperText={primaryVehicle ? `Основной по умолчанию: ${primaryVehicle.plate_number}` : 'Добавьте автомобиль в разделе «Мои автомобили»'}
             >
-              <MenuItem value="">Primary по умолчанию</MenuItem>
+              <MenuItem value="">Основной по умолчанию</MenuItem>
               {(vehiclesQuery.data ?? []).map((vehicle) => (
                 <MenuItem key={vehicle.id} value={vehicle.id}>
-                  {vehicle.plate_number} {vehicle.is_primary ? '(primary)' : ''}
+                  {vehicle.plate_number} {vehicle.is_primary ? '(основной)' : ''}
                 </MenuItem>
               ))}
             </TextField>

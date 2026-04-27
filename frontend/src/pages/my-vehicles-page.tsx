@@ -13,6 +13,14 @@ import { DataPanel } from '../shared/ui/data-panel';
 
 const vehicleTypes: VehicleType[] = ['car', 'ev', 'truck', 'bike', 'van'];
 
+const vehicleTypeLabels: Record<VehicleType, string> = {
+  car: 'Легковой',
+  ev: 'Электромобиль',
+  truck: 'Грузовой',
+  bike: 'Мото/вело',
+  van: 'Фургон',
+};
+
 export function MyVehiclesPage() {
   const vehiclesQuery = useVehiclesQuery();
   const createMutation = useCreateVehicleMutation();
@@ -55,7 +63,7 @@ export function MyVehiclesPage() {
               <Grid item xs={12} md={2}>
                 <TextField select label="Тип" value={vehicleType} onChange={(e) => setVehicleType(e.target.value as VehicleType)} fullWidth>
                   {vehicleTypes.map((type) => (
-                    <MenuItem key={type} value={type}>{type}</MenuItem>
+                    <MenuItem key={type} value={type}>{vehicleTypeLabels[type]}</MenuItem>
                   ))}
                 </TextField>
               </Grid>
@@ -72,10 +80,10 @@ export function MyVehiclesPage() {
                 <Stack key={vehicle.id} direction={{ xs: 'column', md: 'row' }} spacing={1} justifyContent="space-between" sx={{ border: '1px solid', borderColor: 'border.subtle', borderRadius: 2, p: 1.25 }}>
                   <Stack spacing={0.5}>
                     <Typography fontWeight={700}>{vehicle.plate_number}</Typography>
-                    <Typography variant="caption" color="text.secondary">{vehicle.vehicle_type} · {vehicle.brand ?? '—'} {vehicle.model ?? ''}</Typography>
+                    <Typography variant="caption" color="text.secondary">{vehicleTypeLabels[vehicle.vehicle_type]} · {vehicle.brand ?? '—'} {vehicle.model ?? ''}</Typography>
                     <Stack direction="row" spacing={1}>
-                      {vehicle.is_primary ? <Chip size="small" label="primary" color="success" /> : null}
-                      <Chip size="small" label={vehicle.is_active ? 'active' : 'inactive'} variant="outlined" />
+                      {vehicle.is_primary ? <Chip size="small" label="основной" color="success" /> : null}
+                      <Chip size="small" label={vehicle.is_active ? 'активен' : 'неактивен'} variant="outlined" />
                     </Stack>
                   </Stack>
                   <Stack direction="row" spacing={1}>

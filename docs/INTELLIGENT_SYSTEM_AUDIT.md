@@ -187,8 +187,8 @@ Rules are built on top of already implemented analytics/anomaly primitives (with
 
 В модуль добавлены:
 - отдельная доменная сущность `vehicles` с привязкой номерных знаков к пользователям;
-- fallback-логика primary vehicle при создании бронирования;
+- логика подстановки основного автомобиля (primary) при создании бронирования;
 - pipeline загрузки и распознавания `image/video`;
 - media-атрибуты и статус обработки в `vehicle_access_events`;
 - интеллектуальное связывание: `plate -> vehicle -> user -> booking -> access decision`;
-- frontend-страница «Мои автомобили» и расширенный UI контроля доступа с upload image/video.
+- frontend-страница «Мои автомобили» и расширенный интерфейс контроля доступа с загрузкой изображений/видео.

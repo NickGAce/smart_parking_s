@@ -78,12 +78,12 @@ async def update_vehicle(
 ):
     vehicle = (await session.execute(select(Vehicle).where(Vehicle.id == vehicle_id))).scalar_one_or_none()
     if vehicle is None:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail="Автомобиль не найден")
 
     try:
         await ensure_vehicle_access(vehicle, current_user)
     except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+        raise HTTPException(status_code=403, detail="Недостаточно прав") from exc
 
     old_values = {
         "plate_number": vehicle.plate_number,
@@ -133,12 +133,12 @@ async def delete_vehicle(
 ):
     vehicle = (await session.execute(select(Vehicle).where(Vehicle.id == vehicle_id))).scalar_one_or_none()
     if vehicle is None:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+        raise HTTPException(status_code=404, detail="Автомобиль не найден")
 
     try:
         await ensure_vehicle_access(vehicle, current_user)
     except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
+        raise HTTPException(status_code=403, detail="Недостаточно прав") from exc
 
     await log_audit_event(
         session,

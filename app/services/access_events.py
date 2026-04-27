@@ -199,7 +199,7 @@ async def process_access_event(
                 transition_booking_status(booking, BookingStatus.confirmed)
             transition_booking_status(booking, BookingStatus.active)
             decision = AccessDecision.allowed
-            reason = "Выполнен автоматический check-in"
+            reason = "Выполнено автоматическое подтверждение въезда"
     else:
         if booking is None:
             decision = AccessDecision.denied
@@ -207,7 +207,7 @@ async def process_access_event(
         else:
             transition_booking_status(booking, BookingStatus.completed)
             decision = AccessDecision.allowed
-            reason = "Выполнен автоматический check-out"
+            reason = "Выполнено автоматическое подтверждение выезда"
 
     event = VehicleAccessEvent(
         parking_lot_id=parking_lot_id,

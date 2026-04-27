@@ -10,7 +10,7 @@ async def ensure_vehicle_access(vehicle: Vehicle, current_user: User) -> None:
     if current_user.role == UserRole.admin:
         return
     if vehicle.user_id != current_user.id:
-        raise PermissionError("Not enough permissions")
+        raise PermissionError("Недостаточно прав")
 
 
 async def find_primary_vehicle(session: AsyncSession, user_id: int) -> Vehicle | None:
