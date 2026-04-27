@@ -16,6 +16,7 @@ import { BookingsMetricsSection } from '../widgets/analytics/sections/bookings-m
 import { ForecastSection } from '../widgets/analytics/sections/forecast-section';
 import { OccupancySection } from '../widgets/analytics/sections/occupancy-section';
 import { SummaryKpiSection } from '../widgets/analytics/sections/summary-kpi-section';
+import { ManagementRecommendationsSection } from '../widgets/analytics/sections/management-recommendations-section';
 
 const INITIAL_FILTERS: AnalyticsDashboardFilters = {
   period: 'week' as const,
@@ -26,6 +27,7 @@ const INITIAL_FILTERS: AnalyticsDashboardFilters = {
   historyDays: 56,
   bucketSizeHours: 1,
   anomalyUserId: null,
+  managementSeverity: '',
 };
 
 const PERIOD_LABELS: Record<AnalyticsDashboardFilters['period'], string> = {
@@ -174,6 +176,17 @@ export function AnalyticsPage() {
           isLoading={queries.anomaliesQuery.isLoading}
           isError={queries.anomaliesQuery.isError}
           data={queries.anomaliesQuery.data}
+        />
+      </DataPanel>
+
+      <DataPanel
+        title="Управленческие рекомендации"
+        subtitle="Рекомендованные действия для владельца/администратора на основе аналитики и аномалий."
+      >
+        <ManagementRecommendationsSection
+          isLoading={queries.managementRecommendationsQuery.isLoading}
+          isError={queries.managementRecommendationsQuery.isError}
+          data={queries.managementRecommendationsQuery.data}
         />
       </DataPanel>
     </PageContentLayout>

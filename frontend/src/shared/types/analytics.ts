@@ -70,6 +70,15 @@ export interface OccupancyForecastBucket {
 }
 
 export type AnomalySeverity = 'low' | 'medium' | 'high';
+export type ManagementSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type ManagementRecommendationType =
+  | 'overload'
+  | 'no_show'
+  | 'cancellation'
+  | 'underutilization'
+  | 'zone_imbalance'
+  | 'rule_change'
+  | 'security';
 
 export interface AnomalyRelatedEntity {
   entity_type: 'user' | 'parking_lot' | 'parking_spot';
@@ -93,6 +102,27 @@ export interface AnomaliesResponse {
   items: Anomaly[];
 }
 
+export interface ManagementRecommendation {
+  id: string;
+  type: ManagementRecommendationType;
+  severity: ManagementSeverity;
+  title: string;
+  description: string;
+  recommended_action: string;
+  metric_source: string;
+  evidence: string;
+  expected_effect: string;
+  created_at: string;
+}
+
+export interface ManagementRecommendationsResponse {
+  period_from: string;
+  period_to: string;
+  parking_lot_id: number | null;
+  severity: ManagementSeverity | null;
+  items: ManagementRecommendation[];
+}
+
 export interface AnalyticsQuery {
   period?: AnalyticsPeriod;
   parking_lot_id?: number;
@@ -110,4 +140,11 @@ export interface ForecastQuery {
   history_days?: number;
   bucket_size_hours?: number;
   moving_average_window?: number;
+}
+
+export interface ManagementRecommendationsQuery {
+  parking_lot_id?: number;
+  date_from: string;
+  date_to: string;
+  severity?: ManagementSeverity;
 }

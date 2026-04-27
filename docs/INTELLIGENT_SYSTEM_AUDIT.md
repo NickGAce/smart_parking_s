@@ -61,3 +61,49 @@ Decision report panel renders:
 - factor contributions (progress bars)
 - hard-constraint badges
 - compact rejected candidates list
+
+## Management recommendations module (2026-04-27)
+
+### Endpoint
+- `GET /api/v1/analytics/management-recommendations`
+- Query:
+  - `parking_lot_id` (optional)
+  - `date_from` (required)
+  - `date_to` (required)
+  - `severity` (optional)
+
+### Recommendation rule-set
+Rules are built on top of already implemented analytics/anomaly primitives (without duplicating heavy models):
+
+1. **overload**
+   - Trigger: high average occupancy for lot (threshold 85%+).
+   - Action: recommend redistribution and guest-booking limitation in peak.
+
+2. **no_show**
+   - Trigger: elevated no-show rate (15%+).
+   - Action: reduce grace period and enable auto-cancel.
+
+3. **cancellation**
+   - Trigger: cancellation rate elevated and recent-half cancellations > previous-half cancellations.
+   - Action: adjust booking policy (late-cancel penalties, warning windows, limits).
+
+4. **underutilization**
+   - Trigger: one zone has persistently low occupancy (<=25%).
+   - Action: repurpose zone as overflow.
+
+5. **zone_imbalance**
+   - Trigger: high spread between max/min zone occupancy (40pp+) with overloaded zone.
+   - Action: rebalance routing/quotas between zones.
+
+6. **rule_change**
+   - Trigger: anomaly signal for frequent cancellations.
+   - Action: tighten policy for repeated violators and late cancellation behavior.
+
+7. **security**
+   - Trigger: many unknown-plate ANPR audit events in period.
+   - Action: strengthen access control and guard escalation flow.
+
+### RBAC
+- `admin`: sees recommendations across all lots.
+- `owner`: sees only own parking lots.
+- `tenant`: no access (`403`).

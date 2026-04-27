@@ -4,6 +4,7 @@ import type { AnalyticsDashboardFilters } from '../../features/analytics/use-ana
 import { DateTimeField } from '../../shared/ui/date-time-field';
 import { FiltersSection } from '../../shared/ui/filters-section';
 import type { AnalyticsPeriod } from '../../shared/types/analytics';
+import type { ManagementSeverity } from '../../shared/types/analytics';
 
 const PERIOD_OPTIONS: AnalyticsPeriod[] = ['day', 'week', 'month'];
 
@@ -11,6 +12,13 @@ const periodLabels: Record<AnalyticsPeriod, string> = {
   day: 'День',
   week: 'Неделя',
   month: 'Месяц',
+};
+
+const severityLabels: Record<ManagementSeverity, string> = {
+  low: 'Низкая',
+  medium: 'Средняя',
+  high: 'Высокая',
+  critical: 'Критичная',
 };
 
 interface DashboardFiltersProps {
@@ -109,6 +117,24 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
             />
           </Grid>
         )}
+
+        <Grid item xs={12} sm={6} lg={2}>
+          <TextField
+            select
+            label="Серьёзность рекомендаций"
+            size="small"
+            fullWidth
+            value={filters.managementSeverity}
+            onChange={(event) => onChange({ managementSeverity: event.target.value as AnalyticsDashboardFilters['managementSeverity'] })}
+          >
+            <MenuItem value="">Все уровни</MenuItem>
+            {(Object.keys(severityLabels) as ManagementSeverity[]).map((severity) => (
+              <MenuItem key={severity} value={severity}>
+                {severityLabels[severity]}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
       </Grid>
     </FiltersSection>
   );

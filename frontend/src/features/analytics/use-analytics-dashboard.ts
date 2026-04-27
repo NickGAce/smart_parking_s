@@ -4,7 +4,7 @@ import { useQueries } from '@tanstack/react-query';
 import { analyticsApi } from '../../entities/analytics/api';
 import { ANALYTICS_ANOMALY_FILTER_ROLES, hasRole } from '../../shared/config/roles';
 import type { UserRole } from '../../shared/types/common';
-import type { AnalyticsPeriod } from '../../shared/types/analytics';
+import type { AnalyticsPeriod, ManagementSeverity } from '../../shared/types/analytics';
 import { analyticsQueryKeys } from './query-keys';
 
 export interface AnalyticsDashboardFilters {
@@ -16,6 +16,7 @@ export interface AnalyticsDashboardFilters {
   historyDays: number;
   bucketSizeHours: number;
   anomalyUserId: number | null;
+  managementSeverity: ManagementSeverity | '';
 }
 
 function normalizeOptionalString(value: string) {
@@ -69,8 +70,10 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
     parking_lot_id: filters.parkingLotId ?? undefined,
     user_id: hasRole(role, ANALYTICS_ANOMALY_FILTER_ROLES) ? filters.anomalyUserId ?? undefined : undefined,
   };
+  const managementDateFrom = normalizedFrom ?? new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const managementDateTo = normalizedTo ?? new Date().toISOString();
 
-  const [summaryQuery, occupancyQuery, bookingsQuery, forecastQuery, anomaliesQuery] = useQueries({
+  const [summaryQuery, occupancyQuery, bookingsQuery, forecastQuery, anomaliesQuery, managementRecommendationsQuery] = useQueries({
     queries: [
       {
         queryKey: analyticsQueryKeys.summary(baseParams),
@@ -106,6 +109,21 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
         queryFn: () => analyticsApi.getAnomalies(anomalyParams),
         enabled: role !== 'uk',
       },
+      {
+        queryKey: analyticsQueryKeys.managementRecommendations({
+          parking_lot_id: filters.parkingLotId ?? undefined,
+          date_from: managementDateFrom,
+          date_to: managementDateTo,
+          severity: filters.managementSeverity || undefined,
+        }),
+        queryFn: () =>
+          analyticsApi.getManagementRecommendations({
+            parking_lot_id: filters.parkingLotId ?? undefined,
+            date_from: managementDateFrom,
+            date_to: managementDateTo,
+            severity: filters.managementSeverity || undefined,
+          }),
+      },
     ],
   });
 
@@ -115,5 +133,6 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
     bookingsQuery,
     forecastQuery,
     anomaliesQuery,
+    managementRecommendationsQuery,
   };
 }

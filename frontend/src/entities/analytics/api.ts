@@ -6,6 +6,8 @@ import type {
   AnalyticsSummary,
   AnomaliesResponse,
   ForecastQuery,
+  ManagementRecommendationsQuery,
+  ManagementRecommendationsResponse,
   OccupancyForecast,
 } from '../../shared/types/analytics';
 
@@ -28,6 +30,12 @@ export const analyticsApi = {
   },
   getAnomalies: async (params?: Pick<ForecastQuery, 'from' | 'to' | 'parking_lot_id'> & { user_id?: number }): Promise<AnomaliesResponse> => {
     const { data } = await httpClient.get<AnomaliesResponse>('/analytics/anomalies', { params });
+    return data;
+  },
+  getManagementRecommendations: async (
+    params: ManagementRecommendationsQuery,
+  ): Promise<ManagementRecommendationsResponse> => {
+    const { data } = await httpClient.get<ManagementRecommendationsResponse>('/analytics/management-recommendations', { params });
     return data;
   },
 };

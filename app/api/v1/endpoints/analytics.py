@@ -16,6 +16,8 @@ from app.schemas.analytics import (
     OccupancyForecastBucketOut,
     OccupancyByZoneOut,
     PeakHourOut,
+    ManagementRecommendationsResponse,
+    ManagementSeverity,
 )
 from app.services.analytics import (
     AnalyticsFilters,
@@ -29,6 +31,8 @@ from app.services.analytics import (
     resolve_forecast_window,
     resolve_period_window,
 )
+from app.services.management_recommendations import ManagementRecommendationFilters, ManagementRecommendationsService
+from app.models.user import User, UserRole
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -172,4 +176,40 @@ async def analytics_occupancy_forecast(
         target_from=target_from,
         target_to=target_to,
         forecast=[OccupancyForecastBucketOut(**bucket.__dict__) for bucket in forecast],
+    )
+
+
+@router.get("/management-recommendations", response_model=ManagementRecommendationsResponse)
+async def analytics_management_recommendations(
+    date_from: datetime = Query(...),
+    date_to: datetime = Query(...),
+    parking_lot_id: int | None = Query(default=None),
+    severity: ManagementSeverity | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role not in [UserRole.admin, UserRole.owner]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    if date_from >= date_to:
+        raise HTTPException(status_code=400, detail="date_from must be earlier than date_to")
+
+    service = ManagementRecommendationsService(session)
+    filters = ManagementRecommendationFilters(
+        period_from=date_from,
+        period_to=date_to,
+        parking_lot_id=parking_lot_id,
+        severity=severity,
+    )
+    items = await service.list_recommendations(
+        filters=filters,
+        current_user_id=current_user.id,
+        current_user_role=current_user.role,
+    )
+
+    return ManagementRecommendationsResponse(
+        period_from=date_from,
+        period_to=date_to,
+        parking_lot_id=parking_lot_id,
+        severity=severity,
+        items=items,
     )

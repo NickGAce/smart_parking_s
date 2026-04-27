@@ -19,6 +19,7 @@ const DASHBOARD_FILTERS: AnalyticsDashboardFilters = {
   historyDays: 28,
   bucketSizeHours: 2,
   anomalyUserId: null,
+  managementSeverity: '',
 };
 
 function formatPercent(value?: number, digits = 1) {
