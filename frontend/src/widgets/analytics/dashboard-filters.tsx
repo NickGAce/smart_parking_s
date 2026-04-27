@@ -1,7 +1,7 @@
 import { Grid, MenuItem, TextField } from '@mui/material';
 
 import type { AnalyticsDashboardFilters } from '../../features/analytics/use-analytics-dashboard';
-import { DATE_TIME_INPUT_PROPS } from '../../shared/config/date-time-input';
+import { DateTimeField } from '../../shared/ui/date-time-field';
 import { FiltersSection } from '../../shared/ui/filters-section';
 import type { AnalyticsPeriod } from '../../shared/types/analytics';
 
@@ -57,28 +57,18 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
         </Grid>
 
         <Grid item xs={12} sm={6} lg={2}>
-          <TextField
+          <DateTimeField
             label="От"
-            type="datetime-local"
-            size="small"
-            fullWidth
             value={filters.from}
-            onChange={(event) => onChange({ from: event.target.value })}
-            InputLabelProps={{ shrink: true }}
-            inputProps={DATE_TIME_INPUT_PROPS}
+            onChange={(value) => onChange({ from: value })}
           />
         </Grid>
 
         <Grid item xs={12} sm={6} lg={2}>
-          <TextField
+          <DateTimeField
             label="До"
-            type="datetime-local"
-            size="small"
-            fullWidth
             value={filters.to}
-            onChange={(event) => onChange({ to: event.target.value })}
-            InputLabelProps={{ shrink: true }}
-            inputProps={DATE_TIME_INPUT_PROPS}
+            onChange={(value) => onChange({ to: value })}
           />
         </Grid>
 

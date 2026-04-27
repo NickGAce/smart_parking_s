@@ -44,7 +44,7 @@ import {
   formatBookingDurationLabel,
   formatBookingInterval,
 } from '../shared/config/booking-ui';
-import { DATE_TIME_INPUT_PROPS } from '../shared/config/date-time-input';
+import { DateTimeField } from '../shared/ui/date-time-field';
 import { bookingStatusMap } from '../shared/config/status-map';
 import { ContentCard } from '../shared/ui/content-card';
 import { FiltersSection } from '../shared/ui/filters-section';
@@ -341,28 +341,18 @@ export function BookingManagementPage() {
                   />
                 </Grid>
                 <Grid item xs={12} md={3}>
-                  <TextField
+                  <DateTimeField
                     label="Начало периода"
-                    type="datetime-local"
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    inputProps={DATE_TIME_INPUT_PROPS}
                     value={query.from ?? ''}
-                    onChange={(e) => applyQuery({ from: e.target.value || undefined }, true)}
+                    onChange={(value) => applyQuery({ from: value || undefined }, true)}
                     disabled={isGuardView}
                   />
                 </Grid>
                 <Grid item xs={12} md={3}>
-                  <TextField
+                  <DateTimeField
                     label="Окончание периода"
-                    type="datetime-local"
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    inputProps={DATE_TIME_INPUT_PROPS}
                     value={query.to ?? ''}
-                    onChange={(e) => applyQuery({ to: e.target.value || undefined }, true)}
+                    onChange={(value) => applyQuery({ to: value || undefined }, true)}
                     disabled={isGuardView}
                   />
                 </Grid>
