@@ -71,8 +71,8 @@ class ManagementRecommendationsService:
                         title="Перегрузка парковки",
                         description="Обнаружена высокая средняя загрузка парковки за выбранный период.",
                         recommended_action="Перераспределите поток в менее загруженные зоны и временно ограничьте гостевые бронирования в пиковые часы.",
-                        metric_source="analytics.occupancy",
-                        evidence=f"occupancy_percent={occupancy_percent:.2f}%",
+                        metric_source="Аналитика загрузки парковки",
+                        evidence=f"Средняя загрузка: {occupancy_percent:.2f}%",
                         expected_effect="Снижение конфликтов за места и стабилизация SLA по доступности.",
                     )
                 )
@@ -84,10 +84,10 @@ class ManagementRecommendationsService:
                         rec_type="no_show",
                         severity="high" if booking_metrics.no_show_rate >= 0.25 else "medium",
                         title="Высокий уровень незаездов",
-                        description="Доля no_show превышает допустимый операционный порог.",
-                        recommended_action="Сократите grace period и включите автоотмену неактивированных бронирований.",
-                        metric_source="analytics.bookings",
-                        evidence=f"no_show_rate={booking_metrics.no_show_rate:.2%}",
+                        description="Доля бронирований со статусом «незаезд» превышает допустимый операционный порог.",
+                        recommended_action="Сократите период ожидания заезда и включите автоотмену неактивированных бронирований.",
+                        metric_source="Аналитика бронирований",
+                        evidence=f"Доля незаездов: {booking_metrics.no_show_rate:.2%}",
                         expected_effect="Увеличение доступности мест и снижение пустых простоев в занятом расписании.",
                     )
                 )
@@ -101,10 +101,10 @@ class ManagementRecommendationsService:
                         title="Рост отмен бронирований",
                         description="Количество отмен в последней части периода выше, чем в предыдущей.",
                         recommended_action="Пересмотрите правила бронирования: штрафы за позднюю отмену, минимальное окно предупреждения, лимиты частых отмен.",
-                        metric_source="analytics.bookings + booking trend",
+                        metric_source="Аналитика бронирований и тренд отмен",
                         evidence=(
-                            f"cancellation_rate={booking_metrics.cancellation_rate:.2%}, "
-                            f"recent_cancelled={recent_cancelled}, previous_cancelled={previous_cancelled}"
+                            f"Доля отмен: {booking_metrics.cancellation_rate:.2%}. "
+                            f"Последняя половина периода: {recent_cancelled}, предыдущая: {previous_cancelled}."
                         ),
                         expected_effect="Снижение волатильности спроса и более предсказуемая загрузка.",
                     )
@@ -124,9 +124,9 @@ class ManagementRecommendationsService:
                             severity="medium" if min_value <= 15 else "low",
                             title="Недоиспользуемая зона",
                             description="Одна из зон системно простаивает и не участвует в утилизации спроса.",
-                            recommended_action="Используйте зону как overflow-контур для пиковых периодов и направляйте туда динамические назначения.",
-                            metric_source="analytics.occupancy.by_zone",
-                            evidence=f"zone={min_zone['zone']}, occupancy_percent={min_value:.2f}%",
+                            recommended_action="Используйте зону как резервный контур для пиковых периодов и направляйте туда динамические назначения.",
+                            metric_source="Загрузка по зонам",
+                            evidence=f"Зона «{min_zone['zone']}»: загрузка {min_value:.2f}%",
                             expected_effect="Рост общей утилизации и уменьшение локальных перегрузок.",
                         )
                     )
@@ -140,10 +140,10 @@ class ManagementRecommendationsService:
                             title="Дисбаланс между зонами",
                             description="Нагрузка распределяется неравномерно: часть зон перегружена при простое других.",
                             recommended_action="Перенастройте правила маршрутизации и квоты, чтобы выровнять поток между зонами.",
-                            metric_source="analytics.occupancy.by_zone",
+                            metric_source="Загрузка по зонам",
                             evidence=(
-                                f"max_zone={max_zone['zone']}({max_value:.2f}%), "
-                                f"min_zone={min_zone['zone']}({min_value:.2f}%)"
+                                f"Максимум: «{max_zone['zone']}» ({max_value:.2f}%), "
+                                f"минимум: «{min_zone['zone']}» ({min_value:.2f}%)."
                             ),
                             expected_effect="Балансировка спроса и снижение риска отказов при размещении.",
                         )
@@ -162,7 +162,7 @@ class ManagementRecommendationsService:
                         title="Требуется корректировка правил",
                         description="Аномалии подтверждают нестабильное поведение пользователей в бронированиях.",
                         recommended_action="Обновите политику: ужесточите правила поздней отмены и добавьте ограничения для повторяющихся нарушителей.",
-                        metric_source="analytics.anomalies",
+                        metric_source="Сигналы аномалий",
                         evidence=frequent_cancellation_anomaly.reason,
                         expected_effect="Снижение числа повторных злоупотреблений и повышение дисциплины бронирований.",
                     )
@@ -176,9 +176,9 @@ class ManagementRecommendationsService:
                         severity="critical" if unknown_plate_events >= 10 else "high",
                         title="Повышенный риск доступа",
                         description="После работы ANPR фиксируется значимое число событий с неизвестными номерами.",
-                        recommended_action="Усилите контроль доступа: ручная верификация, whitelists/blacklists, оповещение охраны на повторные unknown-plate события.",
-                        metric_source="audit_logs.anpr",
-                        evidence=f"unknown_plate_events={unknown_plate_events}",
+                        recommended_action="Усилите контроль доступа: ручная верификация, белые/черные списки номеров, оповещение охраны при повторных событиях с неизвестными номерами.",
+                        metric_source="Журнал событий доступа (ANPR)",
+                        evidence=f"События с неизвестными номерами: {unknown_plate_events}",
                         expected_effect="Снижение числа неавторизованных въездов и ускорение реакции службы охраны.",
                     )
                 )

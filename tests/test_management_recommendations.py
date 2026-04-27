@@ -200,7 +200,7 @@ def test_management_recommendations_contains_rule_change_and_security():
         assert "rule_change" in types
         assert "security" in types
         security_item = next(item for item in items if item["type"] == "security")
-        assert "unknown_plate_events" in security_item["evidence"]
+        assert "неизвестными номерами" in security_item["evidence"]
 
 
 def test_management_recommendations_supports_severity_filter():
