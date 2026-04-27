@@ -70,8 +70,26 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
     parking_lot_id: filters.parkingLotId ?? undefined,
     user_id: hasRole(role, ANALYTICS_ANOMALY_FILTER_ROLES) ? filters.anomalyUserId ?? undefined : undefined,
   };
-  const managementDateFrom = normalizedFrom ?? new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-  const managementDateTo = normalizedTo ?? new Date().toISOString();
+  const managementWindow = useMemo(() => {
+    if (normalizedFrom && normalizedTo) {
+      return { dateFrom: normalizedFrom, dateTo: normalizedTo };
+    }
+
+    const end = new Date();
+    const start = new Date(end);
+    if (filters.period === 'day') {
+      start.setDate(start.getDate() - 1);
+    } else if (filters.period === 'week') {
+      start.setDate(start.getDate() - 7);
+    } else {
+      start.setDate(start.getDate() - 30);
+    }
+
+    return {
+      dateFrom: start.toISOString(),
+      dateTo: end.toISOString(),
+    };
+  }, [normalizedFrom, normalizedTo, filters.period]);
 
   const [summaryQuery, occupancyQuery, bookingsQuery, forecastQuery, anomaliesQuery, managementRecommendationsQuery] = useQueries({
     queries: [
@@ -112,15 +130,15 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
       {
         queryKey: analyticsQueryKeys.managementRecommendations({
           parking_lot_id: filters.parkingLotId ?? undefined,
-          date_from: managementDateFrom,
-          date_to: managementDateTo,
+          date_from: managementWindow.dateFrom,
+          date_to: managementWindow.dateTo,
           severity: filters.managementSeverity || undefined,
         }),
         queryFn: () =>
           analyticsApi.getManagementRecommendations({
             parking_lot_id: filters.parkingLotId ?? undefined,
-            date_from: managementDateFrom,
-            date_to: managementDateTo,
+            date_from: managementWindow.dateFrom,
+            date_to: managementWindow.dateTo,
             severity: filters.managementSeverity || undefined,
           }),
       },
