@@ -55,6 +55,7 @@ import { effectiveStatusMap } from '../shared/config/status-map';
 import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
 import { DestructiveConfirmDialog } from '../shared/ui/destructive-confirm-dialog';
 import { DialogHeader } from '../shared/ui/dialog-header';
+import { DateTimeField } from '../shared/ui/date-time-field';
 import { ContentCard } from '../shared/ui/content-card';
 import { DataListPageTemplate } from '../shared/ui/page-templates';
 import { MetricCard } from '../shared/ui/metric-card';
@@ -372,8 +373,8 @@ export function ParkingSpotsPage() {
                 <Grid item xs={12}>
                   <Typography variant="tableLabel" color="text.secondary">Интервал и локация</Typography>
                 </Grid>
-                <Grid item xs={12} md={3}><TextField label="Начало интервала" type="datetime-local" fullWidth size="small" value={draft.from ?? ''} InputLabelProps={{ shrink: true }} onChange={(e) => setDraft((prev) => ({ ...prev, from: e.target.value || undefined }))} /></Grid>
-                <Grid item xs={12} md={3}><TextField label="Конец интервала" type="datetime-local" fullWidth size="small" value={draft.to ?? ''} InputLabelProps={{ shrink: true }} onChange={(e) => setDraft((prev) => ({ ...prev, to: e.target.value || undefined }))} /></Grid>
+                <Grid item xs={12} md={3}><DateTimeField label="Начало интервала" value={draft.from ?? ''} onChange={(value) => setDraft((prev) => ({ ...prev, from: value || undefined }))} /></Grid>
+                <Grid item xs={12} md={3}><DateTimeField label="Конец интервала" value={draft.to ?? ''} onChange={(value) => setDraft((prev) => ({ ...prev, to: value || undefined }))} /></Grid>
                 <Grid item xs={12} md={2}><TextField label="ID парковки" type="number" size="small" fullWidth value={draft.parking_lot_id ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, parking_lot_id: e.target.value ? Number(e.target.value) : undefined }))} /></Grid>
                 <Grid item xs={12} md={2}><TextField label="ID зоны" type="number" size="small" fullWidth value={draft.zone_id ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, zone_id: e.target.value ? Number(e.target.value) : undefined }))} /></Grid>
                 <Grid item xs={12} md={2}><TextField label="Название зоны" size="small" fullWidth value={draft.zone_name ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, zone_name: e.target.value || undefined }))} /></Grid>

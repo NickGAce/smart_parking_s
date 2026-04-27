@@ -10,7 +10,6 @@ import {
   MenuItem,
   Select,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
@@ -42,6 +41,7 @@ import {
   getAvailableBookingActions,
 } from '../../../shared/config/booking-actions';
 import { bookingStatusMap } from '../../../shared/config/status-map';
+import { DateTimeField } from '../../../shared/ui/date-time-field';
 import { KeyValueList } from '../../../shared/ui/key-value-list';
 import { StatusChip } from '../../../shared/ui/status-chip';
 import type { BookingStatus } from '../../../shared/types/common';
@@ -191,21 +191,17 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
               <Divider />
 
               <Typography variant="subtitle2">Редактирование</Typography>
-              <TextField
+              <DateTimeField
                 label="Время начала"
-                type="datetime-local"
-                InputLabelProps={{ shrink: true }}
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={setStartTime}
                 helperText="Изменяйте время только если уверены, что интервал свободен."
                 disabled={!canEdit || updateMutation.isPending}
               />
-              <TextField
+              <DateTimeField
                 label="Время окончания"
-                type="datetime-local"
-                InputLabelProps={{ shrink: true }}
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={setEndTime}
                 disabled={!canEdit || updateMutation.isPending}
               />
 

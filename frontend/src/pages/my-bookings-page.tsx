@@ -16,7 +16,6 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material';
 import { useMemo, useState } from 'react';
@@ -28,6 +27,7 @@ import { useMyBookingsQuery } from '../features/bookings/hooks';
 import { bookingStatusLabelMap, formatBookingDurationLabel, formatBookingInterval } from '../shared/config/booking-ui';
 import { bookingStatusMap } from '../shared/config/status-map';
 import { ContentCard } from '../shared/ui/content-card';
+import { DateTimeField } from '../shared/ui/date-time-field';
 import { FiltersSection } from '../shared/ui/filters-section';
 import { DataListPageTemplate } from '../shared/ui/page-templates';
 import { StatusChip } from '../shared/ui/status-chip';
@@ -106,26 +106,18 @@ export function MyBookingsPage() {
             <Stack spacing={2}>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
-                  <TextField
+                  <DateTimeField
                     label="Начало периода"
-                    type="datetime-local"
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
                     value={query.from ?? ''}
-                    onChange={(e) => setSearchParams(writeQuery({ ...query, from: e.target.value || undefined }))}
+                    onChange={(value) => setSearchParams(writeQuery({ ...query, from: value || undefined }))}
                     helperText="Показываем бронирования, которые начинаются не раньше этого времени."
                   />
                 </Grid>
                 <Grid item xs={12} md={4}>
-                  <TextField
+                  <DateTimeField
                     label="Окончание периода"
-                    type="datetime-local"
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
                     value={query.to ?? ''}
-                    onChange={(e) => setSearchParams(writeQuery({ ...query, to: e.target.value || undefined }))}
+                    onChange={(value) => setSearchParams(writeQuery({ ...query, to: value || undefined }))}
                     helperText="Показываем бронирования, которые заканчиваются до выбранного времени."
                   />
                 </Grid>

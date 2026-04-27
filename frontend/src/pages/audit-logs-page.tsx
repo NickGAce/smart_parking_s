@@ -16,6 +16,7 @@ import {
 import { useDeferredValue, useMemo, useState } from 'react';
 
 import { useAuditLogsQuery } from '../features/audit/use-audit-logs-query';
+import { DateTimeField } from '../shared/ui/date-time-field';
 import { EmptyState } from '../shared/ui/empty-state';
 import { ErrorState } from '../shared/ui/error-state';
 import { FiltersToolbar } from '../shared/ui/filters-toolbar';
@@ -147,31 +148,23 @@ export function AuditLogsPage() {
             />
           </Grid>
           <Grid item xs={12} md={2}>
-            <TextField
+            <DateTimeField
               label="С"
-              type="datetime-local"
-              size="small"
-              fullWidth
               value={from}
-              onChange={(event) => {
-                setFrom(event.target.value);
+              onChange={(value) => {
+                setFrom(value);
                 setPage(0);
               }}
-              InputLabelProps={{ shrink: true }}
             />
           </Grid>
           <Grid item xs={12} md={2}>
-            <TextField
+            <DateTimeField
               label="По"
-              type="datetime-local"
-              size="small"
-              fullWidth
               value={to}
-              onChange={(event) => {
-                setTo(event.target.value);
+              onChange={(value) => {
+                setTo(value);
                 setPage(0);
               }}
-              InputLabelProps={{ shrink: true }}
             />
           </Grid>
         </Grid>
