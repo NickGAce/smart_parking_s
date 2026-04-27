@@ -27,7 +27,11 @@ interface IntervalErrors {
 }
 
 function toApiDateTime(value: string): string {
-  return value;
+  if (!value) {
+    return value;
+  }
+  const normalized = value.length === 16 ? `${value}:00` : value;
+  return normalized;
 }
 
 function validateInterval(startTimeLocal: string, endTimeLocal: string): IntervalErrors {

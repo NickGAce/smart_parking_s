@@ -279,7 +279,13 @@ async def recommend_spots(
             )
         ranked.append(ScoredCandidate(recommended=recommended_spot, factors=factors, constraints=constraints))
 
-    ranked.sort(key=lambda item: (-item.recommended.score, item.recommended.spot_number))
+    ranked.sort(
+        key=lambda item: (
+            1 if prefs.prefer_charger and not item.recommended.has_charger else 0,
+            -item.recommended.score,
+            item.recommended.spot_number,
+        )
+    )
     top = ranked[: prefs.max_results]
     decision_report = _build_decision_report(top, rejected)
 
