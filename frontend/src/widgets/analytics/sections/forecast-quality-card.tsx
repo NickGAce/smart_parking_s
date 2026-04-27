@@ -10,6 +10,11 @@ interface ForecastQualityCardProps {
   isError: boolean;
   data?: ForecastQuality;
   selectedPeriodLabel: string;
+  settings: {
+    historyDays: number;
+    bucketSizeHours: number;
+    forecastQualityBucket: 'hour' | 'day';
+  };
 }
 
 const confidenceColor: Record<ForecastQuality['confidence'], 'error' | 'warning' | 'success'> = {
@@ -44,19 +49,33 @@ function evaluateRmse(rmse: number | null): string {
   return 'Разброс ошибок высокий: возможны сильные промахи в отдельных интервалах.';
 }
 
-function buildPolylinePoints(values: number[], width: number, height: number) {
+function buildPolylinePoints(values: number[], width: number, height: number, maxValue: number, offsetX = 0, offsetY = 0) {
   if (values.length === 0) return '';
   const stepX = values.length > 1 ? width / (values.length - 1) : width;
   return values
     .map((value, index) => {
-      const x = index * stepX;
-      const y = height - (value / 100) * height;
-      return `${x},${Math.max(0, Math.min(height, y))}`;
+      const x = offsetX + index * stepX;
+      const y = offsetY + height - (value / maxValue) * height;
+      return `${x},${Math.max(offsetY, Math.min(offsetY + height, y))}`;
     })
     .join(' ');
 }
 
-export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLabel }: ForecastQualityCardProps) {
+function buildXAxisTicks(length: number, count = 6) {
+  if (length <= 0) return [];
+  if (length === 1) return [0];
+  const step = Math.max(1, Math.floor((length - 1) / (count - 1)));
+  const ticks: number[] = [];
+  for (let i = 0; i < length; i += step) {
+    ticks.push(i);
+  }
+  if (ticks[ticks.length - 1] !== length - 1) {
+    ticks.push(length - 1);
+  }
+  return ticks;
+}
+
+export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLabel, settings }: ForecastQualityCardProps) {
   if (isLoading) {
     return <LoadingState message="Рассчитываем метрики качества прогноза..." />;
   }
@@ -72,9 +91,35 @@ export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLa
   const actualValues = data.comparison_series.map((item) => item.actual_occupancy_percent);
   const forecastValues = data.comparison_series.map((item) => item.predicted_occupancy_percent);
   const chartWidth = 900;
-  const chartHeight = 240;
-  const actualPath = buildPolylinePoints(actualValues, chartWidth, chartHeight);
-  const forecastPath = buildPolylinePoints(forecastValues, chartWidth, chartHeight);
+  const chartHeight = 280;
+  const chartMargins = { top: 8, right: 12, bottom: 34, left: 42 };
+  const plotWidth = chartWidth - chartMargins.left - chartMargins.right;
+  const plotHeight = chartHeight - chartMargins.top - chartMargins.bottom;
+  const errorChartHeight = 170;
+  const errorMargins = { top: 8, right: 12, bottom: 34, left: 42 };
+  const errorPlotHeight = errorChartHeight - errorMargins.top - errorMargins.bottom;
+  const actualPath = buildPolylinePoints(actualValues, plotWidth, plotHeight, 100, chartMargins.left, chartMargins.top);
+  const forecastPath = buildPolylinePoints(forecastValues, plotWidth, plotHeight, 100, chartMargins.left, chartMargins.top);
+  const absoluteErrorValues = data.comparison_series.map((item) => item.absolute_error);
+  const maxErrorAxis = Math.max(25, Math.ceil(Math.max(...absoluteErrorValues, 0) / 5) * 5);
+  const errorPath = buildPolylinePoints(
+    absoluteErrorValues,
+    plotWidth,
+    errorPlotHeight,
+    maxErrorAxis,
+    errorMargins.left,
+    errorMargins.top,
+  );
+  const highErrorThreshold = Math.max(5, data.mae * 1.5);
+  const highErrorPoints = data.comparison_series
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.absolute_error >= highErrorThreshold)
+    .slice(0, 120);
+
+  const topErrorBuckets = [...data.comparison_series]
+    .sort((a, b) => b.absolute_error - a.absolute_error)
+    .slice(0, 5);
+  const xTickIndexes = buildXAxisTicks(data.comparison_series.length, 7);
 
   return (
     <Stack spacing={1.5}>
@@ -95,6 +140,12 @@ export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLa
         {data.rmse !== null && <Typography variant="body2"><strong>RMSE:</strong> {data.rmse.toFixed(2)} п.п.</Typography>}
         <Typography variant="body2"><strong>Sample size:</strong> {data.sample_size}</Typography>
       </Stack>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Chip size="small" variant="outlined" label={`Период: ${selectedPeriodLabel}`} />
+        <Chip size="small" variant="outlined" label={`History: ${settings.historyDays} дн.`} />
+        <Chip size="small" variant="outlined" label={`Bucket прогноза: ${settings.bucketSizeHours} ч`} />
+        <Chip size="small" variant="outlined" label={`Backtest bucket: ${settings.forecastQualityBucket}`} />
+      </Stack>
 
       <Typography variant="caption" color="text.secondary">
         Период оценки: {new Date(data.evaluated_period.from_time).toLocaleString()} — {new Date(data.evaluated_period.to_time).toLocaleString()} ({data.evaluated_period.bucket}).
@@ -112,22 +163,100 @@ export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLa
           <Box sx={{ border: (theme) => `1px solid ${theme.palette.divider}`, borderRadius: 1.5, p: 1, overflowX: 'auto' }}>
             <svg width={chartWidth} height={chartHeight} role="img" aria-label="График факт и прогноз загрузки">
               {[0, 25, 50, 75, 100].map((value) => {
-                const y = chartHeight - (value / 100) * chartHeight;
+                const y = chartMargins.top + plotHeight - (value / 100) * plotHeight;
                 return (
                   <g key={value}>
-                    <line x1={0} x2={chartWidth} y1={y} y2={y} stroke="#e0e0e0" strokeDasharray="4 3" />
-                    <text x={4} y={Math.max(12, y - 2)} fill="#757575" fontSize="10">{value}%</text>
+                    <line x1={chartMargins.left} x2={chartWidth - chartMargins.right} y1={y} y2={y} stroke="#e0e0e0" strokeDasharray="4 3" />
+                    <text x={6} y={Math.max(12, y - 2)} fill="#757575" fontSize="10">{value}%</text>
                   </g>
                 );
               })}
               <polyline fill="none" stroke="#2e7d32" strokeWidth={2.5} points={actualPath} />
               <polyline fill="none" stroke="#1976d2" strokeWidth={2.5} points={forecastPath} />
+              {highErrorPoints.map(({ item, index }) => {
+                const x = data.comparison_series.length <= 1
+                  ? chartMargins.left
+                  : chartMargins.left + (index / (data.comparison_series.length - 1)) * plotWidth;
+                return <line key={`${item.time_bucket}-${index}`} x1={x} x2={x} y1={chartMargins.top} y2={chartMargins.top + plotHeight} stroke="#ff9800" strokeOpacity={0.25} />;
+              })}
+              <line x1={chartMargins.left} y1={chartMargins.top + plotHeight} x2={chartWidth - chartMargins.right} y2={chartMargins.top + plotHeight} stroke="#bdbdbd" />
+              {xTickIndexes.map((tickIndex) => {
+                const x = data.comparison_series.length <= 1
+                  ? chartMargins.left
+                  : chartMargins.left + (tickIndex / (data.comparison_series.length - 1)) * plotWidth;
+                const bucket = data.comparison_series[tickIndex];
+                if (!bucket) return null;
+                const label = new Date(bucket.time_bucket).toLocaleString([], {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
+                return (
+                  <g key={`main-tick-${tickIndex}`}>
+                    <line x1={x} x2={x} y1={chartMargins.top + plotHeight} y2={chartMargins.top + plotHeight + 5} stroke="#9e9e9e" />
+                    <text x={x} y={chartMargins.top + plotHeight + 17} fill="#616161" fontSize="10" textAnchor="middle">
+                      {label}
+                    </text>
+                  </g>
+                );
+              })}
+              <text x={chartMargins.left - 30} y={chartMargins.top + 10} fill="#616161" fontSize="10">Y: %</text>
+              <text x={chartWidth / 2} y={chartHeight - 4} fill="#616161" fontSize="10" textAnchor="middle">X: время</text>
             </svg>
             <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
               <Typography variant="caption" color="text.secondary">🟢 Факт</Typography>
               <Typography variant="caption" color="text.secondary">🔵 Прогноз</Typography>
+              <Typography variant="caption" color="text.secondary">🟠 Зоны больших ошибок</Typography>
             </Stack>
+            <Typography variant="caption" color="text.secondary">Ось Y: загрузка, % • Ось X: время (бакеты).</Typography>
           </Box>
+        )}
+      </Stack>
+
+      <Stack spacing={0.8}>
+        <Typography variant="body2"><strong>График абсолютной ошибки (|факт - прогноз|)</strong></Typography>
+        {data.comparison_series.length === 0 ? (
+          <Typography variant="caption" color="text.secondary">Нет точек для визуализации.</Typography>
+        ) : (
+          <Box sx={{ border: (theme) => `1px solid ${theme.palette.divider}`, borderRadius: 1.5, p: 1, overflowX: 'auto' }}>
+            <svg width={chartWidth} height={errorChartHeight} role="img" aria-label="График абсолютной ошибки прогноза">
+              {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                const value = Math.round(maxErrorAxis * ratio);
+                const y = errorMargins.top + errorPlotHeight - ratio * errorPlotHeight;
+                return (
+                  <g key={value}>
+                    <line x1={errorMargins.left} x2={chartWidth - errorMargins.right} y1={y} y2={y} stroke="#eeeeee" />
+                    <text x={4} y={Math.max(10, y - 2)} fill="#757575" fontSize="10">{value}</text>
+                  </g>
+                );
+              })}
+              <polyline fill="none" stroke="#ef6c00" strokeWidth={2.2} points={errorPath} />
+              <line x1={errorMargins.left} y1={errorMargins.top + errorPlotHeight} x2={chartWidth - errorMargins.right} y2={errorMargins.top + errorPlotHeight} stroke="#bdbdbd" />
+              {xTickIndexes.map((tickIndex) => {
+                const x = data.comparison_series.length <= 1
+                  ? errorMargins.left
+                  : errorMargins.left + (tickIndex / (data.comparison_series.length - 1)) * plotWidth;
+                return <line key={`error-tick-${tickIndex}`} x1={x} x2={x} y1={errorMargins.top + errorPlotHeight} y2={errorMargins.top + errorPlotHeight + 5} stroke="#9e9e9e" />;
+              })}
+              <text x={errorMargins.left - 36} y={errorMargins.top + 10} fill="#616161" fontSize="10">Y: п.п.</text>
+              <text x={chartWidth / 2} y={errorChartHeight - 4} fill="#616161" fontSize="10" textAnchor="middle">X: время</text>
+            </svg>
+            <Typography variant="caption" color="text.secondary">Ось Y: абсолютная ошибка, п.п. • Ось X: время (бакеты).</Typography>
+          </Box>
+        )}
+      </Stack>
+
+      <Stack spacing={0.5}>
+        <Typography variant="body2"><strong>Худшие интервалы (топ-5 по ошибке):</strong></Typography>
+        {topErrorBuckets.length === 0 ? (
+          <Typography variant="caption" color="text.secondary">Нет данных.</Typography>
+        ) : (
+          topErrorBuckets.map((item) => (
+            <Typography key={item.time_bucket} variant="caption" color="text.secondary">
+              {new Date(item.time_bucket).toLocaleString()}: факт {item.actual_occupancy_percent.toFixed(1)}% / прогноз {item.predicted_occupancy_percent.toFixed(1)}% / ошибка {item.absolute_error.toFixed(1)} п.п.
+            </Typography>
+          ))
         )}
       </Stack>
 

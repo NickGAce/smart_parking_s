@@ -143,39 +143,19 @@ class HistoricalPatternForecastModel:
         values = [value for _, value in historical_series]
         global_avg = mean(values) if values else 0.0
 
-        by_dow: dict[int, list[float]] = {}
-        by_hour: dict[int, list[float]] = {}
-        by_dow_hour: dict[tuple[int, int], list[float]] = {}
-        for bucket_start, value in historical_series:
-            by_dow.setdefault(bucket_start.weekday(), []).append(value)
-            by_hour.setdefault(bucket_start.hour, []).append(value)
-            by_dow_hour.setdefault((bucket_start.weekday(), bucket_start.hour), []).append(value)
-
         result: list[ForecastBucket] = []
         moving_pool = values[-filters.moving_average_window :] if filters.moving_average_window > 0 else []
 
         for bucket_start in _iter_buckets(filters.target_from, filters.target_to, filters.bucket_size_hours):
-            dow_values = by_dow.get(bucket_start.weekday(), [])
-            hour_values = by_hour.get(bucket_start.hour, [])
-            dow_hour_values = by_dow_hour.get((bucket_start.weekday(), bucket_start.hour), [])
-
-            dow_avg = mean(dow_values) if dow_values else global_avg
-            hour_avg = mean(hour_values) if hour_values else global_avg
-            dow_hour_avg = mean(dow_hour_values) if dow_hour_values else (dow_avg + hour_avg) / 2
-
-            if len(dow_hour_values) >= 3:
-                base_prediction = (0.5 * dow_hour_avg) + (0.2 * dow_avg) + (0.2 * hour_avg) + (0.1 * global_avg)
-            else:
-                base_prediction = (0.4 * dow_avg) + (0.4 * hour_avg) + (0.2 * global_avg)
+            base_prediction, samples = _predict_bucket_value(bucket_start, historical_series)
 
             if moving_pool:
                 sma = mean(moving_pool)
-                prediction = (0.8 * base_prediction) + (0.2 * sma)
+                prediction = (0.9 * base_prediction) + (0.1 * sma)
             else:
                 prediction = base_prediction
 
             prediction = round(min(max(prediction, 0.0), 100.0), 2)
-            samples = len(dow_hour_values)
 
             if samples >= 6:
                 confidence = "high"
@@ -201,7 +181,7 @@ class HistoricalPatternForecastModel:
             )
 
             if filters.moving_average_window > 0:
-                moving_pool.append(prediction)
+                moving_pool.append(base_prediction)
                 if len(moving_pool) > filters.moving_average_window:
                     moving_pool.pop(0)
 
@@ -576,38 +556,232 @@ def _rolling_prediction_for_bucket(
     historical_series: list[tuple[datetime, float]],
     moving_average_window: int = 24,
 ) -> tuple[float, int]:
+    base_prediction, samples = _predict_bucket_value(bucket_start, historical_series)
+
+    if moving_average_window > 0:
+        values = [value for _, value in historical_series]
+        moving_pool = values[-moving_average_window:]
+        if moving_pool:
+            base_prediction = (0.9 * base_prediction) + (0.1 * mean(moving_pool))
+
+    return round(min(max(base_prediction, 0.0), 100.0), 2), samples
+
+
+def _predict_bucket_value(
+    bucket_start: datetime,
+    historical_series: list[tuple[datetime, float]],
+) -> tuple[float, int]:
     values = [value for _, value in historical_series]
     if not values:
         return 0.0, 0
 
     global_avg = mean(values)
-    by_dow: dict[int, list[float]] = {}
-    by_hour: dict[int, list[float]] = {}
-    by_dow_hour: dict[tuple[int, int], list[float]] = {}
+    dow_values: list[tuple[datetime, float]] = []
+    hour_values: list[tuple[datetime, float]] = []
+    dow_hour_values: list[tuple[datetime, float]] = []
     for historical_bucket, value in historical_series:
-        by_dow.setdefault(historical_bucket.weekday(), []).append(value)
-        by_hour.setdefault(historical_bucket.hour, []).append(value)
-        by_dow_hour.setdefault((historical_bucket.weekday(), historical_bucket.hour), []).append(value)
+        if historical_bucket.weekday() == bucket_start.weekday():
+            dow_values.append((historical_bucket, value))
+        if historical_bucket.hour == bucket_start.hour:
+            hour_values.append((historical_bucket, value))
+        if historical_bucket.weekday() == bucket_start.weekday() and historical_bucket.hour == bucket_start.hour:
+            dow_hour_values.append((historical_bucket, value))
 
-    dow_values = by_dow.get(bucket_start.weekday(), [])
-    hour_values = by_hour.get(bucket_start.hour, [])
-    dow_hour_values = by_dow_hour.get((bucket_start.weekday(), bucket_start.hour), [])
+    history_span_days = max((bucket_start - historical_series[0][0]).total_seconds() / 86400.0, 1.0)
+    half_life_days = _adaptive_half_life_days(history_span_days)
 
-    dow_avg = mean(dow_values) if dow_values else global_avg
-    hour_avg = mean(hour_values) if hour_values else global_avg
-    dow_hour_avg = mean(dow_hour_values) if dow_hour_values else (dow_avg + hour_avg) / 2
+    dow_avg = _recency_weighted_mean(dow_values, bucket_start, default=global_avg, half_life_days=half_life_days)
+    hour_avg = _recency_weighted_mean(hour_values, bucket_start, default=global_avg, half_life_days=half_life_days)
+    dow_hour_avg = _recency_weighted_mean(
+        dow_hour_values,
+        bucket_start,
+        default=(dow_avg + hour_avg) / 2,
+        half_life_days=half_life_days,
+    )
+    day_type_avg = _day_type_average(bucket_start, historical_series, global_avg, half_life_days=half_life_days)
+    same_hour_last_week = _same_hour_last_weeks_average(bucket_start, historical_series)
+    spike_signal = _spike_signal(bucket_start, dow_hour_values, hour_values, default=hour_avg, half_life_days=half_life_days)
 
-    if len(dow_hour_values) >= 3:
-        base_prediction = (0.5 * dow_hour_avg) + (0.2 * dow_avg) + (0.2 * hour_avg) + (0.1 * global_avg)
+    samples = len(dow_hour_values)
+    if samples >= 6:
+        base_prediction = (
+            (0.28 * dow_hour_avg)
+            + (0.18 * dow_avg)
+            + (0.14 * hour_avg)
+            + (0.1 * global_avg)
+            + (0.1 * same_hour_last_week)
+            + (0.05 * day_type_avg)
+            + (0.15 * spike_signal)
+        )
+    elif samples >= 3:
+        base_prediction = (
+            (0.15 * dow_hour_avg)
+            + (0.23 * dow_avg)
+            + (0.2 * hour_avg)
+            + (0.1 * global_avg)
+            + (0.1 * same_hour_last_week)
+            + (0.05 * day_type_avg)
+            + (0.17 * spike_signal)
+        )
     else:
-        base_prediction = (0.4 * dow_avg) + (0.4 * hour_avg) + (0.2 * global_avg)
+        base_prediction = (
+            (0.2 * dow_avg)
+            + (0.2 * hour_avg)
+            + (0.2 * global_avg)
+            + (0.18 * same_hour_last_week)
+            + (0.1 * day_type_avg)
+            + (0.12 * spike_signal)
+        )
 
-    if moving_average_window > 0:
-        moving_pool = values[-moving_average_window:]
-        if moving_pool:
-            base_prediction = (0.8 * base_prediction) + (0.2 * mean(moving_pool))
+    return base_prediction, samples
 
-    return round(min(max(base_prediction, 0.0), 100.0), 2), len(dow_hour_values)
+
+def _adaptive_half_life_days(history_span_days: float) -> float:
+    """
+    Short windows keep model reactive, long windows prevent overfitting to the latest week.
+    """
+    return min(max(history_span_days * 0.3, 10.0), 45.0)
+
+
+def _recency_weighted_mean(
+    items: list[tuple[datetime, float]],
+    reference_time: datetime,
+    default: float,
+    half_life_days: float = 14.0,
+) -> float:
+    if not items:
+        return default
+
+    decay = math.log(2) / max(half_life_days, 0.1)
+    weighted_sum = 0.0
+    weights_sum = 0.0
+    for timestamp, value in items:
+        age_days = max((reference_time - timestamp).total_seconds() / 86400.0, 0.0)
+        weight = math.exp(-decay * age_days)
+        weighted_sum += value * weight
+        weights_sum += weight
+    if weights_sum <= 0:
+        return default
+    return weighted_sum / weights_sum
+
+
+def _same_hour_last_weeks_average(
+    bucket_start: datetime,
+    historical_series: list[tuple[datetime, float]],
+) -> float:
+    by_bucket = dict(historical_series)
+    weekly_values: list[tuple[int, float]] = []
+    for weeks_back in range(1, 9):
+        candidate_bucket = bucket_start - timedelta(days=7 * weeks_back)
+        value = by_bucket.get(candidate_bucket)
+        if value is not None:
+            weekly_values.append((weeks_back, value))
+    if not weekly_values:
+        return 0.0
+    weighted_sum = 0.0
+    weights_sum = 0.0
+    for weeks_back, value in weekly_values:
+        weight = 1 / weeks_back
+        weighted_sum += value * weight
+        weights_sum += weight
+    if weights_sum <= 0:
+        return 0.0
+    return weighted_sum / weights_sum
+
+
+def _day_type_average(
+    bucket_start: datetime,
+    historical_series: list[tuple[datetime, float]],
+    default: float,
+    half_life_days: float,
+) -> float:
+    target_is_workday = bucket_start.weekday() < 5
+    day_type_values = [
+        (time_bucket, value)
+        for time_bucket, value in historical_series
+        if (time_bucket.weekday() < 5) == target_is_workday and time_bucket.hour == bucket_start.hour
+    ]
+    return _recency_weighted_mean(day_type_values, bucket_start, default=default, half_life_days=half_life_days)
+
+
+def _spike_signal(
+    bucket_start: datetime,
+    dow_hour_values: list[tuple[datetime, float]],
+    hour_values: list[tuple[datetime, float]],
+    default: float,
+    half_life_days: float,
+    active_threshold: float = 1.0,
+) -> float:
+    """
+    Spike-aware signal for intermittent demand:
+    expected value = P(active) * mean(active level).
+    """
+    exact_activity = _recency_weighted_activity_rate(
+        dow_hour_values,
+        bucket_start,
+        threshold=active_threshold,
+        half_life_days=half_life_days,
+    )
+    hour_activity = _recency_weighted_activity_rate(
+        hour_values,
+        bucket_start,
+        threshold=active_threshold,
+        half_life_days=half_life_days,
+    )
+    activity_probability = (0.7 * exact_activity) + (0.3 * hour_activity)
+
+    active_exact_values = [(ts, value) for ts, value in dow_hour_values if value >= active_threshold]
+    active_hour_values = [(ts, value) for ts, value in hour_values if value >= active_threshold]
+    active_level_exact = _recency_weighted_mean(active_exact_values, bucket_start, default=default, half_life_days=half_life_days)
+    active_level_hour = _recency_weighted_mean(active_hour_values, bucket_start, default=default, half_life_days=half_life_days)
+    active_level = (0.6 * active_level_exact) + (0.4 * active_level_hour)
+    expected_level = activity_probability * active_level
+    recent_peak = _recent_same_hour_peak(bucket_start, dow_hour_values, default=default)
+
+    if activity_probability >= 0.45:
+        return (0.55 * active_level) + (0.25 * expected_level) + (0.2 * recent_peak)
+    if activity_probability >= 0.25:
+        return (0.45 * expected_level) + (0.35 * active_level) + (0.2 * recent_peak)
+    return (0.7 * expected_level) + (0.3 * recent_peak)
+
+
+def _recency_weighted_activity_rate(
+    items: list[tuple[datetime, float]],
+    reference_time: datetime,
+    threshold: float,
+    half_life_days: float,
+) -> float:
+    if not items:
+        return 0.0
+
+    decay = math.log(2) / max(half_life_days, 0.1)
+    active_weight = 0.0
+    total_weight = 0.0
+    for timestamp, value in items:
+        age_days = max((reference_time - timestamp).total_seconds() / 86400.0, 0.0)
+        weight = math.exp(-decay * age_days)
+        total_weight += weight
+        if value >= threshold:
+            active_weight += weight
+
+    if total_weight <= 0:
+        return 0.0
+    return active_weight / total_weight
+
+
+def _recent_same_hour_peak(
+    bucket_start: datetime,
+    dow_hour_values: list[tuple[datetime, float]],
+    default: float,
+) -> float:
+    recent_values = [
+        value
+        for time_bucket, value in dow_hour_values
+        if (bucket_start - time_bucket) <= timedelta(days=21)
+    ]
+    if not recent_values:
+        return default
+    return max(recent_values)
 
 
 async def get_forecast_quality(

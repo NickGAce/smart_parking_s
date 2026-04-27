@@ -17,7 +17,16 @@ from app.models.parking_lot import ParkingLot
 from app.models.parking_spot import ParkingSpot, SpotType
 from app.models.parking_zone import ParkingZone
 from app.models.user import User, UserRole
-from app.services.analytics import _calculate_forecast_error_metrics
+from app.services.analytics import (
+    _adaptive_half_life_days,
+    _calculate_forecast_error_metrics,
+    _predict_bucket_value,
+    _recent_same_hour_peak,
+    _recency_weighted_activity_rate,
+    _recency_weighted_mean,
+    _same_hour_last_weeks_average,
+    _spike_signal,
+)
 
 
 def _setup_state():
@@ -211,6 +220,98 @@ def test_forecast_quality_metrics_formula_for_fixed_dataset():
     assert metrics.mae == 10.0
     assert metrics.mape == 18.3333
     assert metrics.rmse == 10.0
+
+
+def test_recency_weighted_mean_prioritizes_recent_values():
+    reference = datetime(2026, 1, 8, 9, 0, 0)
+    value = _recency_weighted_mean(
+        items=[
+            (datetime(2026, 1, 1, 9, 0, 0), 80.0),
+            (datetime(2026, 1, 8, 8, 0, 0), 10.0),
+        ],
+        reference_time=reference,
+        default=0.0,
+        half_life_days=3.0,
+    )
+    assert value < 30.0
+
+
+def test_predict_bucket_value_uses_same_hour_last_week_signal():
+    history = [
+        (datetime(2026, 1, 1, 9, 0, 0), 60.0),
+        (datetime(2026, 1, 2, 9, 0, 0), 5.0),
+        (datetime(2026, 1, 8, 9, 0, 0), 55.0),
+        (datetime(2026, 1, 9, 9, 0, 0), 5.0),
+    ]
+    predicted, samples = _predict_bucket_value(datetime(2026, 1, 15, 9, 0, 0), history)
+    assert samples == 2
+    assert predicted > 10.0
+
+
+def test_adaptive_half_life_grows_for_long_history():
+    assert _adaptive_half_life_days(14) == 10.0
+    assert _adaptive_half_life_days(120) == 36.0
+    assert _adaptive_half_life_days(365) == 45.0
+
+
+def test_same_hour_last_weeks_average_uses_broader_monthly_memory():
+    history = [
+        (datetime(2026, 1, 1, 9, 0, 0), 80.0),   # 8 weeks back
+        (datetime(2026, 1, 8, 9, 0, 0), 60.0),   # 7 weeks back
+        (datetime(2026, 2, 12, 9, 0, 0), 40.0),  # 2 weeks back
+        (datetime(2026, 2, 19, 9, 0, 0), 20.0),  # 1 week back
+    ]
+    value = _same_hour_last_weeks_average(datetime(2026, 2, 26, 9, 0, 0), history)
+    assert 20.0 < value < 50.0
+
+
+def test_recency_weighted_activity_rate_for_sparse_series():
+    reference = datetime(2026, 4, 10, 9, 0, 0)
+    rate = _recency_weighted_activity_rate(
+        items=[
+            (datetime(2026, 4, 3, 9, 0, 0), 0.0),
+            (datetime(2026, 4, 4, 9, 0, 0), 0.0),
+            (datetime(2026, 4, 8, 9, 0, 0), 12.0),
+            (datetime(2026, 4, 9, 9, 0, 0), 15.0),
+        ],
+        reference_time=reference,
+        threshold=1.0,
+        half_life_days=5.0,
+    )
+    assert 0.4 < rate < 0.8
+
+
+def test_spike_signal_increases_when_recent_active_levels_present():
+    reference = datetime(2026, 4, 10, 9, 0, 0)
+    weak_signal = _spike_signal(
+        bucket_start=reference,
+        dow_hour_values=[(datetime(2026, 4, 3, 9, 0, 0), 0.0), (datetime(2026, 4, 9, 9, 0, 0), 0.0)],
+        hour_values=[(datetime(2026, 4, 9, 8, 0, 0), 0.0)],
+        default=2.0,
+        half_life_days=7.0,
+    )
+    strong_signal = _spike_signal(
+        bucket_start=reference,
+        dow_hour_values=[(datetime(2026, 4, 3, 9, 0, 0), 0.0), (datetime(2026, 4, 9, 9, 0, 0), 14.0)],
+        hour_values=[(datetime(2026, 4, 9, 8, 0, 0), 10.0), (datetime(2026, 4, 8, 9, 0, 0), 8.0)],
+        default=2.0,
+        half_life_days=7.0,
+    )
+    assert strong_signal > weak_signal
+
+
+def test_recent_same_hour_peak_prefers_recent_maximum():
+    reference = datetime(2026, 4, 25, 9, 0, 0)
+    peak = _recent_same_hour_peak(
+        bucket_start=reference,
+        dow_hour_values=[
+            (datetime(2026, 3, 1, 9, 0, 0), 30.0),   # too old, should be ignored
+            (datetime(2026, 4, 10, 9, 0, 0), 12.0),
+            (datetime(2026, 4, 17, 9, 0, 0), 19.0),
+        ],
+        default=3.0,
+    )
+    assert peak == 19.0
 
 
 def test_forecast_quality_low_data_returns_low_confidence_and_explanation():
