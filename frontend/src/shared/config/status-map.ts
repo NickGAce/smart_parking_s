@@ -14,7 +14,7 @@ export const bookingStatusMap: Record<BookingStatus, StatusMeta> = {
   completed: { label: 'Завершено', color: 'success' },
   cancelled: { label: 'Отменено', color: 'default' },
   expired: { label: 'Просрочено', color: 'error' },
-  no_show: { label: 'Не заехал', color: 'error' },
+  no_show: { label: 'Неявка', color: 'error' },
 };
 
 export const effectiveStatusMap: Record<SpotEffectiveStatus, StatusMeta> = {

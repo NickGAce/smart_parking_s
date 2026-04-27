@@ -17,6 +17,11 @@ class AnomalyItem(BaseModel):
     anomaly_type: str
     severity: SeverityLevel
     reason: str
+    explanation: str | None = None
+    recommended_action: str | None = None
+    impact: str | None = None
+    related_metric: str | None = None
+    severity_reason: str | None = None
     related_entity: RelatedEntity
     metrics: dict[str, float | int | str] = Field(default_factory=dict)
 

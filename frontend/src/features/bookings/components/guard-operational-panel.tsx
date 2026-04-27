@@ -90,7 +90,7 @@ export function GuardOperationalPanel() {
                         disabled={!canCheckIn || busy}
                         onClick={() => checkInMutation.mutate(booking.id)}
                       >
-                        Заезд
+                        Прибытие
                       </Button>
                       <Button
                         size="small"

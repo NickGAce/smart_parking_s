@@ -246,8 +246,27 @@ Scoring formula:
 - Explainable forecast buckets for target date/range.
 
 ### GET `/analytics/anomalies`
-- Explainable anomaly items with severity/reason/related entity.
-- User-level scope restrictions for non-admin/non-owner/non-guard.
+- Объяснимые аномалии с уровнем критичности, причиной и связанным объектом.
+- Обратная совместимость сохранена: исторические поля не изменены, новые поля объяснимости в схеме optional.
+- Для ролей без расширенных прав применяется ограничение по области видимости пользователя.
+
+Поля элемента аномалии (расширение):
+- `anomaly_type`, `severity`, `reason`, `related_entity`, `metrics`
+- `explanation` — что произошло
+- `impact` — почему это важно
+- `recommended_action` — что рекомендуется сделать
+- `related_metric` — ключевая метрика, связанная с аномалией
+- `severity_reason` — почему выбран уровень `medium/high`
+
+Матрица действий (`anomaly_type` -> `recommended_action`):
+
+| Anomaly type | Recommended action |
+|---|---|
+| `user.frequent_no_show` (high) | Сократить период ожидания подтверждения прибытия и включить автоматические напоминания. |
+| `user.frequent_cancellations` (high) | Пересмотреть правила отмены. |
+| `parking.occupancy_spike` | Включить резервную зону или ограничить гостевые бронирования. |
+| `security.suspicious_access_events` | Проверить неизвестные номера. |
+| `booking.unusual_duration` | Проверить ограничения по максимальной длительности бронирования. |
 
 ### GET `/analytics/management-recommendations`
 - Назначение: управленческие рекомендации по корректировке правил, зонирования, бронирований и контроля доступа.

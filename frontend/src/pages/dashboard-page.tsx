@@ -9,6 +9,7 @@ import { userRoleLabels } from '../shared/config/display-labels';
 import { MetricCard } from '../shared/ui/metric-card';
 import { SectionHeader } from '../shared/ui/section-header';
 import { DashboardPageTemplate } from '../shared/ui/page-templates';
+import { AnomaliesSection } from '../widgets/analytics/sections/anomalies-section';
 
 const DASHBOARD_FILTERS: AnalyticsDashboardFilters = {
   period: 'day',
@@ -179,6 +180,17 @@ export function DashboardPage() {
             <Button component={RouterLink} to="/notifications" size="small" variant="outlined">Уведомления</Button>
             <Button component={RouterLink} to="/analytics" size="small" variant="outlined">Аномалии</Button>
             <Button component={RouterLink} to="/booking-management" size="small" variant="outlined">Бронирования</Button>
+          </Stack>
+          <Stack spacing={1}>
+            <SectionHeader title="Аномалии (компактно)" subtitle="Быстрый обзор; откройте детали по каждой записи." />
+            <AnomaliesSection
+              role={role}
+              isLoading={analytics.anomaliesQuery.isLoading}
+              isError={analytics.anomaliesQuery.isError}
+              data={analytics.anomaliesQuery.data}
+              mode="compact"
+              maxItems={3}
+            />
           </Stack>
         </Stack>
       )}

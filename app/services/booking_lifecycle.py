@@ -121,7 +121,7 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
             booking=booking,
             event_type=NotificationType.booking_no_show,
             title="Бронирование отмечено как неиспользованное",
-            message=f"Бронирование №{booking.id} отмечено как «не заехал».",
+            message=f"Бронирование №{booking.id} отмечено как «неявка».",
         )
 
     expired_bookings = (

@@ -80,8 +80,8 @@ Rules are built on top of already implemented analytics/anomaly primitives (with
    - Action: recommend redistribution and guest-booking limitation in peak.
 
 2. **no_show**
-   - Trigger: elevated no-show rate (15%+).
-   - Action: reduce grace period and enable auto-cancel.
+   - Триггер: повышенная доля неявок (15%+).
+   - Действие: сократить период ожидания подтверждения прибытия и включить автоотмену.
 
 3. **cancellation**
    - Trigger: cancellation rate elevated and recent-half cancellations > previous-half cancellations.
@@ -89,7 +89,7 @@ Rules are built on top of already implemented analytics/anomaly primitives (with
 
 4. **underutilization**
    - Trigger: one zone has persistently low occupancy (<=25%).
-   - Action: repurpose zone as overflow.
+   - Действие: использовать зону как резервную.
 
 5. **zone_imbalance**
    - Trigger: high spread between max/min zone occupancy (40pp+) with overloaded zone.
@@ -100,10 +100,44 @@ Rules are built on top of already implemented analytics/anomaly primitives (with
    - Action: tighten policy for repeated violators and late cancellation behavior.
 
 7. **security**
-   - Trigger: many unknown-plate ANPR audit events in period.
+   - Триггер: много событий с неизвестными номерами в журнале доступа за период.
    - Action: strengthen access control and guard escalation flow.
 
 ### RBAC
 - `admin`: sees recommendations across all lots.
 - `owner`: sees only own parking lots.
 - `tenant`: no access (`403`).
+
+## Модуль объяснимости аномалий (2026-04-27)
+
+### Расширенный payload аномалий
+`GET /api/v1/analytics/anomalies` теперь возвращает расширенный контекст аномалий:
+- `explanation` (что произошло)
+- `impact` (почему это важно)
+- `recommended_action` (что сделать)
+- `related_metric` (метрика-источник)
+- `severity_reason` (почему выбран этот уровень критичности)
+
+Все поля добавлены без ломающих изменений и являются optional в схеме для обратной совместимости.
+
+### Каталог action mapping
+
+| Тип аномалии | Контекст срабатывания | Рекомендуемое действие |
+|---|---|---|
+| `user.frequent_no_show` | Высокая доля неявок у пользователя | Сократить период ожидания подтверждения прибытия / включить напоминания |
+| `user.frequent_cancellations` | Высокая доля отмен у пользователя | Пересмотреть правила отмены |
+| `parking.occupancy_spike` | Резкий всплеск бронирований относительно базового уровня | Включить резервную зону или ограничить гостевые бронирования |
+| `security.suspicious_access_events` | Подозрительные события с неизвестными номерами | Проверить неизвестные номера |
+| `booking.unusual_duration` | Длительность бронирования заметно выше базового уровня | Проверить ограничения по максимальной длительности бронирования |
+
+### Поведение frontend
+- Компактный режим аномалий используется на Dashboard для быстрой приоритизации.
+- Подробный режим используется в карточках страницы аналитики.
+- Модальное окно деталей содержит три блока объяснимости:
+  1. **Что произошло**
+  2. **Почему это важно**
+  3. **Что сделать**
+
+### Дополнительные детекторы аномалий
+- `security.suspicious_access_events`: считает сигналы о неизвестных номерах из журнала доступа.
+- `booking.unusual_duration`: выявляет значимый рост средней длительности бронирования относительно базового окна.

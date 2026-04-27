@@ -90,6 +90,11 @@ export interface Anomaly {
   anomaly_type: string;
   severity: AnomalySeverity;
   reason: string;
+  explanation?: string;
+  recommended_action?: string;
+  impact?: string;
+  related_metric?: string;
+  severity_reason?: string;
   related_entity: AnomalyRelatedEntity;
   metrics: Record<string, string | number>;
 }

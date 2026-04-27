@@ -21,7 +21,7 @@ export function bookingApiErrorMessage(error: ApiError | Error | null | undefine
 const lifecycleErrorHints: Array<{ matchesAny: string[]; message: string }> = [
   {
     matchesAny: ['check-in window', 'check in window', 'window is closed', 'not open yet'],
-    message: 'Окно регистрации заезда закрыто: операция доступна только в разрешённый интервал.',
+    message: 'Окно регистрации прибытия закрыто: операция доступна только в разрешённый интервал.',
   },
   {
     matchesAny: ['too late', 'booking ended', 'window closed'],
@@ -33,7 +33,7 @@ const lifecycleErrorHints: Array<{ matchesAny: string[]; message: string }> = [
   },
   {
     matchesAny: ['grace period', 'too early for no-show', 'grace period not passed'],
-    message: 'Льготное время ещё не прошло: отметка «Не заехал» станет доступна позже.',
+    message: 'Льготное время ещё не прошло: отметка «Неявка» станет доступна позже.',
   },
 ];
 
