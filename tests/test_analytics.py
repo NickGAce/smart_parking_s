@@ -17,7 +17,11 @@ from app.models.parking_lot import ParkingLot
 from app.models.parking_spot import ParkingSpot, SpotType
 from app.models.parking_zone import ParkingZone
 from app.models.user import User, UserRole
-from app.services.analytics import _calculate_forecast_error_metrics
+from app.services.analytics import (
+    _calculate_forecast_error_metrics,
+    _predict_bucket_value,
+    _recency_weighted_mean,
+)
 
 
 def _setup_state():
@@ -211,6 +215,32 @@ def test_forecast_quality_metrics_formula_for_fixed_dataset():
     assert metrics.mae == 10.0
     assert metrics.mape == 18.3333
     assert metrics.rmse == 10.0
+
+
+def test_recency_weighted_mean_prioritizes_recent_values():
+    reference = datetime(2026, 1, 8, 9, 0, 0)
+    value = _recency_weighted_mean(
+        items=[
+            (datetime(2026, 1, 1, 9, 0, 0), 80.0),
+            (datetime(2026, 1, 8, 8, 0, 0), 10.0),
+        ],
+        reference_time=reference,
+        default=0.0,
+        half_life_days=3.0,
+    )
+    assert value < 30.0
+
+
+def test_predict_bucket_value_uses_same_hour_last_week_signal():
+    history = [
+        (datetime(2026, 1, 1, 9, 0, 0), 60.0),
+        (datetime(2026, 1, 2, 9, 0, 0), 5.0),
+        (datetime(2026, 1, 8, 9, 0, 0), 55.0),
+        (datetime(2026, 1, 9, 9, 0, 0), 5.0),
+    ]
+    predicted, samples = _predict_bucket_value(datetime(2026, 1, 15, 9, 0, 0), history)
+    assert samples == 2
+    assert predicted > 10.0
 
 
 def test_forecast_quality_low_data_returns_low_confidence_and_explanation():

@@ -143,39 +143,19 @@ class HistoricalPatternForecastModel:
         values = [value for _, value in historical_series]
         global_avg = mean(values) if values else 0.0
 
-        by_dow: dict[int, list[float]] = {}
-        by_hour: dict[int, list[float]] = {}
-        by_dow_hour: dict[tuple[int, int], list[float]] = {}
-        for bucket_start, value in historical_series:
-            by_dow.setdefault(bucket_start.weekday(), []).append(value)
-            by_hour.setdefault(bucket_start.hour, []).append(value)
-            by_dow_hour.setdefault((bucket_start.weekday(), bucket_start.hour), []).append(value)
-
         result: list[ForecastBucket] = []
         moving_pool = values[-filters.moving_average_window :] if filters.moving_average_window > 0 else []
 
         for bucket_start in _iter_buckets(filters.target_from, filters.target_to, filters.bucket_size_hours):
-            dow_values = by_dow.get(bucket_start.weekday(), [])
-            hour_values = by_hour.get(bucket_start.hour, [])
-            dow_hour_values = by_dow_hour.get((bucket_start.weekday(), bucket_start.hour), [])
-
-            dow_avg = mean(dow_values) if dow_values else global_avg
-            hour_avg = mean(hour_values) if hour_values else global_avg
-            dow_hour_avg = mean(dow_hour_values) if dow_hour_values else (dow_avg + hour_avg) / 2
-
-            if len(dow_hour_values) >= 3:
-                base_prediction = (0.5 * dow_hour_avg) + (0.2 * dow_avg) + (0.2 * hour_avg) + (0.1 * global_avg)
-            else:
-                base_prediction = (0.4 * dow_avg) + (0.4 * hour_avg) + (0.2 * global_avg)
+            base_prediction, samples = _predict_bucket_value(bucket_start, historical_series)
 
             if moving_pool:
                 sma = mean(moving_pool)
-                prediction = (0.8 * base_prediction) + (0.2 * sma)
+                prediction = (0.9 * base_prediction) + (0.1 * sma)
             else:
                 prediction = base_prediction
 
             prediction = round(min(max(prediction, 0.0), 100.0), 2)
-            samples = len(dow_hour_values)
 
             if samples >= 6:
                 confidence = "high"
@@ -201,7 +181,7 @@ class HistoricalPatternForecastModel:
             )
 
             if filters.moving_average_window > 0:
-                moving_pool.append(prediction)
+                moving_pool.append(base_prediction)
                 if len(moving_pool) > filters.moving_average_window:
                     moving_pool.pop(0)
 
@@ -576,38 +556,101 @@ def _rolling_prediction_for_bucket(
     historical_series: list[tuple[datetime, float]],
     moving_average_window: int = 24,
 ) -> tuple[float, int]:
+    base_prediction, samples = _predict_bucket_value(bucket_start, historical_series)
+
+    if moving_average_window > 0:
+        values = [value for _, value in historical_series]
+        moving_pool = values[-moving_average_window:]
+        if moving_pool:
+            base_prediction = (0.9 * base_prediction) + (0.1 * mean(moving_pool))
+
+    return round(min(max(base_prediction, 0.0), 100.0), 2), samples
+
+
+def _predict_bucket_value(
+    bucket_start: datetime,
+    historical_series: list[tuple[datetime, float]],
+) -> tuple[float, int]:
     values = [value for _, value in historical_series]
     if not values:
         return 0.0, 0
 
     global_avg = mean(values)
-    by_dow: dict[int, list[float]] = {}
-    by_hour: dict[int, list[float]] = {}
-    by_dow_hour: dict[tuple[int, int], list[float]] = {}
+    dow_values: list[tuple[datetime, float]] = []
+    hour_values: list[tuple[datetime, float]] = []
+    dow_hour_values: list[tuple[datetime, float]] = []
     for historical_bucket, value in historical_series:
-        by_dow.setdefault(historical_bucket.weekday(), []).append(value)
-        by_hour.setdefault(historical_bucket.hour, []).append(value)
-        by_dow_hour.setdefault((historical_bucket.weekday(), historical_bucket.hour), []).append(value)
+        if historical_bucket.weekday() == bucket_start.weekday():
+            dow_values.append((historical_bucket, value))
+        if historical_bucket.hour == bucket_start.hour:
+            hour_values.append((historical_bucket, value))
+        if historical_bucket.weekday() == bucket_start.weekday() and historical_bucket.hour == bucket_start.hour:
+            dow_hour_values.append((historical_bucket, value))
 
-    dow_values = by_dow.get(bucket_start.weekday(), [])
-    hour_values = by_hour.get(bucket_start.hour, [])
-    dow_hour_values = by_dow_hour.get((bucket_start.weekday(), bucket_start.hour), [])
+    dow_avg = _recency_weighted_mean(dow_values, bucket_start, default=global_avg)
+    hour_avg = _recency_weighted_mean(hour_values, bucket_start, default=global_avg)
+    dow_hour_avg = _recency_weighted_mean(dow_hour_values, bucket_start, default=(dow_avg + hour_avg) / 2)
+    same_hour_last_week = _same_hour_last_weeks_average(bucket_start, historical_series)
 
-    dow_avg = mean(dow_values) if dow_values else global_avg
-    hour_avg = mean(hour_values) if hour_values else global_avg
-    dow_hour_avg = mean(dow_hour_values) if dow_hour_values else (dow_avg + hour_avg) / 2
-
-    if len(dow_hour_values) >= 3:
-        base_prediction = (0.5 * dow_hour_avg) + (0.2 * dow_avg) + (0.2 * hour_avg) + (0.1 * global_avg)
+    samples = len(dow_hour_values)
+    if samples >= 6:
+        base_prediction = (
+            (0.45 * dow_hour_avg)
+            + (0.2 * dow_avg)
+            + (0.15 * hour_avg)
+            + (0.1 * global_avg)
+            + (0.1 * same_hour_last_week)
+        )
+    elif samples >= 3:
+        base_prediction = (
+            (0.3 * dow_hour_avg)
+            + (0.3 * dow_avg)
+            + (0.2 * hour_avg)
+            + (0.1 * global_avg)
+            + (0.1 * same_hour_last_week)
+        )
     else:
-        base_prediction = (0.4 * dow_avg) + (0.4 * hour_avg) + (0.2 * global_avg)
+        base_prediction = (0.35 * dow_avg) + (0.25 * hour_avg) + (0.2 * global_avg) + (0.2 * same_hour_last_week)
 
-    if moving_average_window > 0:
-        moving_pool = values[-moving_average_window:]
-        if moving_pool:
-            base_prediction = (0.8 * base_prediction) + (0.2 * mean(moving_pool))
+    return base_prediction, samples
 
-    return round(min(max(base_prediction, 0.0), 100.0), 2), len(dow_hour_values)
+
+def _recency_weighted_mean(
+    items: list[tuple[datetime, float]],
+    reference_time: datetime,
+    default: float,
+    half_life_days: float = 14.0,
+) -> float:
+    if not items:
+        return default
+
+    decay = math.log(2) / max(half_life_days, 0.1)
+    weighted_sum = 0.0
+    weights_sum = 0.0
+    for timestamp, value in items:
+        age_days = max((reference_time - timestamp).total_seconds() / 86400.0, 0.0)
+        weight = math.exp(-decay * age_days)
+        weighted_sum += value * weight
+        weights_sum += weight
+    if weights_sum <= 0:
+        return default
+    return weighted_sum / weights_sum
+
+
+def _same_hour_last_weeks_average(
+    bucket_start: datetime,
+    historical_series: list[tuple[datetime, float]],
+) -> float:
+    by_bucket = dict(historical_series)
+    weekly_values: list[float] = []
+    for weeks_back in (1, 2, 3):
+        candidate_bucket = bucket_start - timedelta(days=7 * weeks_back)
+        value = by_bucket.get(candidate_bucket)
+        if value is not None:
+            weekly_values.append(value)
+    if not weekly_values:
+        return 0.0
+    return mean(weekly_values)
 
 
 async def get_forecast_quality(
