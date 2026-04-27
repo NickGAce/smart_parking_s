@@ -3,7 +3,7 @@ from app.api.v1.endpoints import auth, admin_users
 from fastapi import Depends
 from app.api.deps import get_current_user, require_roles
 from app.models.user import UserRole
-from app.api.v1.endpoints import analytics, anomalies, audit_logs, bookings, notifications, parking, parking_spots, recommendations
+from app.api.v1.endpoints import access_events, analytics, anomalies, audit_logs, bookings, notifications, parking, parking_spots, recommendations, vehicles
 
 
 router = APIRouter(prefix="/api/v1")
@@ -12,6 +12,8 @@ router.include_router(admin_users.router)
 router.include_router(parking.router)
 router.include_router(parking_spots.router)
 router.include_router(bookings.router)
+router.include_router(vehicles.router)
+router.include_router(access_events.router)
 router.include_router(notifications.router)
 router.include_router(audit_logs.router)
 router.include_router(recommendations.router)

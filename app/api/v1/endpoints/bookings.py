@@ -13,6 +13,7 @@ from app.models.notification import NotificationType
 from app.models.parking_lot import ParkingLot
 from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
+from app.models.vehicle import Vehicle
 from app.schemas.booking import BookingCreate, BookingOut, BookingUpdate
 from app.schemas.pagination import BookingListResponse, PaginationMeta
 from app.services.booking_lifecycle import run_booking_lifecycle_sync, sync_parking_spot_statuses
@@ -31,6 +32,7 @@ from app.services.bookings import (
 )
 from app.services.parking_rules import get_parking_lot_with_rules, validate_booking_against_lot_rules
 from app.services.recommendations import pick_best_spot_for_booking
+from app.services.vehicles import find_primary_vehicle
 from app.services.audit import build_source_metadata, log_audit_event
 from app.services.notifications import notification_service
 
@@ -80,8 +82,10 @@ def _booking_to_out(
         id=booking.id,
         user_id=booking.user_id,
         parking_spot_id=booking.parking_spot_id,
+        vehicle_id=booking.vehicle_id,
         type=booking.type,
         status=booking.status,
+        plate_number=booking.plate_number,
         start_time=to_client_datetime(booking.start_time, client_timezone),
         end_time=to_client_datetime(booking.end_time, client_timezone),
         assignment_mode=assignment_mode,
@@ -170,13 +174,27 @@ async def create_booking(
         )
         raise HTTPException(status_code=409, detail=detail)
 
+    selected_vehicle = None
+    if payload.vehicle_id is not None:
+        selected_vehicle = (
+            await session.execute(select(Vehicle).where(Vehicle.id == payload.vehicle_id))
+        ).scalar_one_or_none()
+        if selected_vehicle is None:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        if not _is_admin(current_user) and selected_vehicle.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not enough permissions for vehicle")
+    else:
+        selected_vehicle = await find_primary_vehicle(session, current_user.id)
+
     booking = Booking(
         start_time=start_time,
         end_time=end_time,
         type=payload.type,
         parking_spot_id=selected_spot_id,
         user_id=current_user.id,
+        vehicle_id=selected_vehicle.id if selected_vehicle else None,
         status=derive_initial_booking_status(start_time=start_time, end_time=end_time, now=server_now),
+        plate_number=payload.plate_number or (selected_vehicle.plate_number if selected_vehicle else None),
     )
     session.add(booking)
     await session.flush()
@@ -189,6 +207,8 @@ async def create_booking(
         new_values={
             "parking_spot_id": booking.parking_spot_id,
             "status": booking.status.value,
+            "vehicle_id": booking.vehicle_id,
+            "plate_number": booking.plate_number,
             "type": booking.type.value,
             "start_time": booking.start_time.isoformat(),
             "end_time": booking.end_time.isoformat(),

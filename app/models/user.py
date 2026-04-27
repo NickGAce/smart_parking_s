@@ -5,6 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 from app.models.booking import Booking  # Импортируем модель Booking
 from app.models.notification import Notification
+from app.models.vehicle import Vehicle
 
 
 class UserRole(str, enum.Enum):
@@ -30,6 +31,7 @@ class User(Base):
     # Связь с бронями
     bookings: Mapped[list[Booking]] = relationship("Booking", back_populates="user")  # Добавляем связь с бронями
     notifications: Mapped[list[Notification]] = relationship("Notification", back_populates="user")
+    vehicles: Mapped[list[Vehicle]] = relationship("Vehicle", back_populates="user")
 
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email}, role={self.role})>"

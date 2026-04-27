@@ -5,6 +5,7 @@ import type { AnalyticsDashboardFilters } from '../features/analytics/use-analyt
 import { useAnalyticsDashboard } from '../features/analytics/use-analytics-dashboard';
 import { useCurrentUser } from '../features/auth/use-current-user';
 import { useUnreadNotificationsCountQuery } from '../features/notifications/use-notifications-query';
+import { useLatestAccessEventsQuery } from '../features/access-events/hooks';
 import { userRoleLabels } from '../shared/config/display-labels';
 import { MetricCard } from '../shared/ui/metric-card';
 import { SectionHeader } from '../shared/ui/section-header';
@@ -29,6 +30,17 @@ function formatPercent(value?: number, digits = 1) {
   return `${value.toFixed(digits)}%`;
 }
 
+const directionLabel: Record<'entry' | 'exit', string> = {
+  entry: 'Въезд',
+  exit: 'Выезд',
+};
+
+const decisionLabel: Record<'allowed' | 'review' | 'denied', string> = {
+  allowed: 'Разрешено',
+  review: 'Проверка',
+  denied: 'Запрещено',
+};
+
 function formatDelta(value: number) {
   if (value === 0) return '0 п.п.';
   return `${value > 0 ? '+' : ''}${value.toFixed(1)} п.п.`;
@@ -38,6 +50,7 @@ export function DashboardPage() {
   const { user, role } = useCurrentUser();
   const analytics = useAnalyticsDashboard(DASHBOARD_FILTERS, role);
   const unreadNotificationsQuery = useUnreadNotificationsCountQuery();
+  const latestAccessEventsQuery = useLatestAccessEventsQuery(5);
 
   const summary = analytics.summaryQuery.data;
   const occupancy = analytics.occupancyQuery.data;
@@ -181,6 +194,19 @@ export function DashboardPage() {
             <Button component={RouterLink} to="/notifications" size="small" variant="outlined">Уведомления</Button>
             <Button component={RouterLink} to="/analytics" size="small" variant="outlined">Аномалии</Button>
             <Button component={RouterLink} to="/booking-management" size="small" variant="outlined">Бронирования</Button>
+          </Stack>
+          <Stack spacing={1}>
+            <SectionHeader title="Контроль доступа (последние события)" subtitle="ANPR/LPR события въезда и выезда." />
+            {(latestAccessEventsQuery.data?.items ?? []).slice(0, 3).map((event) => (
+              <MetricCard
+                key={event.id}
+                align="left"
+                label={`${event.plate_number} · ${directionLabel[event.direction]}`}
+                value={decisionLabel[event.decision]}
+                secondaryValue={event.reason}
+                helperText={new Date(event.created_at).toLocaleString()}
+              />
+            ))}
           </Stack>
           <Stack spacing={1}>
             <SectionHeader title="Аномалии (компактно)" subtitle="Быстрый обзор; откройте детали по каждой записи." />

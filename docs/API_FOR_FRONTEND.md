@@ -383,3 +383,35 @@ Scoring formula:
 | GET | `/analytics/forecast-quality` | yes | admin/owner | forecast quality metrics |
 | GET | `/analytics/anomalies` | yes | auth | scoped anomaly visibility |
 | GET | `/analytics/management-recommendations` | yes | admin/owner | intelligent management actions |
+
+## ANPR / Контроль доступа
+
+### Новые endpoint'ы
+- `POST /api/v1/access-events/recognize` — mock-распознавание номера по `image_token`/`plate_number_hint`.
+- `POST /api/v1/access-events/manual` — ручная фиксация события доступа.
+- `GET /api/v1/access-events` — список событий с фильтрами `parking_lot_id`, `plate_number`, `decision`, `direction`, `date_from`, `date_to`.
+- `GET /api/v1/access-events/{id}` — детали события.
+
+### Ответ события
+Событие содержит: `decision` (`allowed|review|denied`), `reason`, связи на `booking_id`, `parking_spot_id`, `user_id`, а также `recognition_confidence` и `recognition_source`.
+
+### Расширение бронирования
+`Booking` теперь поддерживает необязательное поле `plate_number` для автоматического сопоставления при въезде/выезде.
+
+## API автомобилей
+- `POST /api/v1/vehicles` — создать автомобиль пользователя.
+- `GET /api/v1/vehicles` — список автомобилей (admin видит все, пользователь — свои).
+- `PATCH /api/v1/vehicles/{id}` — обновить автомобиль.
+- `DELETE /api/v1/vehicles/{id}` — удалить автомобиль.
+
+## API загрузки в ANPR-конвейер
+- `POST /api/v1/access-events/recognize/image` (multipart/form-data): `file`, `parking_lot_id`, `direction`, необязательный `plate_hint`.
+- `POST /api/v1/access-events/recognize/video` (multipart/form-data): `file`, `parking_lot_id`, `direction`, необязательный `plate_hint`.
+
+## Медиа-поля события доступа
+`access-event` ответ теперь дополнительно содержит:
+- `vehicle_id`
+- `image_url`
+- `video_url`
+- `frame_timestamp`
+- `processing_status` (`pending|processed|failed`)
