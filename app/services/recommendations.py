@@ -135,6 +135,8 @@ async def recommend_spots(
             rejected.append(
                 RejectedCandidate(
                     spot_id=spot.id,
+                    spot_number=spot.spot_number,
+                    spot_label=f"Место №{spot.spot_number}",
                     reason="Место заблокировано",
                     constraint="spot_status_available",
                 )
@@ -144,6 +146,8 @@ async def recommend_spots(
             rejected.append(
                 RejectedCandidate(
                     spot_id=spot.id,
+                    spot_number=spot.spot_number,
+                    spot_label=f"Место №{spot.spot_number}",
                     reason="Место пересекается с активным бронированием",
                     constraint="interval_conflict",
                 )
@@ -154,6 +158,8 @@ async def recommend_spots(
             rejected.append(
                 RejectedCandidate(
                     spot_id=spot.id,
+                    spot_number=spot.spot_number,
+                    spot_label=f"Место №{spot.spot_number}",
                     reason="Место недоступно для роли пользователя или требования доступности",
                     constraint="role_access",
                 )
@@ -163,6 +169,8 @@ async def recommend_spots(
             rejected.append(
                 RejectedCandidate(
                     spot_id=spot.id,
+                    spot_number=spot.spot_number,
+                    spot_label=f"Место №{spot.spot_number}",
                     reason="Отклонено по предпочтению: требуется место с зарядкой",
                     constraint="charger_preference",
                 )
@@ -261,11 +269,11 @@ async def recommend_spots(
                 explanation=f"Роль '{normalized_role.value}' имеет доступ к этому месту",
             ),
         ]
-        if charger_preference_mode in {"strict_prefer", "soft_prefer"}:
+        if charger_preference_mode in {"strict_prefer", "soft_prefer"} and spot.has_charger:
             constraints.append(
                 DecisionConstraint(
                     name="charger_preference",
-                    passed=spot.has_charger,
+                    passed=True,
                     explanation="Предпочтение по зарядке учтено",
                 )
             )

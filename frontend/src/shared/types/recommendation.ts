@@ -24,6 +24,8 @@ export interface DecisionConstraint {
 
 export interface RejectedCandidate {
   spot_id: number;
+  spot_number?: number | null;
+  spot_label?: string | null;
   reason: string;
   constraint: string | null;
 }

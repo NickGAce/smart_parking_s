@@ -201,9 +201,16 @@ export function CreateBookingPage() {
     mutationFn: recommendationsApi.getSpotRecommendations,
   });
   const zoneOptionsQuery = useQuery({
-    queryKey: ['booking-create-zones', parkingLotId],
-    queryFn: () => parkingSpotsApi.getSpots({ parking_lot_id: parkingLotId as number, limit: 300, offset: 0 }),
-    enabled: typeof parkingLotId === 'number',
+    queryKey: ['booking-create-zones', parkingLotId, startTimeLocal, endTimeLocal],
+    queryFn: () =>
+      parkingSpotsApi.getSpots({
+        parking_lot_id: parkingLotId as number,
+        from: toApiDateTime(startTimeLocal),
+        to: toApiDateTime(endTimeLocal),
+        limit: 300,
+        offset: 0,
+      }),
+    enabled: hasValidSelection,
   });
 
   const createBookingMutation = useCreateBookingMutation();
@@ -465,6 +472,11 @@ export function CreateBookingPage() {
                       <MenuItem key={zone.id} value={zone.id}>{zone.name}</MenuItem>
                     ))}
                   </TextField>
+                  {zoneOptionsQuery.isError && (
+                    <Typography variant="caption" color="error">
+                      Не удалось загрузить зоны, фильтр по зонам временно недоступен.
+                    </Typography>
+                  )}
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <TextField select label="Размер места" value={sizeCategory} onChange={(event) => setSizeCategory(event.target.value as SizeCategory | '')} fullWidth>

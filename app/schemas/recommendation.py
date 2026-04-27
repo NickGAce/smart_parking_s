@@ -77,6 +77,8 @@ class DecisionConstraint(BaseModel):
 
 class RejectedCandidate(BaseModel):
     spot_id: int
+    spot_number: int | None = None
+    spot_label: str | None = None
     reason: str
     constraint: str | None = None
 

@@ -85,7 +85,7 @@ export function DecisionReportPanel({ report, title = 'Отчёт о приня�
               {report.rejected_candidates.map((candidate) => (
                 <ListItem key={`${candidate.spot_id}-${candidate.reason}`} disableGutters>
                   <ListItemText
-                    primary={`Место №${candidate.spot_id}: ${candidate.reason}`}
+                    primary={`${candidate.spot_label ?? `Место №${candidate.spot_number ?? candidate.spot_id}`}: ${candidate.reason}`}
                     secondary={candidate.constraint ? `ограничение=${constraintLabelMap[candidate.constraint] ?? candidate.constraint}` : 'ограничение=—'}
                     primaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
                     secondaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
