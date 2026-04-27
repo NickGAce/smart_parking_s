@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from statistics import mean
 from typing import Protocol
+import math
 
 from sqlalchemy import Integer, case, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,6 +55,45 @@ class ForecastBucket:
     confidence: str
     comment: str
     samples: int
+
+
+@dataclass
+class ForecastQualityFilters:
+    parking_lot_id: int | None
+    date_from: datetime
+    date_to: datetime
+    bucket: str  # hour | day
+    history_days: int = 56
+
+
+@dataclass
+class ForecastQualityMetrics:
+    mae: float
+    mape: float
+    rmse: float | None
+    sample_size: int
+    confidence: str
+    explanation: str
+    evaluated_period_from: datetime
+    evaluated_period_to: datetime
+    bucket: str
+    comparison_series: list["ForecastQualityPoint"]
+
+
+@dataclass
+class ForecastErrorMetrics:
+    mae: float
+    mape: float
+    rmse: float | None
+    sample_size: int
+
+
+@dataclass
+class ForecastQualityPoint:
+    time_bucket: datetime
+    actual_occupancy_percent: float
+    predicted_occupancy_percent: float
+    absolute_error: float
 
 
 class OccupancyForecastModel(Protocol):
@@ -521,3 +561,157 @@ async def get_occupancy_forecast(
 ) -> list[ForecastBucket]:
     forecasting_model = model or HistoricalPatternForecastModel()
     return await forecasting_model.predict(session, filters)
+
+
+def _resolve_quality_bucket_hours(bucket: str) -> int:
+    if bucket == "hour":
+        return 1
+    if bucket == "day":
+        return 24
+    raise ValueError("bucket must be either 'hour' or 'day'")
+
+
+def _rolling_prediction_for_bucket(
+    bucket_start: datetime,
+    historical_series: list[tuple[datetime, float]],
+    moving_average_window: int = 24,
+) -> tuple[float, int]:
+    values = [value for _, value in historical_series]
+    if not values:
+        return 0.0, 0
+
+    global_avg = mean(values)
+    by_dow: dict[int, list[float]] = {}
+    by_hour: dict[int, list[float]] = {}
+    by_dow_hour: dict[tuple[int, int], list[float]] = {}
+    for historical_bucket, value in historical_series:
+        by_dow.setdefault(historical_bucket.weekday(), []).append(value)
+        by_hour.setdefault(historical_bucket.hour, []).append(value)
+        by_dow_hour.setdefault((historical_bucket.weekday(), historical_bucket.hour), []).append(value)
+
+    dow_values = by_dow.get(bucket_start.weekday(), [])
+    hour_values = by_hour.get(bucket_start.hour, [])
+    dow_hour_values = by_dow_hour.get((bucket_start.weekday(), bucket_start.hour), [])
+
+    dow_avg = mean(dow_values) if dow_values else global_avg
+    hour_avg = mean(hour_values) if hour_values else global_avg
+    dow_hour_avg = mean(dow_hour_values) if dow_hour_values else (dow_avg + hour_avg) / 2
+
+    if len(dow_hour_values) >= 3:
+        base_prediction = (0.5 * dow_hour_avg) + (0.2 * dow_avg) + (0.2 * hour_avg) + (0.1 * global_avg)
+    else:
+        base_prediction = (0.4 * dow_avg) + (0.4 * hour_avg) + (0.2 * global_avg)
+
+    if moving_average_window > 0:
+        moving_pool = values[-moving_average_window:]
+        if moving_pool:
+            base_prediction = (0.8 * base_prediction) + (0.2 * mean(moving_pool))
+
+    return round(min(max(base_prediction, 0.0), 100.0), 2), len(dow_hour_values)
+
+
+async def get_forecast_quality(
+    session: AsyncSession,
+    filters: ForecastQualityFilters,
+) -> ForecastQualityMetrics:
+    if filters.date_from >= filters.date_to:
+        raise ValueError("date_from must be earlier than date_to")
+
+    bucket_size_hours = _resolve_quality_bucket_hours(filters.bucket)
+    history_from = filters.date_from - timedelta(days=filters.history_days)
+
+    spot_ids = await _get_filtered_spot_ids(session, filters.parking_lot_id, zone=None)
+    if not spot_ids:
+        return ForecastQualityMetrics(
+            mae=0.0,
+            mape=0.0,
+            rmse=None,
+            sample_size=0,
+            confidence="low",
+            explanation="Нет парковочных мест для выбранного фильтра parking_lot_id.",
+            evaluated_period_from=filters.date_from,
+            evaluated_period_to=filters.date_to,
+            bucket=filters.bucket,
+            comparison_series=[],
+        )
+
+    historical_and_eval_bookings = await _get_bookings_for_period(session, spot_ids, history_from, filters.date_to)
+    occupancy_by_bucket = _build_bucket_occupancy_map(
+        bookings=historical_and_eval_bookings,
+        range_start=history_from,
+        range_end=filters.date_to,
+        bucket_size_hours=bucket_size_hours,
+        spot_count=len(spot_ids),
+    )
+
+    abs_errors: list[float] = []
+    squared_errors: list[float] = []
+    pct_errors: list[float] = []
+    comparison_series: list[ForecastQualityPoint] = []
+
+    for bucket_start in _iter_buckets(filters.date_from, filters.date_to, bucket_size_hours):
+        train_series = sorted(
+            [(time_bucket, value) for time_bucket, value in occupancy_by_bucket.items() if time_bucket < bucket_start],
+            key=lambda item: item[0],
+        )
+        predicted, _ = _rolling_prediction_for_bucket(bucket_start, train_series)
+        actual = occupancy_by_bucket.get(bucket_start, 0.0)
+        error = abs(actual - predicted)
+        abs_errors.append(error)
+        squared_errors.append(error * error)
+        if actual > 0:
+            pct_errors.append((error / actual) * 100.0)
+        comparison_series.append(
+            ForecastQualityPoint(
+                time_bucket=bucket_start,
+                actual_occupancy_percent=round(actual, 2),
+                predicted_occupancy_percent=round(predicted, 2),
+                absolute_error=round(error, 2),
+            )
+        )
+
+    error_metrics = _calculate_forecast_error_metrics(abs_errors, squared_errors, pct_errors)
+    sample_size = error_metrics.sample_size
+    mae = error_metrics.mae
+    mape = error_metrics.mape
+    rmse = error_metrics.rmse
+
+    if filters.bucket == "hour":
+        min_reliable_sample = 24
+    else:
+        min_reliable_sample = 7
+
+    if sample_size >= min_reliable_sample:
+        confidence = "high"
+        explanation = "Достаточно исторических бакетов для стабильной оценки качества."
+    elif sample_size >= max(3, min_reliable_sample // 2):
+        confidence = "medium"
+        explanation = "Метрики рассчитаны, но объем данных ограничен."
+    else:
+        confidence = "low"
+        explanation = "Низкая уверенность: слишком мало данных для надежной оценки прогноза."
+
+    return ForecastQualityMetrics(
+        mae=mae,
+        mape=mape,
+        rmse=rmse,
+        sample_size=sample_size,
+        confidence=confidence,
+        explanation=explanation,
+        evaluated_period_from=filters.date_from,
+        evaluated_period_to=filters.date_to,
+        bucket=filters.bucket,
+        comparison_series=comparison_series,
+    )
+
+
+def _calculate_forecast_error_metrics(
+    abs_errors: list[float],
+    squared_errors: list[float],
+    pct_errors: list[float],
+) -> ForecastErrorMetrics:
+    sample_size = len(abs_errors)
+    mae = round(mean(abs_errors), 4) if abs_errors else 0.0
+    mape = round(mean(pct_errors), 4) if pct_errors else 0.0
+    rmse = round(math.sqrt(mean(squared_errors)), 4) if squared_errors else None
+    return ForecastErrorMetrics(mae=mae, mape=mape, rmse=rmse, sample_size=sample_size)

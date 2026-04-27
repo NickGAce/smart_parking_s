@@ -17,6 +17,7 @@ from app.models.parking_lot import ParkingLot
 from app.models.parking_spot import ParkingSpot, SpotType
 from app.models.parking_zone import ParkingZone
 from app.models.user import User, UserRole
+from app.services.analytics import _calculate_forecast_error_metrics
 
 
 def _setup_state():
@@ -29,7 +30,9 @@ def _setup_state():
 
         async with session_local() as session:
             owner = User(email="owner-analytics@test.com", hashed_password=hash_password("secret123"), role=UserRole.owner)
-            session.add(owner)
+            admin = User(email="admin-analytics@test.com", hashed_password=hash_password("secret123"), role=UserRole.admin)
+            guard = User(email="guard-analytics@test.com", hashed_password=hash_password("secret123"), role=UserRole.guard)
+            session.add_all([owner, admin, guard])
             await session.flush()
 
             lot = ParkingLot(name="Analytics Lot", address="Addr", total_spots=10, guest_spot_percentage=20, owner_id=owner.id)
@@ -86,6 +89,8 @@ def _setup_state():
 
     return {
         "owner": create_access_token("1"),
+        "admin": create_access_token("2"),
+        "guard": create_access_token("3"),
     }
 
 
@@ -194,3 +199,81 @@ def test_occupancy_forecast_supports_zone_filter():
         zone_a_9am = next(item for item in forecast_a if item["time_bucket"].endswith("09:00:00"))
         zone_b_9am = next(item for item in forecast_b if item["time_bucket"].endswith("09:00:00"))
         assert zone_a_9am["predicted_occupancy_percent"] > zone_b_9am["predicted_occupancy_percent"]
+
+
+def test_forecast_quality_metrics_formula_for_fixed_dataset():
+    metrics = _calculate_forecast_error_metrics(
+        abs_errors=[10.0, 10.0, 10.0],
+        squared_errors=[100.0, 100.0, 100.0],
+        pct_errors=[10.0, 20.0, 25.0],
+    )
+    assert metrics.sample_size == 3
+    assert metrics.mae == 10.0
+    assert metrics.mape == 18.3333
+    assert metrics.rmse == 10.0
+
+
+def test_forecast_quality_low_data_returns_low_confidence_and_explanation():
+    tokens = _setup_state()
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/analytics/forecast-quality",
+            params={
+                "parking_lot_id": 1,
+                "date_from": "2026-01-01T08:00:00",
+                "date_to": "2026-01-01T10:00:00",
+                "bucket": "hour",
+            },
+            headers={"Authorization": f"Bearer {tokens['owner']}"},
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["confidence"] == "low"
+        assert payload["sample_size"] == 2
+        assert len(payload["comparison_series"]) == 2
+        assert {"time_bucket", "actual_occupancy_percent", "predicted_occupancy_percent", "absolute_error"} <= set(
+            payload["comparison_series"][0].keys()
+        )
+        assert "мало данных" in payload["explanation"].lower() or "низкая уверенность" in payload["explanation"].lower()
+
+
+def test_forecast_quality_rbac_owner_admin_allowed_guard_forbidden():
+    tokens = _setup_state()
+
+    with TestClient(app) as client:
+        owner_response = client.get(
+            "/api/v1/analytics/forecast-quality",
+            params={
+                "parking_lot_id": 1,
+                "date_from": "2026-01-01T00:00:00",
+                "date_to": "2026-01-02T00:00:00",
+                "bucket": "day",
+            },
+            headers={"Authorization": f"Bearer {tokens['owner']}"},
+        )
+        admin_response = client.get(
+            "/api/v1/analytics/forecast-quality",
+            params={
+                "parking_lot_id": 1,
+                "date_from": "2026-01-01T00:00:00",
+                "date_to": "2026-01-02T00:00:00",
+                "bucket": "day",
+            },
+            headers={"Authorization": f"Bearer {tokens['admin']}"},
+        )
+        guard_response = client.get(
+            "/api/v1/analytics/forecast-quality",
+            params={
+                "parking_lot_id": 1,
+                "date_from": "2026-01-01T00:00:00",
+                "date_to": "2026-01-02T00:00:00",
+                "bucket": "day",
+            },
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+
+        assert owner_response.status_code == 200
+        assert admin_response.status_code == 200
+        assert guard_response.status_code == 403

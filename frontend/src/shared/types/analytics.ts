@@ -128,6 +128,30 @@ export interface ManagementRecommendationsResponse {
   items: ManagementRecommendation[];
 }
 
+export type ForecastQualityBucket = 'hour' | 'day';
+export type ForecastQualityConfidence = 'low' | 'medium' | 'high';
+
+export interface ForecastQuality {
+  parking_lot_id: number | null;
+  mae: number;
+  mape: number;
+  rmse: number | null;
+  sample_size: number;
+  confidence: ForecastQualityConfidence;
+  explanation: string;
+  evaluated_period: {
+    from_time: string;
+    to_time: string;
+    bucket: ForecastQualityBucket;
+  };
+  comparison_series: Array<{
+    time_bucket: string;
+    actual_occupancy_percent: number;
+    predicted_occupancy_percent: number;
+    absolute_error: number;
+  }>;
+}
+
 export interface AnalyticsQuery {
   period?: AnalyticsPeriod;
   parking_lot_id?: number;
@@ -152,4 +176,11 @@ export interface ManagementRecommendationsQuery {
   date_from: string;
   date_to: string;
   severity?: ManagementSeverity;
+}
+
+export interface ForecastQualityQuery {
+  parking_lot_id?: number;
+  date_from: string;
+  date_to: string;
+  bucket?: ForecastQualityBucket;
 }

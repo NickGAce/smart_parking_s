@@ -21,6 +21,7 @@ const DASHBOARD_FILTERS: AnalyticsDashboardFilters = {
   bucketSizeHours: 2,
   anomalyUserId: null,
   managementSeverity: '',
+  forecastQualityBucket: 'hour',
 };
 
 function formatPercent(value?: number, digits = 1) {

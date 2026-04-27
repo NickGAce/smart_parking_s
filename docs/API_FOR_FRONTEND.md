@@ -245,6 +245,35 @@ Scoring formula:
 ### GET `/analytics/occupancy-forecast`
 - Explainable forecast buckets for target date/range.
 
+### GET `/analytics/forecast-quality`
+- Назначение: оценка качества прогноза загрузки на историческом периоде (backtesting).
+- Query:
+  - `parking_lot_id` (optional)
+  - `date_from` (required, ISO datetime)
+  - `date_to` (required, ISO datetime)
+  - `bucket` (optional): `hour|day`, default `hour`
+- Auth/RBAC:
+  - `admin` / `owner` — доступ разрешен.
+  - прочие роли — `403`.
+- Response:
+  - `mae` — Mean Absolute Error (в процентных пунктах загрузки).
+  - `mape` — Mean Absolute Percentage Error (в процентах относительно факта; нулевые фактические точки исключаются из MAPE).
+  - `rmse` — Root Mean Squared Error (optional).
+  - `sample_size` — число оцененных бакетов.
+  - `confidence` — `low|medium|high`.
+  - `explanation` — текстовое пояснение надежности.
+  - `evaluated_period` — фактический интервал и тип бакета.
+  - `comparison_series[]` — ряд для визуализации факт vs прогноз:
+    - `time_bucket`
+    - `actual_occupancy_percent`
+    - `predicted_occupancy_percent`
+    - `absolute_error`
+
+Формулы:
+- `MAE = (1/n) * Σ |y_true - y_pred|`
+- `MAPE = (100%/k) * Σ (|y_true - y_pred| / |y_true|)`, где суммирование по точкам с `y_true > 0`, `k` — число таких точек.
+- `RMSE = sqrt((1/n) * Σ (y_true - y_pred)^2)`
+
 ### GET `/analytics/anomalies`
 - Объяснимые аномалии с уровнем критичности, причиной и связанным объектом.
 - Обратная совместимость сохранена: исторические поля не изменены, новые поля объяснимости в схеме optional.
@@ -351,5 +380,6 @@ Scoring formula:
 | GET | `/analytics/occupancy` | yes | auth | occupancy breakdown |
 | GET | `/analytics/bookings` | yes | auth | booking KPI breakdown |
 | GET | `/analytics/occupancy-forecast` | yes | auth | explainable forecast |
+| GET | `/analytics/forecast-quality` | yes | admin/owner | forecast quality metrics |
 | GET | `/analytics/anomalies` | yes | auth | scoped anomaly visibility |
 | GET | `/analytics/management-recommendations` | yes | admin/owner | intelligent management actions |

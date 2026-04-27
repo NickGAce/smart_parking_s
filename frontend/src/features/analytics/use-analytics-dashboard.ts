@@ -4,7 +4,7 @@ import { useQueries } from '@tanstack/react-query';
 import { analyticsApi } from '../../entities/analytics/api';
 import { ANALYTICS_ANOMALY_FILTER_ROLES, hasRole } from '../../shared/config/roles';
 import type { UserRole } from '../../shared/types/common';
-import type { AnalyticsPeriod, ManagementSeverity } from '../../shared/types/analytics';
+import type { AnalyticsPeriod, ForecastQualityBucket, ManagementSeverity } from '../../shared/types/analytics';
 import { analyticsQueryKeys } from './query-keys';
 
 export interface AnalyticsDashboardFilters {
@@ -17,6 +17,7 @@ export interface AnalyticsDashboardFilters {
   bucketSizeHours: number;
   anomalyUserId: number | null;
   managementSeverity: ManagementSeverity | '';
+  forecastQualityBucket: ForecastQualityBucket;
 }
 
 function normalizeOptionalString(value: string) {
@@ -91,7 +92,7 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
     };
   }, [normalizedFrom, normalizedTo, filters.period]);
 
-  const [summaryQuery, occupancyQuery, bookingsQuery, forecastQuery, anomaliesQuery, managementRecommendationsQuery] = useQueries({
+  const [summaryQuery, occupancyQuery, bookingsQuery, forecastQuery, anomaliesQuery, managementRecommendationsQuery, forecastQualityQuery] = useQueries({
     queries: [
       {
         queryKey: analyticsQueryKeys.summary(baseParams),
@@ -142,6 +143,21 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
             severity: filters.managementSeverity || undefined,
           }),
       },
+      {
+        queryKey: analyticsQueryKeys.forecastQuality({
+          parking_lot_id: filters.parkingLotId ?? undefined,
+          date_from: managementWindow.dateFrom,
+          date_to: managementWindow.dateTo,
+          bucket: filters.forecastQualityBucket,
+        }),
+        queryFn: () =>
+          analyticsApi.getForecastQuality({
+            parking_lot_id: filters.parkingLotId ?? undefined,
+            date_from: managementWindow.dateFrom,
+            date_to: managementWindow.dateTo,
+            bucket: filters.forecastQualityBucket,
+          }),
+      },
     ],
   });
 
@@ -152,5 +168,6 @@ export function useAnalyticsDashboard(filters: AnalyticsDashboardFilters, role?:
     forecastQuery,
     anomaliesQuery,
     managementRecommendationsQuery,
+    forecastQualityQuery,
   };
 }
