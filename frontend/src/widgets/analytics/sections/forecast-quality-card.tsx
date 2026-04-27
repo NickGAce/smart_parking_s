@@ -61,6 +61,20 @@ function buildPolylinePoints(values: number[], width: number, height: number) {
     .join(' ');
 }
 
+function buildXAxisTicks(length: number, count = 6) {
+  if (length <= 0) return [];
+  if (length === 1) return [0];
+  const step = Math.max(1, Math.floor((length - 1) / (count - 1)));
+  const ticks: number[] = [];
+  for (let i = 0; i < length; i += step) {
+    ticks.push(i);
+  }
+  if (ticks[ticks.length - 1] !== length - 1) {
+    ticks.push(length - 1);
+  }
+  return ticks;
+}
+
 export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLabel, settings }: ForecastQualityCardProps) {
   if (isLoading) {
     return <LoadingState message="Рассчитываем метрики качества прогноза..." />;
@@ -92,6 +106,7 @@ export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLa
   const topErrorBuckets = [...data.comparison_series]
     .sort((a, b) => b.absolute_error - a.absolute_error)
     .slice(0, 5);
+  const xTickIndexes = buildXAxisTicks(data.comparison_series.length, 7);
 
   return (
     <Stack spacing={1.5}>
@@ -151,12 +166,33 @@ export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLa
                   : (index / (data.comparison_series.length - 1)) * chartWidth;
                 return <line key={`${item.time_bucket}-${index}`} x1={x} x2={x} y1={0} y2={chartHeight} stroke="#ff9800" strokeOpacity={0.25} />;
               })}
+              <line x1={0} y1={chartHeight - 1} x2={chartWidth} y2={chartHeight - 1} stroke="#bdbdbd" />
+              {xTickIndexes.map((tickIndex) => {
+                const x = data.comparison_series.length <= 1 ? 0 : (tickIndex / (data.comparison_series.length - 1)) * chartWidth;
+                const bucket = data.comparison_series[tickIndex];
+                if (!bucket) return null;
+                const label = new Date(bucket.time_bucket).toLocaleString([], {
+                  day: '2-digit',
+                  month: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
+                return (
+                  <g key={`main-tick-${tickIndex}`}>
+                    <line x1={x} x2={x} y1={chartHeight - 1} y2={chartHeight - 6} stroke="#9e9e9e" />
+                    <text x={x} y={chartHeight - 8} fill="#616161" fontSize="10" textAnchor="middle">
+                      {label}
+                    </text>
+                  </g>
+                );
+              })}
             </svg>
             <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
               <Typography variant="caption" color="text.secondary">🟢 Факт</Typography>
               <Typography variant="caption" color="text.secondary">🔵 Прогноз</Typography>
               <Typography variant="caption" color="text.secondary">🟠 Зоны больших ошибок</Typography>
             </Stack>
+            <Typography variant="caption" color="text.secondary">Ось Y: загрузка, % • Ось X: время (бакеты).</Typography>
           </Box>
         )}
       </Stack>
@@ -178,7 +214,13 @@ export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLa
                 );
               })}
               <polyline fill="none" stroke="#ef6c00" strokeWidth={2.2} points={errorPath} />
+              <line x1={0} y1={errorChartHeight - 1} x2={chartWidth} y2={errorChartHeight - 1} stroke="#bdbdbd" />
+              {xTickIndexes.map((tickIndex) => {
+                const x = data.comparison_series.length <= 1 ? 0 : (tickIndex / (data.comparison_series.length - 1)) * chartWidth;
+                return <line key={`error-tick-${tickIndex}`} x1={x} x2={x} y1={errorChartHeight - 1} y2={errorChartHeight - 6} stroke="#9e9e9e" />;
+              })}
             </svg>
+            <Typography variant="caption" color="text.secondary">Ось Y: абсолютная ошибка, п.п. • Ось X: время (бакеты).</Typography>
           </Box>
         )}
       </Stack>
