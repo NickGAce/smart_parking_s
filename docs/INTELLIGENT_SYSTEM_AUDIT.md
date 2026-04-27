@@ -28,6 +28,8 @@ Current weighted factors:
 - role
 - conflict
 
+Weights are user-configurable in API requests (`weights`) and are normalized before scoring.
+
 Confidence:
 
 `confidence = clamp((top_score - second_score) / max(top_score, 0.0001), 0, 1)`
@@ -58,4 +60,3 @@ Decision report panel renders:
 - factor contributions (progress bars)
 - hard-constraint badges
 - compact rejected candidates list
-

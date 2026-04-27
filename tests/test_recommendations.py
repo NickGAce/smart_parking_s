@@ -222,3 +222,22 @@ def test_recommendation_returns_rejected_candidates_for_blocked_and_conflicting_
         rejected = response.json()["rejected_candidates"]
         assert any(item["spot_id"] == 1 and item["constraint"] == "interval_conflict" for item in rejected)
         assert any(item["spot_id"] == 4 and item["constraint"] == "spot_status_available" for item in rejected)
+
+
+def test_prefer_charger_prioritizes_charger_when_available():
+    tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/recommendations/spots",
+            headers={"Authorization": f"Bearer {tokens['tenant']}"},
+            json={
+                "parking_lot_id": 1,
+                "from": "2026-04-07T08:00:00",
+                "to": "2026-04-07T08:30:00",
+                "preferences": {"prefer_charger": True, "max_results": 5},
+                "weights": {"charger": 0.7, "availability": 0.1, "spot_type": 0.05, "zone": 0.05, "role": 0.05, "conflict": 0.05},
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["recommended_spots"][0]["has_charger"] is True

@@ -16,7 +16,7 @@ import { bookingAssignmentModeLabelMap } from '../shared/config/booking-ui';
 import { ActionBar } from '../shared/ui/action-bar';
 import { FormSection } from '../shared/ui/form-section';
 import { FormPageTemplate } from '../shared/ui/page-templates';
-import type { Booking, CreateBookingPayload } from '../shared/types/booking';
+import type { Booking, CreateBookingPayload, RecommendationWeights } from '../shared/types/booking';
 import type { ApiError } from '../shared/types/common';
 import type { RecommendationRequestPayload, RecommendationResult } from '../shared/types/recommendation';
 import type { SizeCategory, SpotType, UserRole, VehicleType } from '../shared/types/common';
@@ -128,6 +128,7 @@ function getRecommendationPayload(
   spotTypes: SpotType[],
   vehicleType: VehicleType | '',
   sizeCategory: SizeCategory | '',
+  weights: RecommendationWeights,
 ): RecommendationRequestPayload {
   return {
     parking_lot_id: parkingLotId,
@@ -135,7 +136,6 @@ function getRecommendationPayload(
     to: endIso,
     filters: {
       requires_charger: requiresCharger,
-      spot_types: spotTypes.length ? spotTypes : undefined,
       vehicle_type: vehicleType || undefined,
       size_category: sizeCategory || undefined,
     },
@@ -144,6 +144,7 @@ function getRecommendationPayload(
       preferred_spot_types: spotTypes.length ? spotTypes : undefined,
       max_results: maxResults,
     },
+    weights,
   };
 }
 
@@ -164,6 +165,14 @@ export function CreateBookingPage() {
   const [spotTypes, setSpotTypes] = useState<SpotType[]>([]);
   const [vehicleType, setVehicleType] = useState<VehicleType | ''>('');
   const [sizeCategory, setSizeCategory] = useState<SizeCategory | ''>('');
+  const [recommendationWeights, setRecommendationWeights] = useState<RecommendationWeights>({
+    availability: 0.35,
+    spot_type: 0.15,
+    zone: 0.1,
+    charger: 0.1,
+    role: 0.2,
+    conflict: 0.1,
+  });
 
   const intervalErrors = useMemo(() => validateInterval(startTimeLocal, endTimeLocal), [startTimeLocal, endTimeLocal]);
 
@@ -241,7 +250,6 @@ export function CreateBookingPage() {
       parking_lot_id: parkingLotId as number,
       recommendation_filters: {
         requires_charger: requiresCharger,
-        spot_types: spotTypes.length ? spotTypes : undefined,
         vehicle_type: vehicleType || undefined,
         size_category: sizeCategory || undefined,
       },
@@ -250,6 +258,7 @@ export function CreateBookingPage() {
         preferred_spot_types: spotTypes.length ? spotTypes : undefined,
         max_results: maxResults,
       },
+      recommendation_weights: recommendationWeights,
     };
 
     createBookingMutation.mutate(payload, {
@@ -295,6 +304,7 @@ export function CreateBookingPage() {
         spotTypes,
         vehicleType,
         sizeCategory,
+        recommendationWeights,
       ),
     );
   };
@@ -421,6 +431,34 @@ export function CreateBookingPage() {
                     {SIZE_CATEGORY_OPTIONS.map((option) => <MenuItem key={option} value={option}>{SIZE_CATEGORY_LABELS[option]}</MenuItem>)}
                   </TextField>
                 </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2">Значимость факторов (вес)</Typography>
+                </Grid>
+                {([
+                  ['availability', 'Доступность'],
+                  ['spot_type', 'Тип места'],
+                  ['zone', 'Зона'],
+                  ['charger', 'Зарядка'],
+                  ['role', 'Роль'],
+                  ['conflict', 'Риск конфликта'],
+                ] as const).map(([key, label]) => (
+                  <Grid item xs={12} md={4} key={key}>
+                    <TextField
+                      type="number"
+                      label={label}
+                      value={recommendationWeights[key] ?? 0}
+                      onChange={(event) =>
+                        setRecommendationWeights((prev) => ({
+                          ...prev,
+                          [key]: Math.max(0, Math.min(1, Number(event.target.value) || 0)),
+                        }))
+                      }
+                      fullWidth
+                      inputProps={{ min: 0, max: 1, step: 0.05 }}
+                      helperText="0..1, итог нормализуется автоматически."
+                    />
+                  </Grid>
+                ))}
                 <Grid item xs={12} md={4}>
                   <TextField
                     select
@@ -432,6 +470,7 @@ export function CreateBookingPage() {
                       setSpotTypes(Array.isArray(next) ? (next as SpotType[]) : (String(next).split(',') as SpotType[]));
                     }}
                     fullWidth
+                    helperText="Это мягкое предпочтение, а не жёсткий фильтр."
                   >
                     {SPOT_TYPE_OPTIONS.map((option) => <MenuItem key={option} value={option}>{SPOT_TYPE_LABELS[option]}</MenuItem>)}
                   </TextField>
