@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.models.vehicle_access_event import AccessDecision, AccessDirection, RecognitionSource
+from app.models.vehicle_access_event import AccessDecision, AccessDirection, ProcessingStatus, RecognitionSource
 from app.schemas.pagination import PaginationMeta
 
 
@@ -29,11 +29,16 @@ class AccessEventOut(BaseModel):
     parking_spot_id: int | None
     booking_id: int | None
     user_id: int | None
+    vehicle_id: int | None
     plate_number: str
     normalized_plate_number: str
     direction: AccessDirection
     recognition_confidence: float | None
     recognition_source: RecognitionSource
+    image_url: str | None
+    video_url: str | None
+    frame_timestamp: float | None
+    processing_status: ProcessingStatus
     decision: AccessDecision
     reason: str
     created_at: datetime

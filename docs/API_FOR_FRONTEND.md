@@ -397,3 +397,21 @@ Scoring formula:
 
 ### Расширение бронирования
 `Booking` теперь поддерживает необязательное поле `plate_number` для автоматического сопоставления при въезде/выезде.
+
+## Vehicles API
+- `POST /api/v1/vehicles` — создать автомобиль пользователя.
+- `GET /api/v1/vehicles` — список автомобилей (admin видит все, пользователь — свои).
+- `PATCH /api/v1/vehicles/{id}` — обновить автомобиль.
+- `DELETE /api/v1/vehicles/{id}` — удалить автомобиль.
+
+## ANPR pipeline upload API
+- `POST /api/v1/access-events/recognize/image` (multipart/form-data): `file`, `parking_lot_id`, `direction`, optional `plate_hint`.
+- `POST /api/v1/access-events/recognize/video` (multipart/form-data): `file`, `parking_lot_id`, `direction`, optional `plate_hint`.
+
+## Access event media fields
+`access-event` ответ теперь дополнительно содержит:
+- `vehicle_id`
+- `image_url`
+- `video_url`
+- `frame_timestamp`
+- `processing_status` (`pending|processed|failed`)

@@ -23,6 +23,7 @@ const ParkingLotDetailsPage = lazyNamed(() => import('../../pages/parking-lot-de
 const ParkingSpotsPage = lazyNamed(() => import('../../pages/parking-spots-page'), 'ParkingSpotsPage');
 const AdminUsersPage = lazyNamed(() => import('../../pages/admin-users-page'), 'AdminUsersPage');
 const AccessControlPage = lazyNamed(() => import('../../pages/access-control-page'), 'AccessControlPage');
+const MyVehiclesPage = lazyNamed(() => import('../../pages/my-vehicles-page'), 'MyVehiclesPage');
 
 const AdminPage = lazyNamed(() => import('../../pages/admin-page'), 'AdminPage');
 const BookingsPage = lazyNamed(() => import('../../pages/bookings-page'), 'BookingsPage');
@@ -112,6 +113,14 @@ export const routeConfig: AppRouteConfig[] = [
     component: BookingsPage,
     roles: ALL_USER_ROLES,
     showInMenu: false,
+  },
+  {
+    path: '/my-vehicles',
+    title: 'Мои автомобили',
+    component: MyVehiclesPage,
+    menuLabel: 'Мои автомобили',
+    roles: ALL_USER_ROLES,
+    showInMenu: true,
   },
   {
     path: '/access-control',

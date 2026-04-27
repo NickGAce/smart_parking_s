@@ -12,6 +12,7 @@ import { RecommendationList } from '../features/bookings/components/recommendati
 import { DecisionReportPanel } from '../features/bookings/components/decision-report-panel';
 import { useCreateBookingMutation } from '../features/bookings/use-create-booking-mutation';
 import { useParkingLotsQuery } from '../features/parking-lots/hooks';
+import { useVehiclesQuery } from '../features/vehicles/hooks';
 import { bookingAssignmentModeLabelMap } from '../shared/config/booking-ui';
 import { ActionBar } from '../shared/ui/action-bar';
 import { FormSection } from '../shared/ui/form-section';
@@ -164,6 +165,7 @@ export function CreateBookingPage() {
   const [mode, setMode] = useState<'manual' | 'auto'>('manual');
   const [selectedSpotId, setSelectedSpotId] = useState<number | undefined>();
   const [successBooking, setSuccessBooking] = useState<Booking | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<number | ''>('');
 
   const [requiresCharger, setRequiresCharger] = useState(false);
   const [preferCharger, setPreferCharger] = useState(false);
@@ -187,6 +189,7 @@ export function CreateBookingPage() {
   const hasValidSelection = typeof parkingLotId === 'number' && !hasIntervalErrors;
 
   const parkingLotsQuery = useParkingLotsQuery({ limit: 100, offset: 0, sort_by: 'name', sort_order: 'asc' });
+  const vehiclesQuery = useVehiclesQuery();
 
   const availableSpotsQuery = useQuery({
     queryKey: ['booking-create-spots', parkingLotId, startTimeLocal, endTimeLocal],
@@ -233,6 +236,8 @@ export function CreateBookingPage() {
   }, [navigate, role, successBooking]);
 
   const bookingErrorMessage = getStatusErrorMessage(createBookingMutation.error ?? null);
+  const primaryVehicle = (vehiclesQuery.data ?? []).find((vehicle) => vehicle.is_primary) ?? (vehiclesQuery.data ?? [])[0];
+  const effectiveVehicleId = selectedVehicleId === '' ? primaryVehicle?.id : selectedVehicleId;
   const recommendationErrorMessage = getStatusErrorMessage(recommendationsMutation.error ?? null);
 
   const submitManual = () => {
@@ -246,6 +251,7 @@ export function CreateBookingPage() {
       parking_spot_id: selectedSpotId,
       auto_assign: false,
       parking_lot_id: parkingLotId as number,
+      vehicle_id: effectiveVehicleId,
     };
 
     createBookingMutation.mutate(payload, {
@@ -265,6 +271,7 @@ export function CreateBookingPage() {
       end_time: toApiDateTime(endTimeLocal),
       auto_assign: true,
       parking_lot_id: parkingLotId as number,
+      vehicle_id: effectiveVehicleId,
       recommendation_filters: {
         requires_charger: requiresCharger ? true : undefined,
         zone_ids: selectedZoneIds.length ? selectedZoneIds : undefined,
@@ -296,6 +303,7 @@ export function CreateBookingPage() {
       end_time: toApiDateTime(endTimeLocal),
       parking_spot_id: selectedSpotId,
       parking_lot_id: parkingLotId as number,
+      vehicle_id: effectiveVehicleId,
       auto_assign: false,
     };
 
@@ -402,6 +410,29 @@ export function CreateBookingPage() {
             {!parkingLotsQuery.isLoading && !parkingLotsQuery.isError && parkingLotsQuery.data?.items.length === 0 && (
               <Alert severity="warning">Нет доступных парковок для бронирования. Обратитесь к администратору.</Alert>
             )}
+          </FormSection>
+
+
+          <FormSection
+            title="1.1 Автомобиль"
+            subtitle="Выберите автомобиль; если не выбрать, будет использован primary."
+            sx={{ p: { xs: 2.5, md: 3.25 } }}
+          >
+            <TextField
+              fullWidth
+              select
+              label="Автомобиль"
+              value={selectedVehicleId}
+              onChange={(event) => setSelectedVehicleId(event.target.value ? Number(event.target.value) : '')}
+              helperText={primaryVehicle ? `Primary по умолчанию: ${primaryVehicle.plate_number}` : 'Добавьте автомобиль в разделе «Мои автомобили»'}
+            >
+              <MenuItem value="">Primary по умолчанию</MenuItem>
+              {(vehiclesQuery.data ?? []).map((vehicle) => (
+                <MenuItem key={vehicle.id} value={vehicle.id}>
+                  {vehicle.plate_number} {vehicle.is_primary ? '(primary)' : ''}
+                </MenuItem>
+              ))}
+            </TextField>
           </FormSection>
 
           <FormSection title="2. Способ назначения места" subtitle="Выберите удобный сценарий бронирования." sx={{ p: { xs: 2.5, md: 3.25 } }}>

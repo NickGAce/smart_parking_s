@@ -182,3 +182,13 @@ Rules are built on top of already implemented analytics/anomaly primitives (with
 - добавлена автоматическая реакция на въезд/выезд через жизненный цикл бронирований (auto check-in/check-out);
 - добавлены уведомления и аудит для неизвестных номеров/подозрительных событий;
 - добавлен frontend-раздел «Контроль доступа» и dashboard-виджет последних событий.
+
+## Доработка интеллектуального модуля ANPR (2026-04-27)
+
+В модуль добавлены:
+- отдельная доменная сущность `vehicles` с привязкой номерных знаков к пользователям;
+- fallback-логика primary vehicle при создании бронирования;
+- pipeline загрузки и распознавания `image/video`;
+- media-атрибуты и статус обработки в `vehicle_access_events`;
+- интеллектуальное связывание: `plate -> vehicle -> user -> booking -> access decision`;
+- frontend-страница «Мои автомобили» и расширенный UI контроля доступа с upload image/video.

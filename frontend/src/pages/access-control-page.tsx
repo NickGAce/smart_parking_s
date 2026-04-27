@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react';
 import { useParkingLotsQuery } from '../features/parking-lots/use-parking-lots-query';
 import {
   useAccessEventsQuery,
-  useManualAccessEventMutation,
   useLatestAccessEventsQuery,
+  useManualAccessEventMutation,
+  useRecognizeImageAccessEventMutation,
+  useRecognizeVideoAccessEventMutation,
 } from '../features/access-events/hooks';
 import type { AccessDecision, AccessDirection, AccessEventsQuery } from '../shared/types/access-event';
 import { DataListPageTemplate } from '../shared/ui/page-templates';
@@ -26,6 +28,8 @@ export function AccessControlPage() {
   const [direction, setDirection] = useState<AccessDirection>('entry');
   const [decision, setDecision] = useState<AccessDecision | ''>('');
   const [filterPlate, setFilterPlate] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
 
   const filters: AccessEventsQuery = useMemo(
     () => ({
@@ -41,38 +45,38 @@ export function AccessControlPage() {
 
   const eventsQuery = useAccessEventsQuery(filters);
   const manualMutation = useManualAccessEventMutation();
+  const imageMutation = useRecognizeImageAccessEventMutation();
+  const videoMutation = useRecognizeVideoAccessEventMutation();
 
   const submitManual = async () => {
-    if (parkingLotId === '' || !plateNumber.trim()) {
-      return;
-    }
-    await manualMutation.mutateAsync({
-      parking_lot_id: parkingLotId,
-      plate_number: plateNumber,
-      direction,
-    });
+    if (parkingLotId === '' || !plateNumber.trim()) return;
+    await manualMutation.mutateAsync({ parking_lot_id: parkingLotId, plate_number: plateNumber, direction });
     setPlateNumber('');
   };
+
+  const submitImage = async () => {
+    if (parkingLotId === '' || !imageFile) return;
+    await imageMutation.mutateAsync({ file: imageFile, parking_lot_id: parkingLotId, direction });
+  };
+
+  const submitVideo = async () => {
+    if (parkingLotId === '' || !videoFile) return;
+    await videoMutation.mutateAsync({ file: videoFile, parking_lot_id: parkingLotId, direction });
+  };
+
+  const latestResult = imageMutation.data ?? videoMutation.data ?? manualMutation.data;
 
   return (
     <DataListPageTemplate
       title="Контроль доступа"
-      subtitle="Распознавание номеров, автоматический check-in/check-out и журнал событий въезда/выезда."
+      subtitle="Распознавание номеров из ручного ввода, изображений и видео."
       filters={(
         <Stack spacing={1.5}>
           <Grid container spacing={1.5}>
             <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                select
-                label="Парковка"
-                value={parkingLotId}
-                onChange={(event) => setParkingLotId(event.target.value ? Number(event.target.value) : '')}
-              >
+              <TextField fullWidth select label="Парковка" value={parkingLotId} onChange={(event) => setParkingLotId(event.target.value ? Number(event.target.value) : '')}>
                 <MenuItem value="">Все парковки</MenuItem>
-                {(parkingLotsQuery.data?.items ?? []).map((lot) => (
-                  <MenuItem key={lot.id} value={lot.id}>{lot.name}</MenuItem>
-                ))}
+                {(parkingLotsQuery.data?.items ?? []).map((lot) => <MenuItem key={lot.id} value={lot.id}>{lot.name}</MenuItem>)}
               </TextField>
             </Grid>
             <Grid item xs={12} md={2}>
@@ -89,36 +93,48 @@ export function AccessControlPage() {
                 <MenuItem value="denied">denied</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField fullWidth label="Фильтр по номеру" value={filterPlate} onChange={(e) => setFilterPlate(e.target.value)} />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <Button fullWidth variant="outlined" sx={{ height: '100%' }} onClick={() => eventsQuery.refetch()}>Обновить</Button>
-            </Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Фильтр по номеру" value={filterPlate} onChange={(e) => setFilterPlate(e.target.value)} /></Grid>
+            <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: '100%' }} onClick={() => eventsQuery.refetch()}>Обновить</Button></Grid>
           </Grid>
         </Stack>
       )}
       dataView={(
         <Stack spacing={2}>
-          <DataPanel title="Ручной контроль доступа" subtitle="Введите номер и отправьте событие на backend.">
+          <DataPanel title="Ручной ввод номера">
             <Grid container spacing={1.5}>
-              <Grid item xs={12} md={4}>
-                <TextField fullWidth label="Номер автомобиля" value={plateNumber} onChange={(e) => setPlateNumber(e.target.value)} />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Button variant="contained" fullWidth sx={{ height: '100%' }} onClick={submitManual} disabled={manualMutation.isPending || parkingLotId === ''}>
-                  Отправить событие
-                </Button>
-              </Grid>
+              <Grid item xs={12} md={4}><TextField fullWidth label="Номер автомобиля" value={plateNumber} onChange={(e) => setPlateNumber(e.target.value)} /></Grid>
+              <Grid item xs={12} md={3}><Button variant="contained" fullWidth sx={{ height: '100%' }} onClick={submitManual} disabled={manualMutation.isPending || parkingLotId === ''}>Отправить</Button></Grid>
             </Grid>
-            {manualMutation.data ? (
-              <Alert sx={{ mt: 1.5 }} severity={manualMutation.data.decision === 'allowed' ? 'success' : manualMutation.data.decision === 'review' ? 'warning' : 'error'}>
-                Результат: {manualMutation.data.decision} · {manualMutation.data.reason}
-              </Alert>
-            ) : null}
           </DataPanel>
 
-          <DataPanel title="События доступа" subtitle="Последние события ANPR/LPR.">
+          <DataPanel title="Распознавание по изображению/видео" subtitle="Загрузите файл, модуль выполнит mock pipeline и создаст событие доступа.">
+            <Grid container spacing={1.5}>
+              <Grid item xs={12} md={5}>
+                <Button component="label" variant="outlined" fullWidth>
+                  Выбрать изображение
+                  <input hidden type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
+                </Button>
+                {imageFile ? <Typography variant="caption">{imageFile.name}</Typography> : null}
+              </Grid>
+              <Grid item xs={12} md={2}><Button variant="contained" fullWidth onClick={submitImage} disabled={!imageFile || parkingLotId === ''}>Распознать image</Button></Grid>
+              <Grid item xs={12} md={5}>
+                <Button component="label" variant="outlined" fullWidth>
+                  Выбрать видео
+                  <input hidden type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)} />
+                </Button>
+                {videoFile ? <Typography variant="caption">{videoFile.name}</Typography> : null}
+              </Grid>
+              <Grid item xs={12} md={2}><Button variant="contained" fullWidth onClick={submitVideo} disabled={!videoFile || parkingLotId === ''}>Распознать video</Button></Grid>
+            </Grid>
+          </DataPanel>
+
+          {latestResult ? (
+            <Alert severity={latestResult.decision === 'allowed' ? 'success' : latestResult.decision === 'review' ? 'warning' : 'error'}>
+              Номер: {latestResult.plate_number}; confidence: {latestResult.recognition_confidence ?? '—'}; user_id: {latestResult.user_id ?? '—'}; vehicle_id: {latestResult.vehicle_id ?? '—'}; booking_id: {latestResult.booking_id ?? '—'}; decision: {latestResult.decision}.
+            </Alert>
+          ) : null}
+
+          <DataPanel title="События доступа">
             <Stack spacing={1}>
               {(eventsQuery.data?.items ?? []).map((event) => (
                 <Box key={event.id} sx={{ border: '1px solid', borderColor: 'border.subtle', borderRadius: 2, p: 1.25 }}>
@@ -127,19 +143,23 @@ export function AccessControlPage() {
                       <Typography fontWeight={700}>{event.plate_number}</Typography>
                       <Chip size="small" label={event.direction} variant="outlined" />
                       <Chip size="small" label={event.decision} color={decisionColor[event.decision]} />
+                      <Chip size="small" label={event.processing_status} variant="outlined" />
                     </Stack>
                     <Typography variant="caption" color="text.secondary">{new Date(event.created_at).toLocaleString()}</Typography>
                   </Stack>
                   <Typography variant="body2" color="text.secondary">{event.reason}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    booking_id: {event.booking_id ?? '—'} · spot_id: {event.parking_spot_id ?? '—'} · confidence: {event.recognition_confidence ?? '—'}
+                    user: {event.user_id ?? '—'} · vehicle: {event.vehicle_id ?? '—'} · booking: {event.booking_id ?? '—'} · spot: {event.parking_spot_id ?? '—'}
                   </Typography>
+                  {(event.image_url || event.video_url) ? (
+                    <Typography variant="caption" display="block" color="text.secondary">media: {event.image_url ?? event.video_url}</Typography>
+                  ) : null}
                 </Box>
               ))}
             </Stack>
           </DataPanel>
 
-          <DataPanel title="Последние события (виджет)" subtitle="Компактный блок для dashboard-режима.">
+          <DataPanel title="Последние события (виджет)">
             <Stack spacing={1}>
               {(latestEventsQuery.data?.items ?? []).slice(0, 5).map((event) => (
                 <Stack key={event.id} direction="row" justifyContent="space-between" spacing={1}>

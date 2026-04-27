@@ -10,11 +10,16 @@ export interface AccessEvent {
   parking_spot_id: number | null;
   booking_id: number | null;
   user_id: number | null;
+  vehicle_id: number | null;
   plate_number: string;
   normalized_plate_number: string;
   direction: AccessDirection;
   recognition_confidence: number | null;
   recognition_source: RecognitionSource;
+  image_url: string | null;
+  video_url: string | null;
+  frame_timestamp: number | null;
+  processing_status: "pending" | "processed" | "failed";
   decision: AccessDecision;
   reason: string;
   created_at: string;
