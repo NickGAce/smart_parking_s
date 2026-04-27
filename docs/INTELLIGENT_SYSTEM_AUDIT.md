@@ -107,3 +107,37 @@ Rules are built on top of already implemented analytics/anomaly primitives (with
 - `admin`: sees recommendations across all lots.
 - `owner`: sees only own parking lots.
 - `tenant`: no access (`403`).
+
+## Anomaly explainability module (2026-04-27)
+
+### Extended anomaly payload
+`GET /api/v1/analytics/anomalies` now returns enriched anomaly context:
+- `explanation` (что произошло)
+- `impact` (почему это важно)
+- `recommended_action` (что сделать)
+- `related_metric` (метрика-источник)
+- `severity_reason` (почему выбран этот уровень severity)
+
+All fields are additive/optional in schema for backward compatibility.
+
+### Action mapping catalog
+
+| Anomaly type | Trigger context | Recommended action |
+|---|---|---|
+| `user.frequent_no_show` | High no-show rate for user | Сократить grace period / включить напоминания |
+| `user.frequent_cancellations` | High cancellation rate for user | Пересмотреть правила отмены |
+| `parking.occupancy_spike` | Sudden booking spike vs baseline | Включить overflow-зону или ограничить гостевые бронирования |
+| `security.suspicious_access_events` | Suspicious ANPR/unknown plate events | Проверить неизвестные номера |
+| `booking.unusual_duration` | Booking duration significantly above baseline | Проверить max duration rules |
+
+### Frontend behavior
+- Compact anomaly mode is used on Dashboard for quick triage.
+- Detailed mode is used in Analytics page cards.
+- Detail modal exposes three explainability sections:
+  1. **Что произошло**
+  2. **Почему это важно**
+  3. **Что сделать**
+
+### Additional anomaly detectors
+- `security.suspicious_access_events`: counts unknown-plate ANPR signals in audit logs.
+- `booking.unusual_duration`: detects significant growth of average booking duration vs baseline window.

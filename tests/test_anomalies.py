@@ -136,6 +136,37 @@ def test_anomalies_endpoint_returns_explainable_items():
         assert "parking.frequent_spot_blocking" in anomaly_types
         assert payload["items"][0]["reason"]
         assert payload["items"][0]["related_entity"]["entity_id"]
+        assert payload["items"][0]["recommended_action"]
+
+
+def test_anomalies_include_recommended_action_for_every_item():
+    tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/analytics/anomalies?from=2026-04-01T00:00:00&to=2026-04-10T23:59:00&parking_lot_id=1",
+            headers={"Authorization": f"Bearer {tokens['admin']}"},
+        )
+        assert response.status_code == 200
+        payload = response.json()
+
+        assert payload["items"]
+        for item in payload["items"]:
+            assert item["recommended_action"]
+
+
+def test_anomaly_severity_reason_is_formed_correctly():
+    tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/analytics/anomalies?from=2026-04-01T00:00:00&to=2026-04-10T23:59:00&user_id=2&parking_lot_id=1",
+            headers={"Authorization": f"Bearer {tokens['admin']}"},
+        )
+        assert response.status_code == 200
+        payload = response.json()
+
+        cancellation = next(item for item in payload["items"] if item["anomaly_type"] == "user.frequent_cancellations")
+        assert "Уровень" in cancellation["severity_reason"]
+        assert "35%" in cancellation["severity_reason"]
 
 
 def test_anomalies_endpoint_scopes_regular_user_to_self():
