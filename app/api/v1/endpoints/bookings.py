@@ -591,7 +591,7 @@ async def mark_booking_no_show(
         booking=booking,
         event_type=NotificationType.booking_no_show,
         title="Бронирование отмечено как неиспользованное",
-        message=f"Бронирование №{booking.id} отмечено как «не заехал».",
+        message=f"Бронирование №{booking.id} отмечено как «неявка».",
     )
 
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)

@@ -246,27 +246,27 @@ Scoring formula:
 - Explainable forecast buckets for target date/range.
 
 ### GET `/analytics/anomalies`
-- Explainable anomaly items with severity/reason/related entity.
-- Backward-compatible response: historical fields preserved, new explainability fields are optional in schema.
-- User-level scope restrictions for non-admin/non-owner/non-guard.
+- Объяснимые аномалии с уровнем критичности, причиной и связанным объектом.
+- Обратная совместимость сохранена: исторические поля не изменены, новые поля объяснимости в схеме optional.
+- Для ролей без расширенных прав применяется ограничение по области видимости пользователя.
 
-Anomaly item fields (extended):
+Поля элемента аномалии (расширение):
 - `anomaly_type`, `severity`, `reason`, `related_entity`, `metrics`
-- `explanation` — human-readable what happened
-- `impact` — why it matters
-- `recommended_action` — suggested action for operators
-- `related_metric` — main KPI/metric signal behind the anomaly
-- `severity_reason` — explicit explanation why severity is medium/high
+- `explanation` — что произошло
+- `impact` — почему это важно
+- `recommended_action` — что рекомендуется сделать
+- `related_metric` — ключевая метрика, связанная с аномалией
+- `severity_reason` — почему выбран уровень `medium/high`
 
-Action mappings (`anomaly_type` -> `recommended_action`):
+Матрица действий (`anomaly_type` -> `recommended_action`):
 
 | Anomaly type | Recommended action |
 |---|---|
-| `user.frequent_no_show` (high) | Сократить grace period и включить автоматические напоминания. |
+| `user.frequent_no_show` (high) | Сократить период ожидания подтверждения прибытия и включить автоматические напоминания. |
 | `user.frequent_cancellations` (high) | Пересмотреть правила отмены. |
-| `parking.occupancy_spike` | Включить overflow-зону или ограничить гостевые бронирования. |
+| `parking.occupancy_spike` | Включить резервную зону или ограничить гостевые бронирования. |
 | `security.suspicious_access_events` | Проверить неизвестные номера. |
-| `booking.unusual_duration` | Проверить max duration rules. |
+| `booking.unusual_duration` | Проверить ограничения по максимальной длительности бронирования. |
 
 ### GET `/analytics/management-recommendations`
 - Назначение: управленческие рекомендации по корректировке правил, зонирования, бронирований и контроля доступа.

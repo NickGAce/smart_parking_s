@@ -174,13 +174,13 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
 
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 <Button variant="contained" color="success" disabled={!canCheckIn || isLifecyclePending} onClick={() => booking && checkInMutation.mutate(booking.id)}>
-                  Заезд
+                  Прибытие
                 </Button>
                 <Button variant="contained" color="primary" disabled={!canCheckOut || isLifecyclePending} onClick={() => booking && checkOutMutation.mutate(booking.id)}>
                   Выезд
                 </Button>
                 <Button variant="outlined" color="warning" disabled={!canMarkNoShow || isLifecyclePending} onClick={() => booking && markNoShowMutation.mutate(booking.id)}>
-                  Не заехал
+                  Неявка
                 </Button>
               </Stack>
 

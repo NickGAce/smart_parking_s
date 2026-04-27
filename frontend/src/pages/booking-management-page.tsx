@@ -86,7 +86,7 @@ function getPrimaryLifecycleAction(status: BookingStatus): LifecyclePrimaryActio
   }
 
   if (status === 'confirmed') {
-    return { action: 'check-in', label: 'Заезд', color: 'success' };
+    return { action: 'check-in', label: 'Прибытие', color: 'success' };
   }
 
   return null;
@@ -502,7 +502,7 @@ export function BookingManagementPage() {
             closeActionsMenu();
           }}
         >
-          Принудительный заезд
+          Принудительное прибытие
         </MenuItem>
         <MenuItem
           disabled={!canMarkNoShow || isLifecyclePending || !actionsBookingId}
@@ -513,7 +513,7 @@ export function BookingManagementPage() {
           }}
           sx={{ color: 'warning.main' }}
         >
-          Отметить «не заехал»
+          Отметить «неявка»
         </MenuItem>
       </Menu>
     </>

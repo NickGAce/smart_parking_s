@@ -48,11 +48,11 @@ export function SummaryKpiSection({ isLoading, isError, data }: { isLoading: boo
       <Grid item xs={12} sm={6} md={6}>
         <MetricCard
           align="center"
-          label="Доля незаездов"
+          label="Доля неявок"
           value={`${(data.no_show_rate * 100).toFixed(1)}%`}
           badgeLabel={data.no_show_rate > 0.1 ? 'Внимание' : 'Норма'}
           badgeColor={data.no_show_rate > 0.1 ? 'warning' : 'success'}
-          helperText="Бронирования без фактического заезда."
+          helperText="Бронирования без фактического прибытия."
         />
       </Grid>
     </Grid>

@@ -8,7 +8,7 @@ export const bookingStatusLabelMap: Record<BookingStatus, string> = {
   completed: 'Завершено',
   cancelled: 'Отменено',
   expired: 'Просрочено',
-  no_show: 'Не заехал',
+  no_show: 'Неявка',
 };
 
 export const bookingSortByLabelMap: Record<NonNullable<BookingsQuery['sort_by']>, string> = {

@@ -21,7 +21,7 @@ class RuleDefinition:
 
 RULE_DEFINITIONS: list[RuleDefinition] = [
     RuleDefinition("user.frequent_cancellations", ">=35% отмен при минимум 5 бронированиях."),
-    RuleDefinition("user.frequent_no_show", ">=20% no_show при минимум 5 бронированиях."),
+    RuleDefinition("user.frequent_no_show", ">=20% неявок при минимум 5 бронированиях."),
     RuleDefinition(
         "user.last_minute_pattern",
         "Бронирование в последний момент: start_time - created_at <= 60 минут, доля >=50%.",
@@ -34,7 +34,7 @@ RULE_DEFINITIONS: list[RuleDefinition] = [
     RuleDefinition("parking.frequent_spot_blocking", "Заблокировано >=25% мест и минимум 3 места."),
     RuleDefinition(
         "security.suspicious_access_events",
-        "За период обнаружено >=3 событий доступа с неизвестными номерами (ANPR).",
+        "За период обнаружено >=3 подозрительных событий доступа с неизвестными номерами.",
     ),
     RuleDefinition(
         "booking.unusual_duration",
@@ -87,23 +87,23 @@ class AnomalyDetectionService:
     @staticmethod
     def _resolve_recommended_action(anomaly_type: str, severity: SeverityLevel) -> str:
         if anomaly_type == "user.frequent_no_show" and severity == "high":
-            return "Сократить grace period и включить автоматические напоминания перед началом бронирования."
+            return "Сократить период ожидания подтверждения прибытия и включить автоматические напоминания перед началом бронирования."
         if anomaly_type == "user.frequent_cancellations" and severity == "high":
             return "Пересмотреть правила отмены: штраф за позднюю отмену, лимиты и предупреждения."
         if anomaly_type == "parking.occupancy_spike":
-            return "Включить overflow-зону или временно ограничить гостевые бронирования в пиковые часы."
+            return "Включить резервную зону или временно ограничить гостевые бронирования в пиковые часы."
         if anomaly_type == "security.suspicious_access_events":
             return "Проверить неизвестные номера, усилить ручную верификацию и эскалацию охране."
         if anomaly_type == "booking.unusual_duration":
-            return "Проверить max duration rules и ограничения по длительным бронированиям."
+            return "Проверить ограничения по максимальной длительности бронирования."
         if anomaly_type == "parking.high_conflict_risk":
             return "Перенастроить квоты и автоназначение для снижения пиковых конфликтов за места."
         if anomaly_type == "parking.frequent_spot_blocking":
             return "Проверить причины блокировок и вернуть доступность мест в эксплуатационный пул."
         if anomaly_type == "user.last_minute_pattern":
-            return "Ввести предиктивные напоминания и приоритизировать автоназначение при late-booking."
+            return "Ввести предиктивные напоминания и приоритизировать автоназначение при поздних бронированиях."
         if anomaly_type == "user.frequent_no_show":
-            return "Усилить коммуникацию перед заездом и контролировать повторные незаезды пользователя."
+            return "Усилить коммуникацию перед прибытием и контролировать повторные неявки пользователя."
         if anomaly_type == "user.frequent_cancellations":
             return "Провести коммуникацию с пользователем и мониторить динамику отмен по периодам."
         return "Провести операционную проверку и применить корректирующие меры по регламенту."
@@ -182,12 +182,12 @@ class AnomalyDetectionService:
                     self._build_anomaly(
                         anomaly_type="user.frequent_no_show",
                         severity=severity,
-                        reason=f"{no_show} из {total} бронирований завершились как no_show ({no_show_rate:.0%}).",
-                        explanation="Высокая доля незаездов говорит о недисциплинированном паттерне использования мест.",
+                        reason=f"{no_show} из {total} бронирований завершились со статусом «неявка» ({no_show_rate:.0%}).",
+                        explanation="Высокая доля неявок говорит о недисциплинированном паттерне использования мест.",
                         impact="Места остаются заблокированными в графике, снижая доступность для других пользователей.",
                         related_metric="no_show_rate",
                         severity_reason=(
-                            f"Уровень {severity}: no-show {no_show_rate:.1%} "
+                            f"Уровень {severity}: доля неявок {no_show_rate:.1%} "
                             f"{'существенно выше' if severity == 'high' else 'выше'} порога 20%."
                         ),
                         related_entity=RelatedEntity(entity_type="user", entity_id=uid),
@@ -205,7 +205,7 @@ class AnomalyDetectionService:
                         impact="Повышается риск дефицита свободных мест и локальных конфликтов в пиковые окна.",
                         related_metric="last_minute_rate",
                         severity_reason=(
-                            f"Уровень {severity}: доля late-booking {last_minute_rate:.1%} "
+                            f"Уровень {severity}: доля поздних бронирований {last_minute_rate:.1%} "
                             f"{'значительно выше' if severity == 'high' else 'выше'} порога 50%."
                         ),
                         related_entity=RelatedEntity(entity_type="user", entity_id=uid),
@@ -338,7 +338,7 @@ class AnomalyDetectionService:
                         anomaly_type="security.suspicious_access_events",
                         severity=severity,
                         reason=f"За период обнаружено {unknown_plate_events} событий доступа с неизвестными номерами.",
-                        explanation="ANPR/журнал доступа фиксирует повторяющиеся события с неизвестными номерами.",
+                        explanation="Система распознавания номеров и журнал доступа фиксируют повторяющиеся события с неизвестными номерами.",
                         impact="Повышается риск несанкционированного въезда и инцидентов безопасности.",
                         related_metric="unknown_plate_events",
                         severity_reason=(
@@ -407,7 +407,7 @@ class AnomalyDetectionService:
             related_metric="average_booking_duration_minutes",
             severity_reason=(
                 f"Уровень {severity}: длительность {current_avg:.1f} мин при коэффициенте {factor:.2f}x "
-                f"к историческому baseline."
+                f"к историческому базовому уровню."
             ),
             related_entity=RelatedEntity(entity_type="parking_lot", entity_id=lot_id, label=lot_name),
             metrics={
