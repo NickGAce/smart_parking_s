@@ -30,6 +30,17 @@ function formatPercent(value?: number, digits = 1) {
   return `${value.toFixed(digits)}%`;
 }
 
+const directionLabel: Record<'entry' | 'exit', string> = {
+  entry: 'Въезд',
+  exit: 'Выезд',
+};
+
+const decisionLabel: Record<'allowed' | 'review' | 'denied', string> = {
+  allowed: 'Разрешено',
+  review: 'Проверка',
+  denied: 'Запрещено',
+};
+
 function formatDelta(value: number) {
   if (value === 0) return '0 п.п.';
   return `${value > 0 ? '+' : ''}${value.toFixed(1)} п.п.`;
@@ -190,8 +201,8 @@ export function DashboardPage() {
               <MetricCard
                 key={event.id}
                 align="left"
-                label={`${event.plate_number} · ${event.direction}`}
-                value={event.decision}
+                label={`${event.plate_number} · ${directionLabel[event.direction]}`}
+                value={decisionLabel[event.decision]}
                 secondaryValue={event.reason}
                 helperText={new Date(event.created_at).toLocaleString()}
               />

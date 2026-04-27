@@ -19,6 +19,23 @@ const decisionColor: Record<AccessDecision, 'success' | 'warning' | 'error'> = {
   denied: 'error',
 };
 
+const directionLabel: Record<AccessDirection, string> = {
+  entry: 'Въезд',
+  exit: 'Выезд',
+};
+
+const decisionLabel: Record<AccessDecision, string> = {
+  allowed: 'Разрешено',
+  review: 'Проверка',
+  denied: 'Запрещено',
+};
+
+const processingLabel: Record<'pending' | 'processed' | 'failed', string> = {
+  pending: 'Ожидает',
+  processed: 'Обработано',
+  failed: 'Ошибка',
+};
+
 export function AccessControlPage() {
   const parkingLotsQuery = useParkingLotsQuery({ limit: 100, offset: 0 });
   const latestEventsQuery = useLatestAccessEventsQuery(5);
@@ -107,30 +124,45 @@ export function AccessControlPage() {
             </Grid>
           </DataPanel>
 
-          <DataPanel title="Распознавание по изображению/видео" subtitle="Загрузите файл, модуль выполнит mock pipeline и создаст событие доступа.">
-            <Grid container spacing={1.5}>
-              <Grid item xs={12} md={5}>
-                <Button component="label" variant="outlined" fullWidth>
-                  Выбрать изображение
-                  <input hidden type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
-                </Button>
-                {imageFile ? <Typography variant="caption">{imageFile.name}</Typography> : null}
+          <DataPanel title="Распознавание по изображению/видео" subtitle="Загрузите файл, модуль выполнит имитацию распознавания и создаст событие доступа.">
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6}>
+                <Stack spacing={1.25} sx={{ p: 1.5, border: '1px solid', borderColor: 'border.subtle', borderRadius: 2, height: '100%' }}>
+                  <Typography variant="subtitle2">Изображение</Typography>
+                  <Button component="label" variant="outlined" fullWidth>
+                    Выбрать изображение
+                    <input hidden type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] ?? null)} />
+                  </Button>
+                  <Typography variant="caption" color="text.secondary" sx={{ minHeight: 20 }}>
+                    {imageFile ? imageFile.name : 'Файл не выбран'}
+                  </Typography>
+                  <Button variant="contained" fullWidth onClick={submitImage} disabled={!imageFile || parkingLotId === ''}>
+                    Распознать изображение
+                  </Button>
+                </Stack>
               </Grid>
-              <Grid item xs={12} md={2}><Button variant="contained" fullWidth onClick={submitImage} disabled={!imageFile || parkingLotId === ''}>Распознать изображение</Button></Grid>
-              <Grid item xs={12} md={5}>
-                <Button component="label" variant="outlined" fullWidth>
-                  Выбрать видео
-                  <input hidden type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)} />
-                </Button>
-                {videoFile ? <Typography variant="caption">{videoFile.name}</Typography> : null}
+
+              <Grid item xs={12} md={6}>
+                <Stack spacing={1.25} sx={{ p: 1.5, border: '1px solid', borderColor: 'border.subtle', borderRadius: 2, height: '100%' }}>
+                  <Typography variant="subtitle2">Видео</Typography>
+                  <Button component="label" variant="outlined" fullWidth>
+                    Выбрать видео
+                    <input hidden type="file" accept="video/*" onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)} />
+                  </Button>
+                  <Typography variant="caption" color="text.secondary" sx={{ minHeight: 20 }}>
+                    {videoFile ? videoFile.name : 'Файл не выбран'}
+                  </Typography>
+                  <Button variant="contained" fullWidth onClick={submitVideo} disabled={!videoFile || parkingLotId === ''}>
+                    Распознать видео
+                  </Button>
+                </Stack>
               </Grid>
-              <Grid item xs={12} md={2}><Button variant="contained" fullWidth onClick={submitVideo} disabled={!videoFile || parkingLotId === ''}>Распознать видео</Button></Grid>
             </Grid>
           </DataPanel>
 
           {latestResult ? (
             <Alert severity={latestResult.decision === 'allowed' ? 'success' : latestResult.decision === 'review' ? 'warning' : 'error'}>
-              Номер: {latestResult.plate_number}; confidence: {latestResult.recognition_confidence ?? '—'}; user_id: {latestResult.user_id ?? '—'}; vehicle_id: {latestResult.vehicle_id ?? '—'}; booking_id: {latestResult.booking_id ?? '—'}; decision: {latestResult.decision}.
+              Номер: {latestResult.plate_number}; достоверность: {latestResult.recognition_confidence ?? '—'}; пользователь: {latestResult.user_id ?? '—'}; автомобиль: {latestResult.vehicle_id ?? '—'}; бронирование: {latestResult.booking_id ?? '—'}; решение: {decisionLabel[latestResult.decision]}.
             </Alert>
           ) : null}
 
@@ -141,15 +173,15 @@ export function AccessControlPage() {
                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} justifyContent="space-between">
                     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                       <Typography fontWeight={700}>{event.plate_number}</Typography>
-                      <Chip size="small" label={event.direction} variant="outlined" />
-                      <Chip size="small" label={event.decision} color={decisionColor[event.decision]} />
-                      <Chip size="small" label={event.processing_status} variant="outlined" />
+                      <Chip size="small" label={directionLabel[event.direction]} variant="outlined" />
+                      <Chip size="small" label={decisionLabel[event.decision]} color={decisionColor[event.decision]} />
+                      <Chip size="small" label={processingLabel[event.processing_status]} variant="outlined" />
                     </Stack>
                     <Typography variant="caption" color="text.secondary">{new Date(event.created_at).toLocaleString()}</Typography>
                   </Stack>
                   <Typography variant="body2" color="text.secondary">{event.reason}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    user: {event.user_id ?? '—'} · vehicle: {event.vehicle_id ?? '—'} · booking: {event.booking_id ?? '—'} · spot: {event.parking_spot_id ?? '—'}
+                    пользователь: {event.user_id ?? '—'} · автомобиль: {event.vehicle_id ?? '—'} · бронирование: {event.booking_id ?? '—'} · место: {event.parking_spot_id ?? '—'}
                   </Typography>
                   {(event.image_url || event.video_url) ? (
                     <Typography variant="caption" display="block" color="text.secondary">медиа: {event.image_url ?? event.video_url}</Typography>
@@ -163,8 +195,8 @@ export function AccessControlPage() {
             <Stack spacing={1}>
               {(latestEventsQuery.data?.items ?? []).slice(0, 5).map((event) => (
                 <Stack key={event.id} direction="row" justifyContent="space-between" spacing={1}>
-                  <Typography variant="body2" noWrap>{event.plate_number} · {event.direction}</Typography>
-                  <Chip size="small" label={event.decision} color={decisionColor[event.decision]} />
+                  <Typography variant="body2" noWrap>{event.plate_number} · {directionLabel[event.direction]}</Typography>
+                  <Chip size="small" label={decisionLabel[event.decision]} color={decisionColor[event.decision]} />
                 </Stack>
               ))}
             </Stack>
