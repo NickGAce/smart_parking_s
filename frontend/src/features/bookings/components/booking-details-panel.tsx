@@ -163,7 +163,7 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
                   { key: 'Пояснение назначения', value: booking.assignment_explanation ?? '—' },
                 ]}
               />
-              {booking.decision_report && <DecisionReportPanel report={booking.decision_report} title="Decision Report бронирования" />}
+              {booking.decision_report && <DecisionReportPanel report={booking.decision_report} title="Отчёт по решению для бронирования" />}
               <Stack direction="row" spacing={1} alignItems="center">
                 <Typography variant="body2" color="text.secondary">Статус:</Typography>
                 <StatusChip status={booking.status} mapping={bookingStatusMap} />

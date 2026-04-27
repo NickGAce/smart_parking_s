@@ -140,7 +140,7 @@ async def create_booking(
         spot = await _get_spot_or_404(session, best_spot.spot_id)
         selected_spot_id = best_spot.spot_id
         assignment_explanation = (
-            f"Auto-assigned spot #{best_spot.spot_number} (id={best_spot.spot_id}) with score {best_spot.score}"
+            f"Автоматически назначено место №{best_spot.spot_number} (id={best_spot.spot_id}) с оценкой {best_spot.score}"
         )
         assignment_metadata = {
             "selected_spot_id": best_spot.spot_id,

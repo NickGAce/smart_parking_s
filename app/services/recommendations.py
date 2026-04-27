@@ -134,7 +134,7 @@ async def recommend_spots(
             rejected.append(
                 RejectedCandidate(
                     spot_id=spot.id,
-                    reason="Spot is blocked",
+                    reason="Место заблокировано",
                     constraint="spot_status_available",
                 )
             )
@@ -143,7 +143,7 @@ async def recommend_spots(
             rejected.append(
                 RejectedCandidate(
                     spot_id=spot.id,
-                    reason="Spot overlaps with an active booking",
+                    reason="Место пересекается с активным бронированием",
                     constraint="interval_conflict",
                 )
             )
@@ -153,7 +153,7 @@ async def recommend_spots(
             rejected.append(
                 RejectedCandidate(
                     spot_id=spot.id,
-                    reason="Spot is not allowed for user role or accessibility requirement",
+                    reason="Место недоступно для роли пользователя или требования доступности",
                     constraint="role_access",
                 )
             )
@@ -242,12 +242,12 @@ async def recommend_spots(
             for item in explainability
         ]
         constraints = [
-            DecisionConstraint(name="spot_status_available", passed=True, explanation="Spot status is available"),
-            DecisionConstraint(name="interval_conflict", passed=True, explanation="No overlap with blocking bookings"),
+            DecisionConstraint(name="spot_status_available", passed=True, explanation="Статус места: доступно"),
+            DecisionConstraint(name="interval_conflict", passed=True, explanation="Нет пересечения с блокирующими бронированиями"),
             DecisionConstraint(
                 name="role_access",
                 passed=True,
-                explanation=f"Role '{normalized_role.value}' is allowed for this spot",
+                explanation=f"Роль '{normalized_role.value}' имеет доступ к этому месту",
             )
         ]
         ranked.append(ScoredCandidate(recommended=recommended_spot, factors=factors, constraints=constraints))
@@ -314,7 +314,7 @@ def _build_decision_report(ranked: list[ScoredCandidate], rejected: list[Rejecte
 
     return DecisionReport(
         selected_spot_id=best.recommended.spot_id,
-        selected_spot_label=f"Spot #{best.recommended.spot_number}",
+        selected_spot_label=f"Место №{best.recommended.spot_number}",
         final_score=best.recommended.score,
         confidence=confidence,
         factors=best.factors,
@@ -324,7 +324,7 @@ def _build_decision_report(ranked: list[ScoredCandidate], rejected: list[Rejecte
         selected_candidate=SelectedCandidate(
             spot_id=best.recommended.spot_id,
             spot_number=best.recommended.spot_number,
-            spot_label=f"Spot #{best.recommended.spot_number}",
+            spot_label=f"Место №{best.recommended.spot_number}",
             final_score=best.recommended.score,
         ),
     )
@@ -364,24 +364,24 @@ def _build_score_context(
 
     if preferred_spot_types:
         spot_type_score = 1.0 if spot.spot_type in preferred_spot_types else 0.2
-        spot_reason = "Spot type matches user preference" if spot_type_score == 1.0 else "Spot type does not match preferences"
+        spot_reason = "Тип места соответствует предпочтениям пользователя" if spot_type_score == 1.0 else "Тип места не соответствует предпочтениям"
     else:
         spot_type_score = 0.7
-        spot_reason = "No explicit spot type preference"
+        spot_reason = "Явное предпочтение по типу места не задано"
 
     if preferred_zone_ids:
         zone_score = 1.0 if spot.zone_id in preferred_zone_ids else 0.3
-        zone_reason = "Spot is in preferred zone" if zone_score == 1.0 else "Spot zone is outside preferred set"
+        zone_reason = "Место находится в предпочтительной зоне" if zone_score == 1.0 else "Зона места вне предпочтительного набора"
     else:
         zone_score = 0.7
-        zone_reason = "No explicit zone preference"
+        zone_reason = "Явное предпочтение по зоне не задано"
 
     if preferences.prefer_charger:
         charger_score = 1.0 if spot.has_charger else 0.1
-        charger_reason = "Charging point preference satisfied" if charger_score == 1.0 else "No charger, but candidate kept"
+        charger_reason = "Предпочтение по зарядке удовлетворено" if charger_score == 1.0 else "Зарядки нет, но кандидат оставлен"
     else:
         charger_score = 1.0 if not spot.has_charger else 0.8
-        charger_reason = "No charger preference; spot acceptable"
+        charger_reason = "Предпочтение по зарядке не задано; место допустимо"
 
     conflict_score = 1 / (1 + nearby_conflicts)
 
@@ -393,11 +393,11 @@ def _build_score_context(
         role=1.0,
         conflict=conflict_score,
         reasons={
-            "availability": "Spot is free in requested interval",
+            "availability": "Место свободно в выбранном интервале",
             "spot_type": spot_reason,
             "zone": zone_reason,
             "charger": charger_reason,
-            "role": f"Role '{role.value}' is allowed for this spot",
-            "conflict": "Lower risk of near-term conflicts" if nearby_conflicts == 0 else f"{nearby_conflicts} nearby bookings around interval",
+            "role": f"Роль '{role.value}' имеет доступ к этому месту",
+            "conflict": "Низкий риск ближайших конфликтов" if nearby_conflicts == 0 else f"{nearby_conflicts} соседних бронирований рядом с интервалом",
         },
     )

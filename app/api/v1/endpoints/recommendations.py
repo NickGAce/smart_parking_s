@@ -38,5 +38,5 @@ async def recommendation_decision_report(
     payload.to_time = normalize_client_datetime(payload.to_time, None)
     response = await recommend_spots(session=session, payload=payload, role=role)
     if response.decision_report is None:
-        raise HTTPException(status_code=404, detail="No decision report available for given constraints")
+        raise HTTPException(status_code=404, detail="Для заданных ограничений отчёт решения недоступен")
     return response.decision_report

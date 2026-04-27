@@ -13,15 +13,30 @@ function fmt(value: number) {
   return numberFormatter.format(value);
 }
 
-export function DecisionReportPanel({ report, title = 'Decision Report' }: DecisionReportPanelProps) {
+export function DecisionReportPanel({ report, title = 'Отчёт о принятии решения' }: DecisionReportPanelProps) {
+  const factorLabelMap: Record<string, string> = {
+    availability: 'Доступность',
+    spot_type: 'Тип места',
+    zone: 'Зона',
+    charger: 'Зарядка',
+    role: 'Роль',
+    conflict: 'Риск конфликта',
+  };
+
+  const constraintLabelMap: Record<string, string> = {
+    spot_status_available: 'Доступность статуса',
+    interval_conflict: 'Конфликт интервала',
+    role_access: 'Доступ по роли',
+  };
+
   return (
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, overflow: 'hidden' }}>
       <Stack spacing={1.25}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{title}</Typography>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} useFlexGap flexWrap="wrap">
           <Chip size="small" color="primary" label={`Выбрано: ${report.selected_spot_label}`} />
-          <Chip size="small" variant="outlined" label={`Score: ${fmt(report.final_score)}`} />
-          <Chip size="small" variant="outlined" label={`Confidence: ${fmt(report.confidence * 100)}%`} />
+          <Chip size="small" variant="outlined" label={`Итоговый балл: ${fmt(report.final_score)}`} />
+          <Chip size="small" variant="outlined" label={`Уверенность: ${fmt(report.confidence * 100)}%`} />
         </Stack>
 
         <Box>
@@ -32,8 +47,8 @@ export function DecisionReportPanel({ report, title = 'Decision Report' }: Decis
               return (
                 <ListItem key={`${factor.name}-${factor.explanation}`} disableGutters sx={{ display: 'block', py: 0.75 }}>
                   <ListItemText
-                    primary={`${factor.name}: ${factor.explanation}`}
-                    secondary={`raw=${fmt(factor.raw_value)}, weight=${fmt(factor.weight)}, contribution=${fmt(factor.contribution)}`}
+                    primary={`${factorLabelMap[factor.name] ?? factor.name}: ${factor.explanation}`}
+                    secondary={`значение=${fmt(factor.raw_value)}, вес=${fmt(factor.weight)}, вклад=${fmt(factor.contribution)}`}
                     primaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
                     secondaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
                   />
@@ -45,13 +60,13 @@ export function DecisionReportPanel({ report, title = 'Decision Report' }: Decis
         </Box>
 
         <Box>
-          <Typography variant="subtitle2" sx={{ mb: 0.75 }}>Hard constraints</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 0.75 }}>Жёсткие ограничения</Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {report.hard_constraints_passed.map((constraint) => (
               <Chip
                 key={`${constraint.name}-${constraint.explanation}`}
                 size="small"
-                label={`${constraint.name}: ${constraint.explanation}`}
+                label={`${constraintLabelMap[constraint.name] ?? constraint.name}: ${constraint.explanation}`}
                 color={constraint.passed ? 'success' : 'error'}
                 variant={constraint.passed ? 'filled' : 'outlined'}
                 sx={{ maxWidth: '100%' }}
@@ -69,8 +84,8 @@ export function DecisionReportPanel({ report, title = 'Decision Report' }: Decis
               {report.rejected_candidates.map((candidate) => (
                 <ListItem key={`${candidate.spot_id}-${candidate.reason}`} disableGutters>
                   <ListItemText
-                    primary={`Spot #${candidate.spot_id}: ${candidate.reason}`}
-                    secondary={candidate.constraint ? `constraint=${candidate.constraint}` : 'constraint=—'}
+                    primary={`Место №${candidate.spot_id}: ${candidate.reason}`}
+                    secondary={candidate.constraint ? `ограничение=${constraintLabelMap[candidate.constraint] ?? candidate.constraint}` : 'ограничение=—'}
                     primaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
                     secondaryTypographyProps={{ sx: { overflowWrap: 'anywhere' } }}
                   />
