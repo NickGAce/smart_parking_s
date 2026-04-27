@@ -605,32 +605,32 @@ def _predict_bucket_value(
     samples = len(dow_hour_values)
     if samples >= 6:
         base_prediction = (
-            (0.33 * dow_hour_avg)
+            (0.28 * dow_hour_avg)
             + (0.18 * dow_avg)
             + (0.14 * hour_avg)
             + (0.1 * global_avg)
             + (0.1 * same_hour_last_week)
             + (0.05 * day_type_avg)
-            + (0.1 * spike_signal)
+            + (0.15 * spike_signal)
         )
     elif samples >= 3:
         base_prediction = (
-            (0.2 * dow_hour_avg)
-            + (0.25 * dow_avg)
+            (0.15 * dow_hour_avg)
+            + (0.23 * dow_avg)
             + (0.2 * hour_avg)
             + (0.1 * global_avg)
             + (0.1 * same_hour_last_week)
             + (0.05 * day_type_avg)
-            + (0.1 * spike_signal)
+            + (0.17 * spike_signal)
         )
     else:
         base_prediction = (
-            (0.25 * dow_avg)
-            + (0.25 * hour_avg)
+            (0.2 * dow_avg)
+            + (0.2 * hour_avg)
             + (0.2 * global_avg)
-            + (0.15 * same_hour_last_week)
+            + (0.18 * same_hour_last_week)
             + (0.1 * day_type_avg)
-            + (0.05 * spike_signal)
+            + (0.12 * spike_signal)
         )
 
     return base_prediction, samples
@@ -735,8 +735,14 @@ def _spike_signal(
     active_level_exact = _recency_weighted_mean(active_exact_values, bucket_start, default=default, half_life_days=half_life_days)
     active_level_hour = _recency_weighted_mean(active_hour_values, bucket_start, default=default, half_life_days=half_life_days)
     active_level = (0.6 * active_level_exact) + (0.4 * active_level_hour)
+    expected_level = activity_probability * active_level
+    recent_peak = _recent_same_hour_peak(bucket_start, dow_hour_values, default=default)
 
-    return activity_probability * active_level
+    if activity_probability >= 0.45:
+        return (0.55 * active_level) + (0.25 * expected_level) + (0.2 * recent_peak)
+    if activity_probability >= 0.25:
+        return (0.45 * expected_level) + (0.35 * active_level) + (0.2 * recent_peak)
+    return (0.7 * expected_level) + (0.3 * recent_peak)
 
 
 def _recency_weighted_activity_rate(
@@ -761,6 +767,21 @@ def _recency_weighted_activity_rate(
     if total_weight <= 0:
         return 0.0
     return active_weight / total_weight
+
+
+def _recent_same_hour_peak(
+    bucket_start: datetime,
+    dow_hour_values: list[tuple[datetime, float]],
+    default: float,
+) -> float:
+    recent_values = [
+        value
+        for time_bucket, value in dow_hour_values
+        if (bucket_start - time_bucket) <= timedelta(days=21)
+    ]
+    if not recent_values:
+        return default
+    return max(recent_values)
 
 
 async def get_forecast_quality(

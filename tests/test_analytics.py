@@ -21,6 +21,7 @@ from app.services.analytics import (
     _adaptive_half_life_days,
     _calculate_forecast_error_metrics,
     _predict_bucket_value,
+    _recent_same_hour_peak,
     _recency_weighted_activity_rate,
     _recency_weighted_mean,
     _same_hour_last_weeks_average,
@@ -297,6 +298,20 @@ def test_spike_signal_increases_when_recent_active_levels_present():
         half_life_days=7.0,
     )
     assert strong_signal > weak_signal
+
+
+def test_recent_same_hour_peak_prefers_recent_maximum():
+    reference = datetime(2026, 4, 25, 9, 0, 0)
+    peak = _recent_same_hour_peak(
+        bucket_start=reference,
+        dow_hour_values=[
+            (datetime(2026, 3, 1, 9, 0, 0), 30.0),   # too old, should be ignored
+            (datetime(2026, 4, 10, 9, 0, 0), 12.0),
+            (datetime(2026, 4, 17, 9, 0, 0), 19.0),
+        ],
+        default=3.0,
+    )
+    assert peak == 19.0
 
 
 def test_forecast_quality_low_data_returns_low_confidence_and_explanation():
