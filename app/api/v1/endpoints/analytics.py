@@ -18,10 +18,14 @@ from app.schemas.analytics import (
     PeakHourOut,
     ManagementRecommendationsResponse,
     ManagementSeverity,
+    ForecastQualityResponse,
+    ForecastQualityEvaluatedPeriodOut,
 )
 from app.services.analytics import (
     AnalyticsFilters,
+    ForecastQualityFilters,
     OccupancyForecastFilters,
+    get_forecast_quality,
     get_booking_metrics,
     get_occupancy_forecast,
     get_occupancy_by_spot_type,
@@ -216,4 +220,50 @@ async def analytics_management_recommendations(
         parking_lot_id=parking_lot_id,
         severity=severity,
         items=items,
+    )
+
+
+@router.get("/forecast-quality", response_model=ForecastQualityResponse)
+async def analytics_forecast_quality(
+    date_from: datetime = Query(...),
+    date_to: datetime = Query(...),
+    bucket: Literal["hour", "day"] = Query("hour"),
+    parking_lot_id: int | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role not in [UserRole.admin, UserRole.owner]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    normalized_date_from = normalize_client_datetime(date_from, None)
+    normalized_date_to = normalize_client_datetime(date_to, None)
+    if normalized_date_from >= normalized_date_to:
+        raise HTTPException(status_code=400, detail="date_from must be earlier than date_to")
+
+    try:
+        metrics = await get_forecast_quality(
+            session,
+            ForecastQualityFilters(
+                parking_lot_id=parking_lot_id,
+                date_from=normalized_date_from,
+                date_to=normalized_date_to,
+                bucket=bucket,
+            ),
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+    return ForecastQualityResponse(
+        parking_lot_id=parking_lot_id,
+        mae=metrics.mae,
+        mape=metrics.mape,
+        rmse=metrics.rmse,
+        sample_size=metrics.sample_size,
+        confidence=metrics.confidence,
+        explanation=metrics.explanation,
+        evaluated_period=ForecastQualityEvaluatedPeriodOut(
+            from_time=metrics.evaluated_period_from,
+            to_time=metrics.evaluated_period_to,
+            bucket=bucket,
+        ),
     )

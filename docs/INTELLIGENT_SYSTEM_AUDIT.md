@@ -108,6 +108,38 @@ Rules are built on top of already implemented analytics/anomaly primitives (with
 - `owner`: sees only own parking lots.
 - `tenant`: no access (`403`).
 
+## Forecast quality analytics module (2026-04-27)
+
+### Endpoint
+- `GET /api/v1/analytics/forecast-quality`
+- Query:
+  - `parking_lot_id` (optional)
+  - `date_from` (required)
+  - `date_to` (required)
+  - `bucket` (`hour|day`, default `hour`)
+
+### Что считает модуль
+Модуль сравнивает прогнозную загрузку с фактической загрузкой на историческом периоде и возвращает агрегированные метрики ошибок:
+- `MAE` (средняя абсолютная ошибка, п.п.)
+- `MAPE` (средняя абсолютная процентная ошибка, %)
+- `RMSE` (квадратичная ошибка, optional)
+- `sample_size` (размер выборки бакетов)
+- `confidence` + `explanation` (надежность оценки)
+
+### Формулы
+- `MAE = (1/n) * Σ |y_true - y_pred|`
+- `MAPE = (100%/k) * Σ (|y_true - y_pred| / |y_true|), y_true > 0`
+- `RMSE = sqrt((1/n) * Σ (y_true - y_pred)^2)`
+
+### Confidence policy
+- `high`: данных достаточно для устойчивой оценки.
+- `medium`: данных умеренно, результат информативен, но с ограничениями.
+- `low`: мало бакетов, возвращается warning/explanation о низкой надежности.
+
+### RBAC
+- `admin`, `owner`: доступ есть.
+- другие роли: `403`.
+
 ## Модуль объяснимости аномалий (2026-04-27)
 
 ### Расширенный payload аномалий

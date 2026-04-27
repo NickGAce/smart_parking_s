@@ -71,6 +71,23 @@ class AnalyticsOccupancyForecastOut(BaseModel):
     forecast: list[OccupancyForecastBucketOut]
 
 
+class ForecastQualityEvaluatedPeriodOut(BaseModel):
+    from_time: datetime
+    to_time: datetime
+    bucket: Literal["hour", "day"]
+
+
+class ForecastQualityResponse(BaseModel):
+    parking_lot_id: int | None = None
+    mae: float = Field(ge=0)
+    mape: float = Field(ge=0)
+    rmse: float | None = Field(default=None, ge=0)
+    sample_size: int = Field(ge=0)
+    confidence: Literal["low", "medium", "high"]
+    explanation: str
+    evaluated_period: ForecastQualityEvaluatedPeriodOut
+
+
 ManagementRecommendationType = Literal[
     "overload",
     "no_show",

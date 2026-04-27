@@ -5,6 +5,7 @@ import { DateTimeField } from '../../shared/ui/date-time-field';
 import { FiltersSection } from '../../shared/ui/filters-section';
 import type { AnalyticsPeriod } from '../../shared/types/analytics';
 import type { ManagementSeverity } from '../../shared/types/analytics';
+import type { ForecastQualityBucket } from '../../shared/types/analytics';
 
 const PERIOD_OPTIONS: AnalyticsPeriod[] = ['day', 'week', 'month'];
 
@@ -19,6 +20,11 @@ const severityLabels: Record<ManagementSeverity, string> = {
   medium: 'Средняя',
   high: 'Высокая',
   critical: 'Критичная',
+};
+
+const forecastQualityBucketLabels: Record<ForecastQualityBucket, string> = {
+  hour: 'По часам',
+  day: 'По дням',
 };
 
 interface DashboardFiltersProps {
@@ -131,6 +137,23 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
             {(Object.keys(severityLabels) as ManagementSeverity[]).map((severity) => (
               <MenuItem key={severity} value={severity}>
                 {severityLabels[severity]}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+
+        <Grid item xs={12} sm={6} lg={2}>
+          <TextField
+            select
+            label="Качество прогноза"
+            size="small"
+            fullWidth
+            value={filters.forecastQualityBucket}
+            onChange={(event) => onChange({ forecastQualityBucket: event.target.value as ForecastQualityBucket })}
+          >
+            {(Object.keys(forecastQualityBucketLabels) as ForecastQualityBucket[]).map((bucket) => (
+              <MenuItem key={bucket} value={bucket}>
+                {forecastQualityBucketLabels[bucket]}
               </MenuItem>
             ))}
           </TextField>

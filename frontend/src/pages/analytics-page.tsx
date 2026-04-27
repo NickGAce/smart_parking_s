@@ -14,6 +14,7 @@ import { DashboardFilters } from '../widgets/analytics/dashboard-filters';
 import { AnomaliesSection } from '../widgets/analytics/sections/anomalies-section';
 import { BookingsMetricsSection } from '../widgets/analytics/sections/bookings-metrics-section';
 import { ForecastSection } from '../widgets/analytics/sections/forecast-section';
+import { ForecastQualityCard } from '../widgets/analytics/sections/forecast-quality-card';
 import { OccupancySection } from '../widgets/analytics/sections/occupancy-section';
 import { SummaryKpiSection } from '../widgets/analytics/sections/summary-kpi-section';
 import { ManagementRecommendationsSection } from '../widgets/analytics/sections/management-recommendations-section';
@@ -28,6 +29,7 @@ const INITIAL_FILTERS: AnalyticsDashboardFilters = {
   bucketSizeHours: 1,
   anomalyUserId: null,
   managementSeverity: '',
+  forecastQualityBucket: 'hour',
 };
 
 const PERIOD_LABELS: Record<AnalyticsDashboardFilters['period'], string> = {
@@ -165,6 +167,15 @@ export function AnalyticsPage() {
               isLoading={queries.forecastQuery.isLoading}
               isError={queries.forecastQuery.isError}
               data={queries.forecastQuery.data}
+            />
+          </DataPanel>
+        </Grid>
+        <Grid item xs={12}>
+          <DataPanel title="Качество прогноза" subtitle="Проверка точности модели на исторических данных (backtesting).">
+            <ForecastQualityCard
+              isLoading={queries.forecastQualityQuery.isLoading}
+              isError={queries.forecastQualityQuery.isError}
+              data={queries.forecastQualityQuery.data}
             />
           </DataPanel>
         </Grid>

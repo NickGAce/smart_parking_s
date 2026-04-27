@@ -6,6 +6,8 @@ import type {
   AnalyticsSummary,
   AnomaliesResponse,
   ForecastQuery,
+  ForecastQuality,
+  ForecastQualityQuery,
   ManagementRecommendationsQuery,
   ManagementRecommendationsResponse,
   OccupancyForecast,
@@ -26,6 +28,10 @@ export const analyticsApi = {
   },
   getOccupancyForecast: async (params?: ForecastQuery): Promise<OccupancyForecast> => {
     const { data } = await httpClient.get<OccupancyForecast>('/analytics/occupancy-forecast', { params });
+    return data;
+  },
+  getForecastQuality: async (params: ForecastQualityQuery): Promise<ForecastQuality> => {
+    const { data } = await httpClient.get<ForecastQuality>('/analytics/forecast-quality', { params });
     return data;
   },
   getAnomalies: async (params?: Pick<ForecastQuery, 'from' | 'to' | 'parking_lot_id'> & { user_id?: number }): Promise<AnomaliesResponse> => {
