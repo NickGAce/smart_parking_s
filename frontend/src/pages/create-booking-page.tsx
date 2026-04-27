@@ -140,7 +140,7 @@ function getRecommendationPayload(
     from: startIso,
     to: endIso,
     filters: {
-      requires_charger: requiresCharger,
+      requires_charger: requiresCharger ? true : undefined,
       zone_ids: zoneIds.length ? zoneIds : undefined,
       vehicle_type: vehicleType || undefined,
       size_category: sizeCategory || undefined,
@@ -209,7 +209,7 @@ export function CreateBookingPage() {
     queryFn: () =>
       parkingSpotsApi.getSpots({
         parking_lot_id: parkingLotId as number,
-        limit: 300,
+        limit: 100,
         offset: 0,
       }),
     enabled: typeof parkingLotId === 'number',
@@ -266,7 +266,7 @@ export function CreateBookingPage() {
       auto_assign: true,
       parking_lot_id: parkingLotId as number,
       recommendation_filters: {
-        requires_charger: requiresCharger,
+        requires_charger: requiresCharger ? true : undefined,
         zone_ids: selectedZoneIds.length ? selectedZoneIds : undefined,
         vehicle_type: vehicleType || undefined,
         size_category: sizeCategory || undefined,
