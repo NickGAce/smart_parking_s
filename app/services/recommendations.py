@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,10 @@ from app.models.parking_spot import ParkingSpot, SpotStatus, SpotType
 from app.models.parking_zone import AccessLevel
 from app.models.user import UserRole
 from app.schemas.recommendation import (
+    DecisionConstraint,
+    DecisionFactor,
+    DecisionReport,
+    RejectedCandidate,
     RecommendationExplainFactor,
     RecommendationFilters,
     RecommendationPreferences,
@@ -18,6 +22,7 @@ from app.schemas.recommendation import (
     RecommendationResponse,
     RecommendationWeights,
     RecommendedSpot,
+    SelectedCandidate,
 )
 from app.services.bookings import BOOKING_BLOCKING_STATUSES
 
@@ -44,6 +49,13 @@ class SpotScoreContext:
     role: float
     conflict: float
     reasons: dict[str, str]
+
+
+@dataclass
+class ScoredCandidate:
+    recommended: RecommendedSpot
+    factors: list[DecisionFactor]
+    constraints: list[DecisionConstraint]
 
 
 async def recommend_spots(
@@ -83,6 +95,9 @@ async def recommend_spots(
             requested_by_role=normalized_role.value,
             total_candidates=0,
             recommended_spots=[],
+            ranked_candidates=[],
+            rejected_candidates=[],
+            decision_report=None,
         )
 
     spot_ids = [spot.id for spot in spots]
@@ -111,15 +126,37 @@ async def recommend_spots(
         else:
             nearby_counts[booking.parking_spot_id] += 1
 
-    ranked: list[RecommendedSpot] = []
+    ranked: list[ScoredCandidate] = []
+    rejected: list[RejectedCandidate] = []
 
     for spot in spots:
         if spot.status == SpotStatus.blocked:
+            rejected.append(
+                RejectedCandidate(
+                    spot_id=spot.id,
+                    reason="Spot is blocked",
+                    constraint="spot_status_available",
+                )
+            )
             continue
         if overlap_counts.get(spot.id, 0) > 0:
+            rejected.append(
+                RejectedCandidate(
+                    spot_id=spot.id,
+                    reason="Spot overlaps with an active booking",
+                    constraint="interval_conflict",
+                )
+            )
             continue
 
         if not _is_spot_allowed_for_role(spot, normalized_role, prefs.needs_accessible_spot):
+            rejected.append(
+                RejectedCandidate(
+                    spot_id=spot.id,
+                    reason="Spot is not allowed for user role or accessibility requirement",
+                    constraint="role_access",
+                )
+            )
             continue
 
         score_ctx = _build_score_context(
@@ -183,8 +220,7 @@ async def recommend_spots(
             ),
         ]
 
-        ranked.append(
-            RecommendedSpot(
+        recommended_spot = RecommendedSpot(
                 spot_id=spot.id,
                 spot_number=spot.spot_number,
                 parking_lot_id=spot.parking_lot_id,
@@ -195,10 +231,30 @@ async def recommend_spots(
                 score=round(total_score, 4),
                 explainability=explainability,
             )
-        )
+        factors = [
+            DecisionFactor(
+                name=item.factor,
+                weight=item.weight,
+                raw_value=item.value,
+                contribution=item.contribution,
+                explanation=item.reason,
+            )
+            for item in explainability
+        ]
+        constraints = [
+            DecisionConstraint(name="spot_status_available", passed=True, explanation="Spot status is available"),
+            DecisionConstraint(name="interval_conflict", passed=True, explanation="No overlap with blocking bookings"),
+            DecisionConstraint(
+                name="role_access",
+                passed=True,
+                explanation=f"Role '{normalized_role.value}' is allowed for this spot",
+            )
+        ]
+        ranked.append(ScoredCandidate(recommended=recommended_spot, factors=factors, constraints=constraints))
 
-    ranked.sort(key=lambda item: (-item.score, item.spot_number))
+    ranked.sort(key=lambda item: (-item.recommended.score, item.recommended.spot_number))
     top = ranked[: prefs.max_results]
+    decision_report = _build_decision_report(top, rejected)
 
     return RecommendationResponse(
         parking_lot_id=payload.parking_lot_id,
@@ -206,7 +262,10 @@ async def recommend_spots(
         to_time=payload.to_time,
         requested_by_role=normalized_role.value,
         total_candidates=len(ranked),
-        recommended_spots=top,
+        recommended_spots=[item.recommended for item in top],
+        ranked_candidates=[item.recommended for item in ranked],
+        rejected_candidates=rejected,
+        decision_report=decision_report,
     )
 
 
@@ -222,7 +281,7 @@ async def pick_best_spot_for_booking(
     filters: RecommendationFilters | None = None,
     preferences: RecommendationPreferences | None = None,
     weights: RecommendationWeights | None = None,
-) -> RecommendedSpot | None:
+) -> tuple[RecommendedSpot | None, DecisionReport | None]:
     request = RecommendationRequest(
         parking_lot_id=parking_lot_id,
         from_time=from_time,
@@ -234,15 +293,47 @@ async def pick_best_spot_for_booking(
 
     response = await recommend_spots(session=session, payload=request, role=role)
     if not response.recommended_spots:
-        return None
+        return None, None
 
-    return response.recommended_spots[0]
+    return response.recommended_spots[0], response.decision_report
 
 
 def _normalize_role(role: UserRole | str) -> UserRole:
     if isinstance(role, UserRole):
         return role
     return UserRole(role)
+
+
+def _build_decision_report(ranked: list[ScoredCandidate], rejected: list[RejectedCandidate]) -> DecisionReport | None:
+    if not ranked:
+        return None
+
+    best = ranked[0]
+    second_score = ranked[1].recommended.score if len(ranked) > 1 else 0.0
+    confidence = _calculate_confidence(best.recommended.score, second_score)
+
+    return DecisionReport(
+        selected_spot_id=best.recommended.spot_id,
+        selected_spot_label=f"Spot #{best.recommended.spot_number}",
+        final_score=best.recommended.score,
+        confidence=confidence,
+        factors=best.factors,
+        hard_constraints_passed=best.constraints,
+        rejected_candidates=rejected,
+        generated_at=datetime.utcnow(),
+        selected_candidate=SelectedCandidate(
+            spot_id=best.recommended.spot_id,
+            spot_number=best.recommended.spot_number,
+            spot_label=f"Spot #{best.recommended.spot_number}",
+            final_score=best.recommended.score,
+        ),
+    )
+
+
+def _calculate_confidence(top_score: float, second_score: float) -> float:
+    if top_score <= 0:
+        return 0.0
+    return round(min(1.0, max(0.0, (top_score - second_score) / max(top_score, 0.0001))), 4)
 
 
 

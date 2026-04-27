@@ -46,13 +46,14 @@ import { KeyValueList } from '../../../shared/ui/key-value-list';
 import { StatusChip } from '../../../shared/ui/status-chip';
 import type { BookingStatus } from '../../../shared/types/common';
 import type { BookingType, UpdateBookingPayload } from '../../../shared/types/booking';
+import { DecisionReportPanel } from './decision-report-panel';
 
 interface Props {
   bookingId: number | null;
   onClose: () => void;
 }
 
-const bookingTypeOptions: BookingType[] = ['guest', 'employee'];
+const bookingTypeOptions: BookingType[] = ['guest', 'rental'];
 const bookingActionLabels: Record<string, string> = {
   open_details: 'Открыть детали',
   edit: 'Редактировать',
@@ -75,7 +76,7 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
 
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [bookingType, setBookingType] = useState<BookingType>('employee');
+  const [bookingType, setBookingType] = useState<BookingType>('rental');
   const [nextStatus, setNextStatus] = useState<BookingStatus>('pending');
 
   useEffect(() => {
@@ -162,6 +163,7 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
                   { key: 'Пояснение назначения', value: booking.assignment_explanation ?? '—' },
                 ]}
               />
+              {booking.decision_report && <DecisionReportPanel report={booking.decision_report} title="Decision Report бронирования" />}
               <Stack direction="row" spacing={1} alignItems="center">
                 <Typography variant="body2" color="text.secondary">Статус:</Typography>
                 <StatusChip status={booking.status} mapping={bookingStatusMap} />

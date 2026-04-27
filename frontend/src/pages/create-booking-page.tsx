@@ -9,6 +9,7 @@ import { useCurrentUser } from '../features/auth/use-current-user';
 import { AvailabilityTable } from '../features/bookings/components/availability-table';
 import { IntervalPicker } from '../features/bookings/components/interval-picker';
 import { RecommendationList } from '../features/bookings/components/recommendation-list';
+import { DecisionReportPanel } from '../features/bookings/components/decision-report-panel';
 import { useCreateBookingMutation } from '../features/bookings/use-create-booking-mutation';
 import { useParkingLotsQuery } from '../features/parking-lots/hooks';
 import { bookingAssignmentModeLabelMap } from '../shared/config/booking-ui';
@@ -309,6 +310,7 @@ export function CreateBookingPage() {
             <Stack spacing={1.5}>
               {successBooking.assignment_explanation && <Alert severity="info">{successBooking.assignment_explanation}</Alert>}
               {successBooking.assignment_metadata && <Alert severity="info">Служебные детали назначения сохранены.</Alert>}
+              {successBooking.decision_report && <DecisionReportPanel report={successBooking.decision_report} title="Отчет автоподбора места" />}
             </Stack>
           </FormSection>
         )}

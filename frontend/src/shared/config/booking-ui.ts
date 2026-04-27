@@ -24,7 +24,7 @@ export const bookingSortOrderLabelMap: Record<SortOrder, string> = {
 };
 
 export const bookingTypeLabelMap: Record<BookingType, string> = {
-  employee: 'Сотрудник',
+  rental: 'Аренда',
   guest: 'Гость',
 };
 

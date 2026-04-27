@@ -1,6 +1,7 @@
 import type { BookingStatus, ListResponse, SortOrder, SpotType, VehicleType } from './common';
+import type { DecisionReport } from './recommendation';
 
-export type BookingType = 'guest' | 'employee';
+export type BookingType = 'guest' | 'rental';
 
 export interface Booking {
   id: number;
@@ -13,6 +14,7 @@ export interface Booking {
   assignment_mode: 'manual' | 'auto' | string;
   assignment_explanation: string | null;
   assignment_metadata?: Record<string, unknown> | null;
+  decision_report?: DecisionReport | null;
 }
 
 export interface RecommendationWeights {

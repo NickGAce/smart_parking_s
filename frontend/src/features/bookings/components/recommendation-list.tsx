@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 
 import type { RecommendedSpot, RecommendationResult } from '../../../shared/types/recommendation';
+import { DecisionReportPanel } from './decision-report-panel';
 import { userRoleLabels } from '../../../shared/config/display-labels';
 import type { SpotType } from '../../../shared/types/common';
 
@@ -186,6 +187,9 @@ export function RecommendationList({ result, selectedSpotId, onSelectSpot, onCon
         <Alert severity="warning">
           Рекомендации не найдены для выбранных параметров. Попробуйте ослабить фильтры (тип места, размер или обязательную зарядку).
         </Alert>
+      )}
+      {result.decision_report && (
+        <DecisionReportPanel report={result.decision_report} title="Объяснение выбора лучшего места" />
       )}
       <Button variant="contained" onClick={onConfirmAuto} disabled={isSubmitting}>
         Подтвердить выбранную рекомендацию

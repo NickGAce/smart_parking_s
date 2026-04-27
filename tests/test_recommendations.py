@@ -85,7 +85,16 @@ def _setup_state():
                 parking_lot_id=lot.id,
                 zone_id=vip_zone.id,
             )
-            session.add_all([spot1, spot2, spot3])
+            blocked_spot = ParkingSpot(
+                spot_number=4,
+                status=SpotStatus.blocked,
+                type="regular",
+                spot_type=SpotType.regular,
+                has_charger=False,
+                parking_lot_id=lot.id,
+                zone_id=public_zone.id,
+            )
+            session.add_all([spot1, spot2, spot3, blocked_spot])
             await session.flush()
 
             session.add(
@@ -162,3 +171,54 @@ def test_recommendation_excludes_overlapped_spots():
         payload = response.json()
         assert all(item["spot_number"] != 1 for item in payload["recommended_spots"])
         assert payload["recommended_spots"][0]["spot_number"] == 2
+
+
+def test_decision_report_contains_selected_candidate_and_confidence():
+    tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/recommendations/decision-report",
+            headers={"Authorization": f"Bearer {tokens['tenant']}"},
+            json={
+                "parking_lot_id": 1,
+                "from": "2026-04-07T08:00:00",
+                "to": "2026-04-07T08:30:00",
+                "preferences": {"preferred_spot_types": ["ev"], "prefer_charger": True},
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["selected_spot_id"] == 2
+        assert body["selected_candidate"]["spot_id"] == 2
+        spots_response = client.post(
+            "/api/v1/recommendations/spots",
+            headers={"Authorization": f"Bearer {tokens['tenant']}"},
+            json={
+                "parking_lot_id": 1,
+                "from": "2026-04-07T08:00:00",
+                "to": "2026-04-07T08:30:00",
+                "preferences": {"preferred_spot_types": ["ev"], "prefer_charger": True},
+            },
+        )
+        ranked = spots_response.json()["ranked_candidates"]
+        expected_confidence = round((ranked[0]["score"] - ranked[1]["score"]) / ranked[0]["score"], 4)
+        assert body["confidence"] == expected_confidence
+
+
+def test_recommendation_returns_rejected_candidates_for_blocked_and_conflicting_spots():
+    tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/recommendations/spots",
+            headers={"Authorization": f"Bearer {tokens['tenant']}"},
+            json={
+                "parking_lot_id": 1,
+                "from": "2026-04-07T09:10:00",
+                "to": "2026-04-07T09:20:00",
+                "preferences": {"max_results": 5},
+            },
+        )
+        assert response.status_code == 200
+        rejected = response.json()["rejected_candidates"]
+        assert any(item["spot_id"] == 1 and item["constraint"] == "interval_conflict" for item in rejected)
+        assert any(item["spot_id"] == 4 and item["constraint"] == "spot_status_available" for item in rejected)

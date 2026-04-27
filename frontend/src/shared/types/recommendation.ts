@@ -8,6 +8,45 @@ export interface RecommendationExplainFactor {
   reason: string;
 }
 
+export interface DecisionFactor {
+  name: string;
+  weight: number;
+  raw_value: number;
+  contribution: number;
+  explanation: string;
+}
+
+export interface DecisionConstraint {
+  name: string;
+  passed: boolean;
+  explanation: string;
+}
+
+export interface RejectedCandidate {
+  spot_id: number;
+  reason: string;
+  constraint: string | null;
+}
+
+export interface SelectedCandidate {
+  spot_id: number;
+  spot_number: number;
+  spot_label: string;
+  final_score: number;
+}
+
+export interface DecisionReport {
+  selected_spot_id: number;
+  selected_spot_label: string;
+  final_score: number;
+  confidence: number;
+  factors: DecisionFactor[];
+  hard_constraints_passed: DecisionConstraint[];
+  rejected_candidates: RejectedCandidate[];
+  generated_at: string;
+  selected_candidate: SelectedCandidate;
+}
+
 export interface RecommendedSpot {
   spot_id: number;
   spot_number: number;
@@ -27,6 +66,9 @@ export interface RecommendationResult {
   requested_by_role: UserRole | string;
   total_candidates: number;
   recommended_spots: RecommendedSpot[];
+  ranked_candidates?: RecommendedSpot[];
+  rejected_candidates?: RejectedCandidate[];
+  decision_report?: DecisionReport | null;
 }
 
 export interface RecommendationRequestPayload {

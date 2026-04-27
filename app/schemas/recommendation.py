@@ -61,6 +61,45 @@ class RecommendationExplainFactor(BaseModel):
     reason: str
 
 
+class DecisionFactor(BaseModel):
+    name: str
+    weight: float
+    raw_value: float
+    contribution: float
+    explanation: str
+
+
+class DecisionConstraint(BaseModel):
+    name: str
+    passed: bool
+    explanation: str
+
+
+class RejectedCandidate(BaseModel):
+    spot_id: int
+    reason: str
+    constraint: str | None = None
+
+
+class SelectedCandidate(BaseModel):
+    spot_id: int
+    spot_number: int
+    spot_label: str
+    final_score: float
+
+
+class DecisionReport(BaseModel):
+    selected_spot_id: int
+    selected_spot_label: str
+    final_score: float
+    confidence: float
+    factors: list[DecisionFactor]
+    hard_constraints_passed: list[DecisionConstraint]
+    rejected_candidates: list[RejectedCandidate]
+    generated_at: datetime
+    selected_candidate: SelectedCandidate
+
+
 class RecommendedSpot(BaseModel):
     spot_id: int
     spot_number: int
@@ -82,3 +121,6 @@ class RecommendationResponse(BaseModel):
     requested_by_role: str
     total_candidates: int
     recommended_spots: list[RecommendedSpot]
+    ranked_candidates: list[RecommendedSpot] = []
+    rejected_candidates: list[RejectedCandidate] = []
+    decision_report: DecisionReport | None = None

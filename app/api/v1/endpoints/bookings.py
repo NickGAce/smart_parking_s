@@ -73,6 +73,8 @@ def _booking_to_out(
     client_timezone: str | None,
     assignment_mode: str = "manual",
     assignment_explanation: str | None = None,
+    assignment_metadata: dict | None = None,
+    decision_report=None,
 ) -> BookingOut:
     return BookingOut(
         id=booking.id,
@@ -84,6 +86,8 @@ def _booking_to_out(
         end_time=to_client_datetime(booking.end_time, client_timezone),
         assignment_mode=assignment_mode,
         assignment_explanation=assignment_explanation,
+        assignment_metadata=assignment_metadata,
+        decision_report=decision_report,
     )
 
 
@@ -107,6 +111,8 @@ async def create_booking(
 
     assignment_mode = "auto" if payload.auto_assign else "manual"
     assignment_explanation: str | None = None
+    assignment_metadata: dict | None = None
+    decision_report = None
 
     if payload.auto_assign:
         parking_lot = await get_parking_lot_with_rules(session, payload.parking_lot_id)
@@ -115,7 +121,7 @@ async def create_booking(
 
         validate_booking_against_lot_rules(parking_lot, current_user, start_time, end_time)
 
-        best_spot = await pick_best_spot_for_booking(
+        best_spot, decision_report = await pick_best_spot_for_booking(
             session=session,
             parking_lot_id=payload.parking_lot_id,
             from_time=start_time,
@@ -136,6 +142,10 @@ async def create_booking(
         assignment_explanation = (
             f"Auto-assigned spot #{best_spot.spot_number} (id={best_spot.spot_id}) with score {best_spot.score}"
         )
+        assignment_metadata = {
+            "selected_spot_id": best_spot.spot_id,
+            "score": best_spot.score,
+        }
     else:
         spot = await _get_spot_or_404(session, payload.parking_spot_id)
         selected_spot_id = payload.parking_spot_id
@@ -209,6 +219,8 @@ async def create_booking(
         client_timezone,
         assignment_mode=assignment_mode,
         assignment_explanation=assignment_explanation,
+        assignment_metadata=assignment_metadata,
+        decision_report=decision_report,
     )
 
 
