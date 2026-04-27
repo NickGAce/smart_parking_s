@@ -16,6 +16,7 @@ import {
 import { useDeferredValue, useMemo, useState } from 'react';
 
 import { useAuditLogsQuery } from '../features/audit/use-audit-logs-query';
+import { DATE_TIME_INPUT_PROPS } from '../shared/config/date-time-input';
 import { EmptyState } from '../shared/ui/empty-state';
 import { ErrorState } from '../shared/ui/error-state';
 import { FiltersToolbar } from '../shared/ui/filters-toolbar';
@@ -158,6 +159,7 @@ export function AuditLogsPage() {
                 setPage(0);
               }}
               InputLabelProps={{ shrink: true }}
+              inputProps={DATE_TIME_INPUT_PROPS}
             />
           </Grid>
           <Grid item xs={12} md={2}>
@@ -172,6 +174,7 @@ export function AuditLogsPage() {
                 setPage(0);
               }}
               InputLabelProps={{ shrink: true }}
+              inputProps={DATE_TIME_INPUT_PROPS}
             />
           </Grid>
         </Grid>

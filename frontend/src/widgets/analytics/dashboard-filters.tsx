@@ -1,6 +1,7 @@
 import { Grid, MenuItem, TextField } from '@mui/material';
 
 import type { AnalyticsDashboardFilters } from '../../features/analytics/use-analytics-dashboard';
+import { DATE_TIME_INPUT_PROPS } from '../../shared/config/date-time-input';
 import { FiltersSection } from '../../shared/ui/filters-section';
 import type { AnalyticsPeriod } from '../../shared/types/analytics';
 
@@ -64,6 +65,7 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
             value={filters.from}
             onChange={(event) => onChange({ from: event.target.value })}
             InputLabelProps={{ shrink: true }}
+            inputProps={DATE_TIME_INPUT_PROPS}
           />
         </Grid>
 
@@ -76,6 +78,7 @@ export function DashboardFilters({ filters, canManageAnomalyUser, onChange, onRe
             value={filters.to}
             onChange={(event) => onChange({ to: event.target.value })}
             InputLabelProps={{ shrink: true }}
+            inputProps={DATE_TIME_INPUT_PROPS}
           />
         </Grid>
 

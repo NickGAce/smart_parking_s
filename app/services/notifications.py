@@ -83,8 +83,8 @@ class NotificationService:
             session=session,
             booking=booking,
             event_type=NotificationType.booking_starts_soon,
-            title="Booking starts soon",
-            message=f"Booking #{booking.id} starts at {booking.start_time.isoformat()}.",
+            title="Скоро начнётся бронирование",
+            message=f"Бронирование №{booking.id} начнётся в {booking.start_time.isoformat()}.",
         )
         return True
 

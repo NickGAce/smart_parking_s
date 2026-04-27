@@ -189,16 +189,16 @@ async def create_booking(
         session=session,
         booking=booking,
         event_type=NotificationType.booking_created,
-        title="Booking created",
-        message=f"Booking #{booking.id} was created.",
+        title="Бронирование создано",
+        message=f"Бронирование №{booking.id} успешно создано.",
     )
     if booking.status in {BookingStatus.confirmed, BookingStatus.active}:
         await notification_service.create_for_booking_event(
             session=session,
             booking=booking,
             event_type=NotificationType.booking_confirmed,
-            title="Booking confirmed",
-            message=f"Booking #{booking.id} is confirmed.",
+            title="Бронирование подтверждено",
+            message=f"Бронирование №{booking.id} подтверждено.",
         )
     await sync_parking_spot_statuses(session, spot_ids=[selected_spot_id], now=server_now)
     await session.commit()
@@ -422,16 +422,16 @@ async def update_booking(
                 session=session,
                 booking=booking,
                 event_type=NotificationType.booking_cancelled,
-                title="Booking cancelled",
-                message=f"Booking #{booking.id} was cancelled.",
+                title="Бронирование отменено",
+                message=f"Бронирование №{booking.id} отменено.",
             )
         elif booking.status == BookingStatus.confirmed:
             await notification_service.create_for_booking_event(
                 session=session,
                 booking=booking,
                 event_type=NotificationType.booking_confirmed,
-                title="Booking confirmed",
-                message=f"Booking #{booking.id} is confirmed.",
+                title="Бронирование подтверждено",
+                message=f"Бронирование №{booking.id} подтверждено.",
             )
 
     await sync_booking_statuses(session, now=server_now)
@@ -473,8 +473,8 @@ async def cancel_booking(
         session=session,
         booking=booking,
         event_type=NotificationType.booking_cancelled,
-        title="Booking cancelled",
-        message=f"Booking #{booking.id} was cancelled.",
+        title="Бронирование отменено",
+        message=f"Бронирование №{booking.id} отменено.",
     )
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)
     await session.commit()
@@ -578,8 +578,8 @@ async def mark_booking_no_show(
         session=session,
         booking=booking,
         event_type=NotificationType.booking_no_show,
-        title="Booking marked as no-show",
-        message=f"Booking #{booking.id} was marked as no-show.",
+        title="Бронирование отмечено как неиспользованное",
+        message=f"Бронирование №{booking.id} отмечено как «не заехал».",
     )
 
     await sync_parking_spot_statuses(session, spot_ids=[booking.parking_spot_id], now=server_now)

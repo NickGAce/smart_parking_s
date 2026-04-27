@@ -120,8 +120,8 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
             session=session,
             booking=booking,
             event_type=NotificationType.booking_no_show,
-            title="Booking marked as no-show",
-            message=f"Booking #{booking.id} was marked as no-show.",
+            title="Бронирование отмечено как неиспользованное",
+            message=f"Бронирование №{booking.id} отмечено как «не заехал».",
         )
 
     expired_bookings = (
@@ -143,8 +143,8 @@ async def sync_booking_statuses(session: AsyncSession, now: datetime | None = No
             session=session,
             booking=booking,
             event_type=NotificationType.booking_expired,
-            title="Booking expired",
-            message=f"Booking #{booking.id} expired before confirmation.",
+            title="Срок бронирования истёк",
+            message=f"Бронирование №{booking.id} истекло без подтверждения.",
         )
 
     return LifecycleSyncStats(

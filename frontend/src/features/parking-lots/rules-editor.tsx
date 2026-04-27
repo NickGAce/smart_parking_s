@@ -3,6 +3,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { Alert, Button, IconButton, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 
+import { TIME_INPUT_PROPS } from '../../shared/config/date-time-input';
 import { ALL_USER_ROLES } from '../../shared/config/roles';
 import type { UserRole } from '../../shared/types/common';
 import type { AccessMode, ParkingLotRules, ScheduleExceptionItem, WorkingHourItem } from '../../shared/types/parking';
@@ -122,11 +123,11 @@ export function RulesEditor({ initial, disabled, readOnly, serverError, onSubmit
               <TextField type="time" label="Открытие" value={item.open_time ?? ''} onChange={(e) => setRules((prev) => ({
                 ...prev,
                 working_hours: prev.working_hours.map((wh, idx) => (idx === index ? { ...wh, open_time: e.target.value || null } : wh)),
-              }))} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} />
+              }))} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} inputProps={TIME_INPUT_PROPS} />
               <TextField type="time" label="Закрытие" value={item.close_time ?? ''} onChange={(e) => setRules((prev) => ({
                 ...prev,
                 working_hours: prev.working_hours.map((wh, idx) => (idx === index ? { ...wh, close_time: e.target.value || null } : wh)),
-              }))} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} />
+              }))} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} inputProps={TIME_INPUT_PROPS} />
               <TextField select label="Выходной" value={item.is_closed ? 'yes' : 'no'} onChange={(e) => setRules((prev) => ({
                 ...prev,
                 working_hours: prev.working_hours.map((wh, idx) => (idx === index ? { ...wh, is_closed: e.target.value === 'yes' } : wh)),
@@ -148,8 +149,8 @@ export function RulesEditor({ initial, disabled, readOnly, serverError, onSubmit
           {rules.exceptions.map((item, index) => (
             <Stack key={`exception-${index}`} direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">
               <TextField type="date" label="Дата" value={item.date} onChange={(e) => setException(index, { date: e.target.value })} disabled={disabled || readOnly} fullWidth InputLabelProps={{ shrink: true }} />
-              <TextField type="time" label="Открытие" value={item.open_time ?? ''} onChange={(e) => setException(index, { open_time: e.target.value || null })} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} />
-              <TextField type="time" label="Закрытие" value={item.close_time ?? ''} onChange={(e) => setException(index, { close_time: e.target.value || null })} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} />
+              <TextField type="time" label="Открытие" value={item.open_time ?? ''} onChange={(e) => setException(index, { open_time: e.target.value || null })} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} inputProps={TIME_INPUT_PROPS} />
+              <TextField type="time" label="Закрытие" value={item.close_time ?? ''} onChange={(e) => setException(index, { close_time: e.target.value || null })} disabled={disabled || readOnly || item.is_closed} fullWidth InputLabelProps={{ shrink: true }} inputProps={TIME_INPUT_PROPS} />
               <TextField select label="Выходной" value={item.is_closed ? 'yes' : 'no'} onChange={(e) => setException(index, { is_closed: e.target.value === 'yes' })} disabled={disabled || readOnly} fullWidth>
                 <MenuItem value="no">Нет</MenuItem>
                 <MenuItem value="yes">Да</MenuItem>

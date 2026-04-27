@@ -41,6 +41,7 @@ import {
   canEditBooking,
   getAvailableBookingActions,
 } from '../../../shared/config/booking-actions';
+import { DATE_TIME_INPUT_PROPS } from '../../../shared/config/date-time-input';
 import { bookingStatusMap } from '../../../shared/config/status-map';
 import { KeyValueList } from '../../../shared/ui/key-value-list';
 import { StatusChip } from '../../../shared/ui/status-chip';
@@ -195,6 +196,7 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
                 label="Время начала"
                 type="datetime-local"
                 InputLabelProps={{ shrink: true }}
+                inputProps={DATE_TIME_INPUT_PROPS}
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 helperText="Изменяйте время только если уверены, что интервал свободен."
@@ -204,6 +206,7 @@ export function BookingDetailsPanel({ bookingId, onClose }: Props) {
                 label="Время окончания"
                 type="datetime-local"
                 InputLabelProps={{ shrink: true }}
+                inputProps={DATE_TIME_INPUT_PROPS}
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 disabled={!canEdit || updateMutation.isPending}

@@ -26,6 +26,7 @@ import { BookingDetailsPanel } from '../features/bookings/components/booking-det
 import { bookingStatuses } from '../features/bookings/constants';
 import { useMyBookingsQuery } from '../features/bookings/hooks';
 import { bookingStatusLabelMap, formatBookingDurationLabel, formatBookingInterval } from '../shared/config/booking-ui';
+import { DATE_TIME_INPUT_PROPS } from '../shared/config/date-time-input';
 import { bookingStatusMap } from '../shared/config/status-map';
 import { ContentCard } from '../shared/ui/content-card';
 import { FiltersSection } from '../shared/ui/filters-section';
@@ -112,6 +113,7 @@ export function MyBookingsPage() {
                     size="small"
                     fullWidth
                     InputLabelProps={{ shrink: true }}
+                    inputProps={DATE_TIME_INPUT_PROPS}
                     value={query.from ?? ''}
                     onChange={(e) => setSearchParams(writeQuery({ ...query, from: e.target.value || undefined }))}
                     helperText="Показываем бронирования, которые начинаются не раньше этого времени."
@@ -124,6 +126,7 @@ export function MyBookingsPage() {
                     size="small"
                     fullWidth
                     InputLabelProps={{ shrink: true }}
+                    inputProps={DATE_TIME_INPUT_PROPS}
                     value={query.to ?? ''}
                     onChange={(e) => setSearchParams(writeQuery({ ...query, to: e.target.value || undefined }))}
                     helperText="Показываем бронирования, которые заканчиваются до выбранного времени."

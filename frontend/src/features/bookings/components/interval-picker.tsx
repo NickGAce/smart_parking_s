@@ -1,5 +1,7 @@
 import { Stack, TextField } from '@mui/material';
 
+import { DATE_TIME_INPUT_PROPS } from '../../../shared/config/date-time-input';
+
 interface IntervalPickerProps {
   startTimeLocal: string;
   endTimeLocal: string;
@@ -28,6 +30,7 @@ export function IntervalPicker({
         helperText={startError}
         fullWidth
         InputLabelProps={{ shrink: true }}
+        inputProps={DATE_TIME_INPUT_PROPS}
         required
       />
       <TextField
@@ -39,6 +42,7 @@ export function IntervalPicker({
         helperText={endError}
         fullWidth
         InputLabelProps={{ shrink: true }}
+        inputProps={DATE_TIME_INPUT_PROPS}
         required
       />
     </Stack>

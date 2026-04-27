@@ -51,6 +51,7 @@ import {
   useUpdateParkingSpotMutation,
 } from '../features/parking-spots/hooks';
 import { ParkingSpotForm } from '../features/parking-spots/parking-spot-form';
+import { DATE_TIME_INPUT_PROPS } from '../shared/config/date-time-input';
 import { effectiveStatusMap } from '../shared/config/status-map';
 import { MANAGEMENT_ROLES, hasRole } from '../shared/config/roles';
 import { DestructiveConfirmDialog } from '../shared/ui/destructive-confirm-dialog';
@@ -372,8 +373,8 @@ export function ParkingSpotsPage() {
                 <Grid item xs={12}>
                   <Typography variant="tableLabel" color="text.secondary">Интервал и локация</Typography>
                 </Grid>
-                <Grid item xs={12} md={3}><TextField label="Начало интервала" type="datetime-local" fullWidth size="small" value={draft.from ?? ''} InputLabelProps={{ shrink: true }} onChange={(e) => setDraft((prev) => ({ ...prev, from: e.target.value || undefined }))} /></Grid>
-                <Grid item xs={12} md={3}><TextField label="Конец интервала" type="datetime-local" fullWidth size="small" value={draft.to ?? ''} InputLabelProps={{ shrink: true }} onChange={(e) => setDraft((prev) => ({ ...prev, to: e.target.value || undefined }))} /></Grid>
+                <Grid item xs={12} md={3}><TextField label="Начало интервала" type="datetime-local" fullWidth size="small" value={draft.from ?? ''} InputLabelProps={{ shrink: true }} inputProps={DATE_TIME_INPUT_PROPS} onChange={(e) => setDraft((prev) => ({ ...prev, from: e.target.value || undefined }))} /></Grid>
+                <Grid item xs={12} md={3}><TextField label="Конец интервала" type="datetime-local" fullWidth size="small" value={draft.to ?? ''} InputLabelProps={{ shrink: true }} inputProps={DATE_TIME_INPUT_PROPS} onChange={(e) => setDraft((prev) => ({ ...prev, to: e.target.value || undefined }))} /></Grid>
                 <Grid item xs={12} md={2}><TextField label="ID парковки" type="number" size="small" fullWidth value={draft.parking_lot_id ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, parking_lot_id: e.target.value ? Number(e.target.value) : undefined }))} /></Grid>
                 <Grid item xs={12} md={2}><TextField label="ID зоны" type="number" size="small" fullWidth value={draft.zone_id ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, zone_id: e.target.value ? Number(e.target.value) : undefined }))} /></Grid>
                 <Grid item xs={12} md={2}><TextField label="Название зоны" size="small" fullWidth value={draft.zone_name ?? ''} onChange={(e) => setDraft((prev) => ({ ...prev, zone_name: e.target.value || undefined }))} /></Grid>
