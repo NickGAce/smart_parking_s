@@ -18,9 +18,11 @@ from app.models.parking_spot import ParkingSpot, SpotType
 from app.models.parking_zone import ParkingZone
 from app.models.user import User, UserRole
 from app.services.analytics import (
+    _adaptive_half_life_days,
     _calculate_forecast_error_metrics,
     _predict_bucket_value,
     _recency_weighted_mean,
+    _same_hour_last_weeks_average,
 )
 
 
@@ -241,6 +243,23 @@ def test_predict_bucket_value_uses_same_hour_last_week_signal():
     predicted, samples = _predict_bucket_value(datetime(2026, 1, 15, 9, 0, 0), history)
     assert samples == 2
     assert predicted > 10.0
+
+
+def test_adaptive_half_life_grows_for_long_history():
+    assert _adaptive_half_life_days(14) == 10.0
+    assert _adaptive_half_life_days(120) == 36.0
+    assert _adaptive_half_life_days(365) == 45.0
+
+
+def test_same_hour_last_weeks_average_uses_broader_monthly_memory():
+    history = [
+        (datetime(2026, 1, 1, 9, 0, 0), 80.0),   # 8 weeks back
+        (datetime(2026, 1, 8, 9, 0, 0), 60.0),   # 7 weeks back
+        (datetime(2026, 2, 12, 9, 0, 0), 40.0),  # 2 weeks back
+        (datetime(2026, 2, 19, 9, 0, 0), 20.0),  # 1 week back
+    ]
+    value = _same_hour_last_weeks_average(datetime(2026, 2, 26, 9, 0, 0), history)
+    assert 20.0 < value < 50.0
 
 
 def test_forecast_quality_low_data_returns_low_confidence_and_explanation():

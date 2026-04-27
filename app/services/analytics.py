@@ -587,32 +587,56 @@ def _predict_bucket_value(
         if historical_bucket.weekday() == bucket_start.weekday() and historical_bucket.hour == bucket_start.hour:
             dow_hour_values.append((historical_bucket, value))
 
-    dow_avg = _recency_weighted_mean(dow_values, bucket_start, default=global_avg)
-    hour_avg = _recency_weighted_mean(hour_values, bucket_start, default=global_avg)
-    dow_hour_avg = _recency_weighted_mean(dow_hour_values, bucket_start, default=(dow_avg + hour_avg) / 2)
+    history_span_days = max((bucket_start - historical_series[0][0]).total_seconds() / 86400.0, 1.0)
+    half_life_days = _adaptive_half_life_days(history_span_days)
+
+    dow_avg = _recency_weighted_mean(dow_values, bucket_start, default=global_avg, half_life_days=half_life_days)
+    hour_avg = _recency_weighted_mean(hour_values, bucket_start, default=global_avg, half_life_days=half_life_days)
+    dow_hour_avg = _recency_weighted_mean(
+        dow_hour_values,
+        bucket_start,
+        default=(dow_avg + hour_avg) / 2,
+        half_life_days=half_life_days,
+    )
+    day_type_avg = _day_type_average(bucket_start, historical_series, global_avg, half_life_days=half_life_days)
     same_hour_last_week = _same_hour_last_weeks_average(bucket_start, historical_series)
 
     samples = len(dow_hour_values)
     if samples >= 6:
         base_prediction = (
-            (0.45 * dow_hour_avg)
+            (0.4 * dow_hour_avg)
             + (0.2 * dow_avg)
             + (0.15 * hour_avg)
             + (0.1 * global_avg)
             + (0.1 * same_hour_last_week)
+            + (0.05 * day_type_avg)
         )
     elif samples >= 3:
         base_prediction = (
-            (0.3 * dow_hour_avg)
+            (0.25 * dow_hour_avg)
             + (0.3 * dow_avg)
             + (0.2 * hour_avg)
             + (0.1 * global_avg)
             + (0.1 * same_hour_last_week)
+            + (0.05 * day_type_avg)
         )
     else:
-        base_prediction = (0.35 * dow_avg) + (0.25 * hour_avg) + (0.2 * global_avg) + (0.2 * same_hour_last_week)
+        base_prediction = (
+            (0.3 * dow_avg)
+            + (0.25 * hour_avg)
+            + (0.2 * global_avg)
+            + (0.15 * same_hour_last_week)
+            + (0.1 * day_type_avg)
+        )
 
     return base_prediction, samples
+
+
+def _adaptive_half_life_days(history_span_days: float) -> float:
+    """
+    Short windows keep model reactive, long windows prevent overfitting to the latest week.
+    """
+    return min(max(history_span_days * 0.3, 10.0), 45.0)
 
 
 def _recency_weighted_mean(
@@ -642,15 +666,38 @@ def _same_hour_last_weeks_average(
     historical_series: list[tuple[datetime, float]],
 ) -> float:
     by_bucket = dict(historical_series)
-    weekly_values: list[float] = []
-    for weeks_back in (1, 2, 3):
+    weekly_values: list[tuple[int, float]] = []
+    for weeks_back in range(1, 9):
         candidate_bucket = bucket_start - timedelta(days=7 * weeks_back)
         value = by_bucket.get(candidate_bucket)
         if value is not None:
-            weekly_values.append(value)
+            weekly_values.append((weeks_back, value))
     if not weekly_values:
         return 0.0
-    return mean(weekly_values)
+    weighted_sum = 0.0
+    weights_sum = 0.0
+    for weeks_back, value in weekly_values:
+        weight = 1 / weeks_back
+        weighted_sum += value * weight
+        weights_sum += weight
+    if weights_sum <= 0:
+        return 0.0
+    return weighted_sum / weights_sum
+
+
+def _day_type_average(
+    bucket_start: datetime,
+    historical_series: list[tuple[datetime, float]],
+    default: float,
+    half_life_days: float,
+) -> float:
+    target_is_workday = bucket_start.weekday() < 5
+    day_type_values = [
+        (time_bucket, value)
+        for time_bucket, value in historical_series
+        if (time_bucket.weekday() < 5) == target_is_workday and time_bucket.hour == bucket_start.hour
+    ]
+    return _recency_weighted_mean(day_type_values, bucket_start, default=default, half_life_days=half_life_days)
 
 
 async def get_forecast_quality(
