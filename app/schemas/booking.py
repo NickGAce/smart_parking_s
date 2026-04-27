@@ -17,6 +17,7 @@ class BookingCreate(BaseModel):
     end_time: datetime
     parking_spot_id: int | None = None
     type: BookingType = BookingType.guest
+    plate_number: str | None = None
 
     # Auto-assign mode
     auto_assign: bool = False
@@ -54,6 +55,7 @@ class BookingOut(BaseModel):
     parking_spot_id: int
     type: BookingType
     status: BookingStatus
+    plate_number: str | None = None
     start_time: datetime
     end_time: datetime
     assignment_mode: str = "manual"

@@ -2,6 +2,7 @@ import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
+import CameraAltRoundedIcon from '@mui/icons-material/CameraAltRounded';
 import DirectionsCarFilledRoundedIcon from '@mui/icons-material/DirectionsCarFilledRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
@@ -61,6 +62,7 @@ const navSectionByPath: Record<string, NavSectionKey> = {
   '/parking-lots': 'operations',
   '/parking-spots': 'operations',
   '/notifications': 'platform',
+  '/access-control': 'main',
   '/admin': 'platform',
   '/admin-users': 'platform',
   '/audit-logs': 'platform',
@@ -75,6 +77,7 @@ const navIconByPath: Record<string, ReactNode> = {
   '/bookings/new': <AddRoundedIcon fontSize="small" />,
   '/booking-management': <ChevronRightRoundedIcon fontSize="small" />,
   '/notifications': <NotificationsRoundedIcon fontSize="small" />,
+  '/access-control': <CameraAltRoundedIcon fontSize="small" />,
   '/admin': <SecurityRoundedIcon fontSize="small" />,
   '/admin-users': <AccountCircleRoundedIcon fontSize="small" />,
   '/audit-logs': <HistoryRoundedIcon fontSize="small" />,

@@ -82,6 +82,7 @@ def _booking_to_out(
         parking_spot_id=booking.parking_spot_id,
         type=booking.type,
         status=booking.status,
+        plate_number=booking.plate_number,
         start_time=to_client_datetime(booking.start_time, client_timezone),
         end_time=to_client_datetime(booking.end_time, client_timezone),
         assignment_mode=assignment_mode,
@@ -177,6 +178,7 @@ async def create_booking(
         parking_spot_id=selected_spot_id,
         user_id=current_user.id,
         status=derive_initial_booking_status(start_time=start_time, end_time=end_time, now=server_now),
+        plate_number=payload.plate_number,
     )
     session.add(booking)
     await session.flush()
@@ -189,6 +191,7 @@ async def create_booking(
         new_values={
             "parking_spot_id": booking.parking_spot_id,
             "status": booking.status.value,
+            "plate_number": booking.plate_number,
             "type": booking.type.value,
             "start_time": booking.start_time.isoformat(),
             "end_time": booking.end_time.isoformat(),

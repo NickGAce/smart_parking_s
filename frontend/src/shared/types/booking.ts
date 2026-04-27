@@ -9,6 +9,7 @@ export interface Booking {
   parking_spot_id: number;
   type: BookingType;
   status: BookingStatus;
+  plate_number?: string | null;
   start_time: string;
   end_time: string;
   assignment_mode: 'manual' | 'auto' | string;
@@ -47,6 +48,7 @@ export interface CreateBookingPayload {
   end_time: string;
   parking_spot_id?: number;
   type?: BookingType;
+  plate_number?: string;
   auto_assign?: boolean;
   parking_lot_id?: number;
   recommendation_filters?: RecommendationFilters;
@@ -58,6 +60,7 @@ export interface UpdateBookingPayload {
   start_time?: string;
   end_time?: string;
   type?: BookingType;
+  plate_number?: string;
   status?: BookingStatus;
 }
 

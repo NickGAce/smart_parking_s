@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime
-from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Index, Integer
+from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
@@ -37,6 +37,7 @@ class Booking(Base):
     )
     parking_spot_id: Mapped[int] = mapped_column(ForeignKey("parking_spots.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    plate_number: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
 
     # Связь с местом парковки
     parking_spot: Mapped["ParkingSpot"] = relationship("ParkingSpot", back_populates="bookings")
