@@ -4,7 +4,12 @@ from typing import Optional
 from pydantic import BaseModel, model_validator
 
 from app.models.booking import BookingStatus, BookingType
-from app.schemas.recommendation import RecommendationFilters, RecommendationPreferences, RecommendationWeights
+from app.schemas.recommendation import (
+    DecisionReport,
+    RecommendationFilters,
+    RecommendationPreferences,
+    RecommendationWeights,
+)
 
 
 class BookingCreate(BaseModel):
@@ -53,6 +58,8 @@ class BookingOut(BaseModel):
     end_time: datetime
     assignment_mode: str = "manual"
     assignment_explanation: str | None = None
+    assignment_metadata: dict | None = None
+    decision_report: DecisionReport | None = None
 
     class Config:
         from_attributes = True

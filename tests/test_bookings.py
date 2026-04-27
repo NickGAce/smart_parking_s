@@ -797,7 +797,9 @@ def test_create_booking_auto_assign_success():
         body = response.json()
         assert body["parking_spot_id"] == 1
         assert body["assignment_mode"] == "auto"
-        assert "Auto-assigned spot" in body["assignment_explanation"]
+        assert "Автоматически назначено место" in body["assignment_explanation"]
+        assert body["decision_report"]["selected_spot_id"] == 1
+        assert body["assignment_metadata"]["selected_spot_id"] == 1
 
 
 def test_create_booking_rejects_mixed_manual_and_auto_assign_payload():

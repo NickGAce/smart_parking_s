@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,10 @@ from app.models.parking_spot import ParkingSpot, SpotStatus, SpotType
 from app.models.parking_zone import AccessLevel
 from app.models.user import UserRole
 from app.schemas.recommendation import (
+    DecisionConstraint,
+    DecisionFactor,
+    DecisionReport,
+    RejectedCandidate,
     RecommendationExplainFactor,
     RecommendationFilters,
     RecommendationPreferences,
@@ -18,6 +22,7 @@ from app.schemas.recommendation import (
     RecommendationResponse,
     RecommendationWeights,
     RecommendedSpot,
+    SelectedCandidate,
 )
 from app.services.bookings import BOOKING_BLOCKING_STATUSES
 
@@ -46,6 +51,13 @@ class SpotScoreContext:
     reasons: dict[str, str]
 
 
+@dataclass
+class ScoredCandidate:
+    recommended: RecommendedSpot
+    factors: list[DecisionFactor]
+    constraints: list[DecisionConstraint]
+
+
 async def recommend_spots(
     session: AsyncSession,
     payload: RecommendationRequest,
@@ -54,7 +66,7 @@ async def recommend_spots(
     normalized_role = _normalize_role(role)
     prefs = payload.preferences or RecommendationPreferences()
     filters = payload.filters
-    weights = payload.weights
+    weights = _normalize_weights(payload.weights)
 
     spots_stmt = (
         select(ParkingSpot)
@@ -83,6 +95,9 @@ async def recommend_spots(
             requested_by_role=normalized_role.value,
             total_candidates=0,
             recommended_spots=[],
+            ranked_candidates=[],
+            rejected_candidates=[],
+            decision_report=None,
         )
 
     spot_ids = [spot.id for spot in spots]
@@ -111,15 +126,55 @@ async def recommend_spots(
         else:
             nearby_counts[booking.parking_spot_id] += 1
 
-    ranked: list[RecommendedSpot] = []
+    ranked: list[ScoredCandidate] = []
+    rejected: list[RejectedCandidate] = []
+    charger_preference_mode = _build_charger_preference_mode(spots, overlap_counts, prefs)
 
     for spot in spots:
         if spot.status == SpotStatus.blocked:
+            rejected.append(
+                RejectedCandidate(
+                    spot_id=spot.id,
+                    spot_number=spot.spot_number,
+                    spot_label=f"Место №{spot.spot_number}",
+                    reason="Место заблокировано",
+                    constraint="spot_status_available",
+                )
+            )
             continue
         if overlap_counts.get(spot.id, 0) > 0:
+            rejected.append(
+                RejectedCandidate(
+                    spot_id=spot.id,
+                    spot_number=spot.spot_number,
+                    spot_label=f"Место №{spot.spot_number}",
+                    reason="Место пересекается с активным бронированием",
+                    constraint="interval_conflict",
+                )
+            )
             continue
 
         if not _is_spot_allowed_for_role(spot, normalized_role, prefs.needs_accessible_spot):
+            rejected.append(
+                RejectedCandidate(
+                    spot_id=spot.id,
+                    spot_number=spot.spot_number,
+                    spot_label=f"Место №{spot.spot_number}",
+                    reason="Место недоступно для роли пользователя или требования доступности",
+                    constraint="role_access",
+                )
+            )
+            continue
+        if charger_preference_mode == "strict_prefer" and not spot.has_charger:
+            rejected.append(
+                RejectedCandidate(
+                    spot_id=spot.id,
+                    spot_number=spot.spot_number,
+                    spot_label=f"Место №{spot.spot_number}",
+                    reason="Отклонено по предпочтению: требуется место с зарядкой",
+                    constraint="charger_preference",
+                )
+            )
             continue
 
         score_ctx = _build_score_context(
@@ -127,6 +182,7 @@ async def recommend_spots(
             role=normalized_role,
             preferences=prefs,
             nearby_conflicts=nearby_counts.get(spot.id, 0),
+            charger_preference_mode=charger_preference_mode,
         )
 
         total_score = (
@@ -183,8 +239,7 @@ async def recommend_spots(
             ),
         ]
 
-        ranked.append(
-            RecommendedSpot(
+        recommended_spot = RecommendedSpot(
                 spot_id=spot.id,
                 spot_number=spot.spot_number,
                 parking_lot_id=spot.parking_lot_id,
@@ -195,10 +250,44 @@ async def recommend_spots(
                 score=round(total_score, 4),
                 explainability=explainability,
             )
-        )
+        factors = [
+            DecisionFactor(
+                name=item.factor,
+                weight=item.weight,
+                raw_value=item.value,
+                contribution=item.contribution,
+                explanation=item.reason,
+            )
+            for item in explainability
+        ]
+        constraints = [
+            DecisionConstraint(name="spot_status_available", passed=True, explanation="Статус места: доступно"),
+            DecisionConstraint(name="interval_conflict", passed=True, explanation="Нет пересечения с блокирующими бронированиями"),
+            DecisionConstraint(
+                name="role_access",
+                passed=True,
+                explanation=f"Роль '{normalized_role.value}' имеет доступ к этому месту",
+            ),
+        ]
+        if charger_preference_mode in {"strict_prefer", "soft_prefer"} and spot.has_charger:
+            constraints.append(
+                DecisionConstraint(
+                    name="charger_preference",
+                    passed=True,
+                    explanation="Предпочтение по зарядке учтено",
+                )
+            )
+        ranked.append(ScoredCandidate(recommended=recommended_spot, factors=factors, constraints=constraints))
 
-    ranked.sort(key=lambda item: (-item.score, item.spot_number))
+    ranked.sort(
+        key=lambda item: (
+            1 if prefs.prefer_charger and not item.recommended.has_charger else 0,
+            -item.recommended.score,
+            item.recommended.spot_number,
+        )
+    )
     top = ranked[: prefs.max_results]
+    decision_report = _build_decision_report(top, rejected)
 
     return RecommendationResponse(
         parking_lot_id=payload.parking_lot_id,
@@ -206,7 +295,10 @@ async def recommend_spots(
         to_time=payload.to_time,
         requested_by_role=normalized_role.value,
         total_candidates=len(ranked),
-        recommended_spots=top,
+        recommended_spots=[item.recommended for item in top],
+        ranked_candidates=[item.recommended for item in ranked],
+        rejected_candidates=rejected,
+        decision_report=decision_report,
     )
 
 
@@ -222,7 +314,7 @@ async def pick_best_spot_for_booking(
     filters: RecommendationFilters | None = None,
     preferences: RecommendationPreferences | None = None,
     weights: RecommendationWeights | None = None,
-) -> RecommendedSpot | None:
+) -> tuple[RecommendedSpot | None, DecisionReport | None]:
     request = RecommendationRequest(
         parking_lot_id=parking_lot_id,
         from_time=from_time,
@@ -234,15 +326,86 @@ async def pick_best_spot_for_booking(
 
     response = await recommend_spots(session=session, payload=request, role=role)
     if not response.recommended_spots:
-        return None
+        return None, None
 
-    return response.recommended_spots[0]
+    return response.recommended_spots[0], response.decision_report
 
 
 def _normalize_role(role: UserRole | str) -> UserRole:
     if isinstance(role, UserRole):
         return role
     return UserRole(role)
+
+
+def _normalize_weights(weights: RecommendationWeights) -> RecommendationWeights:
+    total = (
+        weights.availability
+        + weights.spot_type
+        + weights.zone
+        + weights.charger
+        + weights.role
+        + weights.conflict
+    )
+    if total <= 0:
+        return RecommendationWeights()
+
+    return RecommendationWeights(
+        availability=round(weights.availability / total, 4),
+        spot_type=round(weights.spot_type / total, 4),
+        zone=round(weights.zone / total, 4),
+        charger=round(weights.charger / total, 4),
+        role=round(weights.role / total, 4),
+        conflict=round(weights.conflict / total, 4),
+    )
+
+
+def _build_charger_preference_mode(
+    spots: list[ParkingSpot],
+    overlap_counts: dict[int, int],
+    preferences: RecommendationPreferences,
+) -> str:
+    if not preferences.prefer_charger:
+        return "neutral"
+
+    available_with_charger = any(
+        spot.has_charger
+        and spot.status != SpotStatus.blocked
+        and overlap_counts.get(spot.id, 0) == 0
+        for spot in spots
+    )
+    return "strict_prefer" if available_with_charger else "soft_prefer"
+
+
+def _build_decision_report(ranked: list[ScoredCandidate], rejected: list[RejectedCandidate]) -> DecisionReport | None:
+    if not ranked:
+        return None
+
+    best = ranked[0]
+    second_score = ranked[1].recommended.score if len(ranked) > 1 else 0.0
+    confidence = _calculate_confidence(best.recommended.score, second_score)
+
+    return DecisionReport(
+        selected_spot_id=best.recommended.spot_id,
+        selected_spot_label=f"Место №{best.recommended.spot_number}",
+        final_score=best.recommended.score,
+        confidence=confidence,
+        factors=best.factors,
+        hard_constraints_passed=best.constraints,
+        rejected_candidates=rejected,
+        generated_at=datetime.utcnow(),
+        selected_candidate=SelectedCandidate(
+            spot_id=best.recommended.spot_id,
+            spot_number=best.recommended.spot_number,
+            spot_label=f"Место №{best.recommended.spot_number}",
+            final_score=best.recommended.score,
+        ),
+    )
+
+
+def _calculate_confidence(top_score: float, second_score: float) -> float:
+    if top_score <= 0:
+        return 0.0
+    return round(min(1.0, max(0.0, (top_score - second_score) / max(top_score, 0.0001))), 4)
 
 
 
@@ -267,30 +430,42 @@ def _build_score_context(
     role: UserRole,
     preferences: RecommendationPreferences,
     nearby_conflicts: int,
+    charger_preference_mode: str = "neutral",
 ) -> SpotScoreContext:
     preferred_spot_types = set(preferences.preferred_spot_types or [])
     preferred_zone_ids = set(preferences.preferred_zone_ids or [])
 
     if preferred_spot_types:
         spot_type_score = 1.0 if spot.spot_type in preferred_spot_types else 0.2
-        spot_reason = "Spot type matches user preference" if spot_type_score == 1.0 else "Spot type does not match preferences"
+        spot_reason = "Тип места соответствует предпочтениям пользователя" if spot_type_score == 1.0 else "Тип места не соответствует предпочтениям"
     else:
         spot_type_score = 0.7
-        spot_reason = "No explicit spot type preference"
+        spot_reason = "Явное предпочтение по типу места не задано"
 
     if preferred_zone_ids:
         zone_score = 1.0 if spot.zone_id in preferred_zone_ids else 0.3
-        zone_reason = "Spot is in preferred zone" if zone_score == 1.0 else "Spot zone is outside preferred set"
+        zone_reason = "Место находится в предпочтительной зоне" if zone_score == 1.0 else "Зона места вне предпочтительного набора"
     else:
         zone_score = 0.7
-        zone_reason = "No explicit zone preference"
+        zone_reason = "Явное предпочтение по зоне не задано"
 
-    if preferences.prefer_charger:
-        charger_score = 1.0 if spot.has_charger else 0.1
-        charger_reason = "Charging point preference satisfied" if charger_score == 1.0 else "No charger, but candidate kept"
+    if charger_preference_mode == "strict_prefer":
+        charger_score = 1.0 if spot.has_charger else 0.0
+        charger_reason = (
+            "Есть места с зарядкой, предпочтение по зарядке строго учтено"
+            if spot.has_charger
+            else "Отклонение от предпочтения по зарядке: доступны места с зарядкой"
+        )
+    elif charger_preference_mode == "soft_prefer":
+        charger_score = 1.0 if spot.has_charger else 0.4
+        charger_reason = (
+            "Предпочтение по зарядке удовлетворено"
+            if spot.has_charger
+            else "Зарядки нет, но среди доступных мест это допустимо"
+        )
     else:
         charger_score = 1.0 if not spot.has_charger else 0.8
-        charger_reason = "No charger preference; spot acceptable"
+        charger_reason = "Предпочтение по зарядке не задано; место допустимо"
 
     conflict_score = 1 / (1 + nearby_conflicts)
 
@@ -302,11 +477,11 @@ def _build_score_context(
         role=1.0,
         conflict=conflict_score,
         reasons={
-            "availability": "Spot is free in requested interval",
+            "availability": "Место свободно в выбранном интервале",
             "spot_type": spot_reason,
             "zone": zone_reason,
             "charger": charger_reason,
-            "role": f"Role '{role.value}' is allowed for this spot",
-            "conflict": "Lower risk of near-term conflicts" if nearby_conflicts == 0 else f"{nearby_conflicts} nearby bookings around interval",
+            "role": f"Роль '{role.value}' имеет доступ к этому месту",
+            "conflict": "Низкий риск ближайших конфликтов" if nearby_conflicts == 0 else f"{nearby_conflicts} соседних бронирований рядом с интервалом",
         },
     )

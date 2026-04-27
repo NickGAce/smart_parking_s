@@ -135,7 +135,7 @@ Frontend note:
   1) manual: explicit `parking_spot_id`
   2) auto: `auto_assign=true` + `parking_lot_id` + optional recommendation config.
 - Validates overlap, lot rules, role constraints, blocked spots.
-- Returns `BookingOut` + assignment metadata.
+- Returns `BookingOut` + assignment metadata and optional `decision_report` when auto-assign is used.
 - Typical errors: `400` validation/rules, `403` access, `409` overlaps/no candidate.
 
 ### GET `/bookings`
@@ -204,9 +204,30 @@ Frontend note:
 - Auth: yes.
 - Body: interval + lot + optional filters/preferences/weights.
 - Returns ranked spots + explainability factors.
+- `weights` задаются пользователем как относительная значимость факторов (0..1) и нормализуются на backend.
+- `preferences.prefer_charger=true` теперь при наличии доступных мест с зарядкой отсекает варианты без зарядки (как rejected by `charger_preference`).
 
 Frontend note:
+- `/recommendations/spots` now can include `decision_report` (toggle by `include_decision_report`).
 - Great for “Why this spot?” UI blocks.
+
+### POST `/recommendations/decision-report`
+- Auth: yes.
+- Body: same as `/recommendations/spots`.
+- Returns only structured `DecisionReport` for best candidate.
+- Returns `404` when no candidate exists for the constraints.
+
+Decision report structure:
+- `selected_spot_id`, `selected_spot_label`, `final_score`, `confidence`, `generated_at`
+- `selected_candidate`: spot id/label/score snapshot
+- `factors[]`: `name`, `weight`, `raw_value`, `contribution`, `explanation`
+- `hard_constraints_passed[]`: each hard constraint with pass flag and explanation
+- `rejected_candidates[]`: rejected `spot_id`, `reason`, `constraint`
+
+Scoring formula:
+- `final_score = Σ(raw_factor_value * factor_weight)`
+- `confidence = (top_score - second_score) / max(top_score, 0.0001)` limited to `[0,1]`
+
 
 ---
 
@@ -282,7 +303,8 @@ Frontend note:
 | GET | `/notifications` | yes | auth | own inbox |
 | PATCH | `/notifications/{notification_id}/read` | yes | auth | own notification only |
 | GET | `/audit-logs` | yes | admin | paginated filters |
-| POST | `/recommendations/spots` | yes | auth | ranked explainable list |
+| POST | `/recommendations/spots` | yes | auth | ranked explainable list + optional decision report |
+| POST | `/recommendations/decision-report` | yes | auth | structured explainable report only |
 | GET | `/analytics/summary` | yes | auth | KPI summary |
 | GET | `/analytics/occupancy` | yes | auth | occupancy breakdown |
 | GET | `/analytics/bookings` | yes | auth | booking KPI breakdown |
