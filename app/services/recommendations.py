@@ -128,7 +128,7 @@ async def recommend_spots(
 
     ranked: list[ScoredCandidate] = []
     rejected: list[RejectedCandidate] = []
-    charger_preference_mode = _build_charger_preference_mode(spots, overlap_counts, normalized_role, prefs)
+    charger_preference_mode = _build_charger_preference_mode(spots, overlap_counts, prefs)
 
     for spot in spots:
         if spot.status == SpotStatus.blocked:
@@ -362,7 +362,6 @@ def _normalize_weights(weights: RecommendationWeights) -> RecommendationWeights:
 def _build_charger_preference_mode(
     spots: list[ParkingSpot],
     overlap_counts: dict[int, int],
-    role: UserRole,
     preferences: RecommendationPreferences,
 ) -> str:
     if not preferences.prefer_charger:
@@ -372,7 +371,6 @@ def _build_charger_preference_mode(
         spot.has_charger
         and spot.status != SpotStatus.blocked
         and overlap_counts.get(spot.id, 0) == 0
-        and _is_spot_allowed_for_role(spot, role, preferences.needs_accessible_spot)
         for spot in spots
     )
     return "strict_prefer" if available_with_charger else "soft_prefer"

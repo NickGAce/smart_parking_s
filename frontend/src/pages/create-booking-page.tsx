@@ -205,16 +205,14 @@ export function CreateBookingPage() {
     mutationFn: recommendationsApi.getSpotRecommendations,
   });
   const zoneOptionsQuery = useQuery({
-    queryKey: ['booking-create-zones', parkingLotId, startTimeLocal, endTimeLocal],
+    queryKey: ['booking-create-zones', parkingLotId],
     queryFn: () =>
       parkingSpotsApi.getSpots({
         parking_lot_id: parkingLotId as number,
-        from: toApiDateTime(startTimeLocal),
-        to: toApiDateTime(endTimeLocal),
         limit: 300,
         offset: 0,
       }),
-    enabled: hasValidSelection,
+    enabled: typeof parkingLotId === 'number',
   });
 
   const createBookingMutation = useCreateBookingMutation();
