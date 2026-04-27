@@ -10,6 +10,11 @@ interface ForecastQualityCardProps {
   isError: boolean;
   data?: ForecastQuality;
   selectedPeriodLabel: string;
+  settings: {
+    historyDays: number;
+    bucketSizeHours: number;
+    forecastQualityBucket: 'hour' | 'day';
+  };
 }
 
 const confidenceColor: Record<ForecastQuality['confidence'], 'error' | 'warning' | 'success'> = {
@@ -56,7 +61,7 @@ function buildPolylinePoints(values: number[], width: number, height: number) {
     .join(' ');
 }
 
-export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLabel }: ForecastQualityCardProps) {
+export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLabel, settings }: ForecastQualityCardProps) {
   if (isLoading) {
     return <LoadingState message="Рассчитываем метрики качества прогноза..." />;
   }
@@ -73,8 +78,20 @@ export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLa
   const forecastValues = data.comparison_series.map((item) => item.predicted_occupancy_percent);
   const chartWidth = 900;
   const chartHeight = 240;
+  const errorChartHeight = 120;
   const actualPath = buildPolylinePoints(actualValues, chartWidth, chartHeight);
   const forecastPath = buildPolylinePoints(forecastValues, chartWidth, chartHeight);
+  const absoluteErrorValues = data.comparison_series.map((item) => item.absolute_error);
+  const errorPath = buildPolylinePoints(absoluteErrorValues, chartWidth, errorChartHeight);
+  const highErrorThreshold = Math.max(5, data.mae * 1.5);
+  const highErrorPoints = data.comparison_series
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.absolute_error >= highErrorThreshold)
+    .slice(0, 120);
+
+  const topErrorBuckets = [...data.comparison_series]
+    .sort((a, b) => b.absolute_error - a.absolute_error)
+    .slice(0, 5);
 
   return (
     <Stack spacing={1.5}>
@@ -94,6 +111,12 @@ export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLa
         <Typography variant="body2"><strong>MAPE:</strong> {data.mape.toFixed(2)}%</Typography>
         {data.rmse !== null && <Typography variant="body2"><strong>RMSE:</strong> {data.rmse.toFixed(2)} п.п.</Typography>}
         <Typography variant="body2"><strong>Sample size:</strong> {data.sample_size}</Typography>
+      </Stack>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Chip size="small" variant="outlined" label={`Период: ${selectedPeriodLabel}`} />
+        <Chip size="small" variant="outlined" label={`History: ${settings.historyDays} дн.`} />
+        <Chip size="small" variant="outlined" label={`Bucket прогноза: ${settings.bucketSizeHours} ч`} />
+        <Chip size="small" variant="outlined" label={`Backtest bucket: ${settings.forecastQualityBucket}`} />
       </Stack>
 
       <Typography variant="caption" color="text.secondary">
@@ -122,12 +145,54 @@ export function ForecastQualityCard({ isLoading, isError, data, selectedPeriodLa
               })}
               <polyline fill="none" stroke="#2e7d32" strokeWidth={2.5} points={actualPath} />
               <polyline fill="none" stroke="#1976d2" strokeWidth={2.5} points={forecastPath} />
+              {highErrorPoints.map(({ item, index }) => {
+                const x = data.comparison_series.length <= 1
+                  ? 0
+                  : (index / (data.comparison_series.length - 1)) * chartWidth;
+                return <line key={`${item.time_bucket}-${index}`} x1={x} x2={x} y1={0} y2={chartHeight} stroke="#ff9800" strokeOpacity={0.25} />;
+              })}
             </svg>
             <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
               <Typography variant="caption" color="text.secondary">🟢 Факт</Typography>
               <Typography variant="caption" color="text.secondary">🔵 Прогноз</Typography>
+              <Typography variant="caption" color="text.secondary">🟠 Зоны больших ошибок</Typography>
             </Stack>
           </Box>
+        )}
+      </Stack>
+
+      <Stack spacing={0.8}>
+        <Typography variant="body2"><strong>График абсолютной ошибки (|факт - прогноз|)</strong></Typography>
+        {data.comparison_series.length === 0 ? (
+          <Typography variant="caption" color="text.secondary">Нет точек для визуализации.</Typography>
+        ) : (
+          <Box sx={{ border: (theme) => `1px solid ${theme.palette.divider}`, borderRadius: 1.5, p: 1, overflowX: 'auto' }}>
+            <svg width={chartWidth} height={errorChartHeight} role="img" aria-label="График абсолютной ошибки прогноза">
+              {[0, 5, 10, 15, 20, 25].map((value) => {
+                const y = errorChartHeight - (value / 25) * errorChartHeight;
+                return (
+                  <g key={value}>
+                    <line x1={0} x2={chartWidth} y1={y} y2={y} stroke="#eeeeee" />
+                    <text x={4} y={Math.max(10, y - 2)} fill="#757575" fontSize="10">{value}</text>
+                  </g>
+                );
+              })}
+              <polyline fill="none" stroke="#ef6c00" strokeWidth={2.2} points={errorPath} />
+            </svg>
+          </Box>
+        )}
+      </Stack>
+
+      <Stack spacing={0.5}>
+        <Typography variant="body2"><strong>Худшие интервалы (топ-5 по ошибке):</strong></Typography>
+        {topErrorBuckets.length === 0 ? (
+          <Typography variant="caption" color="text.secondary">Нет данных.</Typography>
+        ) : (
+          topErrorBuckets.map((item) => (
+            <Typography key={item.time_bucket} variant="caption" color="text.secondary">
+              {new Date(item.time_bucket).toLocaleString()}: факт {item.actual_occupancy_percent.toFixed(1)}% / прогноз {item.predicted_occupancy_percent.toFixed(1)}% / ошибка {item.absolute_error.toFixed(1)} п.п.
+            </Typography>
+          ))
         )}
       </Stack>
 

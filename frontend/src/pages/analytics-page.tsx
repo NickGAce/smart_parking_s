@@ -177,6 +177,11 @@ export function AnalyticsPage() {
               isError={queries.forecastQualityQuery.isError}
               data={queries.forecastQualityQuery.data}
               selectedPeriodLabel={PERIOD_LABELS[filters.period]}
+              settings={{
+                historyDays: filters.historyDays,
+                bucketSizeHours: filters.bucketSizeHours,
+                forecastQualityBucket: filters.forecastQualityBucket,
+              }}
             />
           </DataPanel>
         </Grid>
