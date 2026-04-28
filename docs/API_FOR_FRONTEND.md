@@ -458,3 +458,11 @@ curl -X POST "$API/api/v1/access-events/recognize/image" \
 - unsupported format -> `400` with readable `detail`
 - plate not recognized -> event created with `decision=review`, `processing_status=processed`, `reason=plate_not_recognized`
 - provider failure -> event created with `decision=review`, `processing_status=failed`, `reason=provider_error`
+
+### Российский формат номера (важно для UI)
+- Рекомендуемый формат при вводе пользователем: `A123BC77` или `A123BC777`.
+- Допустимые буквы: только из набора `АВЕКМНОРСТУХ` (или латинские аналоги `ABEKMHOPCTYX`).
+- Backend нормализует и кириллицу, и латиницу в один канонический вид для сравнения/поиска.
+- В ответе используйте:
+  - `plate_number` — номер, который алгоритм признал итоговым,
+  - `normalized_plate_number` — канонический формат, который нужно показывать как «формат хранения/поиска».

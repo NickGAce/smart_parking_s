@@ -127,6 +127,10 @@ export function AccessControlPage() {
 
           <DataPanel title="Распознавание по изображению/видео" subtitle="Загрузите файл, модуль выполнит распознавание и создаст событие доступа.">
             <Stack spacing={1.5} sx={{ mb: 2 }}>
+            <Alert severity="info" variant="outlined">
+              Формат для российских номеров: <strong>A123BC77</strong> или <strong>A123BC777</strong> (буквы только из набора АВЕКМНОРСТУХ). Можно вводить кириллицей или латиницей — backend нормализует к латинскому виду.
+            </Alert>
+
               <TextField
                 fullWidth
                 label="Подсказка номера для теста"
@@ -175,7 +179,7 @@ export function AccessControlPage() {
 
           {latestResult ? (
             <Alert severity={latestResult.decision === 'allowed' ? 'success' : latestResult.decision === 'review' ? 'warning' : 'error'}>
-              Номер: {latestResult.plate_number}; normalized: {latestResult.normalized_plate_number}; confidence: {latestResult.recognition_confidence ?? '—'}; provider: {latestResult.recognition_source}; решение: {decisionLabel[latestResult.decision]}; reason: {latestResult.reason}; user/vehicle/booking: {latestResult.user_id ?? '—'}/{latestResult.vehicle_id ?? '—'}/{latestResult.booking_id ?? '—'}.
+              Распознано алгоритмом: {latestResult.plate_number}; normalized (канонический для поиска): {latestResult.normalized_plate_number}; confidence: {latestResult.recognition_confidence ?? '—'}; provider: {latestResult.recognition_source}; решение: {decisionLabel[latestResult.decision]}; reason: {latestResult.reason}; user/vehicle/booking: {latestResult.user_id ?? '—'}/{latestResult.vehicle_id ?? '—'}/{latestResult.booking_id ?? '—'}.
             </Alert>
           ) : null}
 

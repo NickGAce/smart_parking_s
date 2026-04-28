@@ -175,6 +175,20 @@ def test_known_plate_exit_auto_checkout_completed():
     asyncio.run(verify())
 
 
+
+
+def test_image_recognition_accepts_cyrillic_russian_plate():
+    _, tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/access-events/recognize/image",
+            files={"file": ("car_А111АА77.png", BytesIO(b"mock-image"), "image/png")},
+            data={"parking_lot_id": "1", "direction": "entry"},
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["normalized_plate_number"] == "A111AA77"
+
 def test_invalid_image_file_returns_readable_error():
     _, tokens = _setup_state()
     with TestClient(app) as client:
@@ -229,3 +243,4 @@ def test_normalization_is_consistent():
     assert normalize_plate_number("A123BC77") == "A123BC77"
     assert normalize_plate_number("A 123 BC 77") == "A123BC77"
     assert normalize_plate_number("a-123-bc-77") == "A123BC77"
+    assert normalize_plate_number("А123ВС77") == "A123BC77"

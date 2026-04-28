@@ -6,7 +6,24 @@ from typing import Protocol
 
 from app.models.vehicle_access_event import RecognitionSource
 
-_PLATE_PATTERN = re.compile(r"[A-Z0-9]{6,10}")
+# Разрешенные символы для российских номеров (ГОСТ): АВЕКМНОРСТУХ.
+# Нормализуем в латинский канонический набор, чтобы хранение/поиск были единообразными.
+CYRILLIC_TO_LATIN = {
+    "А": "A",
+    "В": "B",
+    "Е": "E",
+    "К": "K",
+    "М": "M",
+    "Н": "H",
+    "О": "O",
+    "Р": "P",
+    "С": "C",
+    "Т": "T",
+    "У": "Y",
+    "Х": "X",
+}
+
+RUS_PLATE_PATTERN = re.compile(r"[ABEKMHOPCTYX]\d{3}[ABEKMHOPCTYX]{2}\d{2,3}")
 
 
 @dataclass(slots=True)
@@ -22,9 +39,17 @@ class PlateRecognitionService(Protocol):
         ...
 
 
+def _to_latin_plate_alphabet(text: str) -> str:
+    converted: list[str] = []
+    for char in text.upper():
+        converted.append(CYRILLIC_TO_LATIN.get(char, char))
+    return "".join(converted)
+
+
 def normalize_plate_number(plate_number: str) -> str:
     cleaned = re.sub(r"[^A-Za-zА-Яа-я0-9]", "", plate_number or "")
-    return cleaned.upper() or "UNKNOWN"
+    latin = _to_latin_plate_alphabet(cleaned)
+    return latin or "UNKNOWN"
 
 
 def extract_plate_candidate(*candidates: str | None) -> str | None:
@@ -34,9 +59,11 @@ def extract_plate_candidate(*candidates: str | None) -> str | None:
         normalized_candidate = normalize_plate_number(candidate)
         if normalized_candidate == "UNKNOWN":
             continue
-        direct_match = _PLATE_PATTERN.search(normalized_candidate)
-        if direct_match:
-            return direct_match.group(0)
+
+        match = RUS_PLATE_PATTERN.search(normalized_candidate)
+        if match:
+            return match.group(0)
+
     return None
 
 
