@@ -415,3 +415,34 @@ Scoring formula:
 - `video_url`
 - `frame_timestamp`
 - `processing_status` (`pending|processed|failed`)
+
+---
+
+## 11) Access events / ANPR diagnostics
+
+### POST `/access-events/recognize/image`
+- Auth: admin/owner/guard.
+- Multipart form:
+  - `file` (required)
+  - `parking_lot_id` (required)
+  - `direction` (`entry|exit`)
+  - `plate_hint` (optional; **fallback only**)
+- Backend flow:
+  - media storage;
+  - preprocessing + OCR provider chain;
+  - regex validation + candidate ranking;
+  - fallback filename/plate_hint only при отсутствии валидного OCR.
+- Response включает стандартный access-event + OCR diagnostics:
+  - `raw_text`
+  - `candidates[]` `{ plate, normalized_plate, confidence, valid, reason }`
+  - `provider`
+  - `confidence`
+  - `recognition_reason`
+  - `processing_status_detail`
+  - `selected_plate`
+  - `normalized_plate`
+  - `preprocessing_steps[]`
+
+Frontend guidance:
+- Показывайте diagnostics отдельно от бизнес-решения (`allowed/review/denied`).
+- Если `provider` содержит fallback (`filename_hint`) или `recognition_source=mock`, показывайте warning, что это fallback, а не полноценный OCR.

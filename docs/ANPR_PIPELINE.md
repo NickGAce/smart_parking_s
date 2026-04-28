@@ -1,30 +1,66 @@
 # ANPR-конвейер Smart Parking
 
-## Архитектура конвейера
+## 1) Аудит текущего pipeline (до исправлений)
 
-1. **Ingest**
-   - `POST /api/v1/access-events/recognize/image`
-   - `POST /api/v1/access-events/recognize/video`
-2. **Storage**
-   - файл сохраняется в `media_storage_service` (локальный/mock storage), возвращается URL.
-3. **Recognition**
-   - `plate_recognition_pipeline`:
-     - `recognize_from_image(file)` — mock regex по имени файла/подсказке;
-     - `recognize_from_video(file)` — mock разбиение на кадры, голосование по номеру, агрегированная confidence.
-4. **Normalization**
-   - plate -> uppercase + remove spaces/hyphens.
-5. **Smart Linking**
-   - поиск `vehicle` по `normalized_plate_number`;
-   - связывание с `user_id`;
-   - поиск подходящего `booking` (entry: pending/confirmed/active, exit: active).
-6. **Decision Engine**
-   - known plate + valid booking -> auto check-in/check-out -> `allowed`;
-   - low confidence/unknown plate -> `review`;
-   - exit without active booking -> `denied`.
-7. **Persistence & Ops**
-   - запись `vehicle_access_events` с media URL и processing status;
-   - audit log (`anpr.access_event`, `anpr.unknown_plate_detected`);
-   - notifications для guard/owner/admin при `review/denied`.
+- Upload image принимался в `POST /api/v1/access-events/recognize/image`, дальше файл сохранялся через `media_storage_service.save(...)`.
+- Распознавание использовало mock-алгоритм по `filename/plate_hint` (regex по строке), без реального OCR по пикселям.
+- Итоговый `plate_number` выбирался из имени файла/подсказки, confidence был статическим (`~0.93`/`~0.51`).
+- Нормализация была минимальная: uppercase + удаление пробелов/дефисов.
+- Из-за этого качество распознавания по изображению было низким: фактически не анализировалось содержимое фото.
 
-## Поток обработки (изображение/видео -> решение)
-`загрузка медиа -> распознавание номера -> нормализация -> поиск автомобиля -> поиск бронирования -> переход жизненного цикла -> запись события доступа -> уведомления/аудит`
+## 2) Новый pipeline
+
+### Ingest + storage
+1. `POST /api/v1/access-events/recognize/image` принимает image upload.
+2. Файл сохраняется в mock/local storage (`app/services/media_storage.py`) и URL сохраняется в access-event.
+
+### Provider chain
+1. **Preprocessing stage** (внутри `EnhancedPlateRecognitionPipeline`):
+   - grayscale;
+   - contrast enhancement;
+   - sharpen;
+   - resize x2;
+   - thresholding;
+   - denoise (median filter);
+   - опциональный crop центральной/нижней области (region heuristic).
+2. **Основной OCR provider**: `TesseractOcrProvider` (если доступны Pillow + pytesseract).
+3. **Fallback provider**: `filename_hint` используется только если OCR не дал валидного кандидата.
+
+### Postprocessing
+- очистка мусорных символов;
+- uppercase;
+- нормализация пробелов/дефисов;
+- карта похожих кириллица/латиница (А↔A, В↔B, ...);
+- генерация candidate_plates из OCR-токенов;
+- валидация по regex-паттернам:
+  - RU с регионом: `A123BC77`/`A123BC777`;
+  - RU без региона: `A123BC`;
+- выбор лучшего кандидата по valid-pattern + confidence.
+
+## 3) PlateRecognitionResult / diagnostics
+
+Pipeline теперь отдает:
+- `raw_text`;
+- `candidate_plates`;
+- `selected_plate`;
+- `normalized_plate`;
+- `confidence`;
+- `provider`;
+- `preprocessing_steps`;
+- `reason`;
+- `processing_status`.
+
+## 4) Endpoint response
+
+`POST /api/v1/access-events/recognize/image` возвращает access-event + диагностику OCR:
+- `raw_text`;
+- `candidates`;
+- `provider`;
+- `confidence`;
+- `recognition_reason`;
+- `processing_status_detail`;
+- `selected_plate`;
+- `normalized_plate`;
+- `preprocessing_steps`.
+
+> Важно: fallback-механизм не маскируется под реальный OCR и помечается отдельным provider/reason.

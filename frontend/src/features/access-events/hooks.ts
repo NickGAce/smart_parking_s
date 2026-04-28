@@ -4,6 +4,7 @@ import { accessEventsApi } from '../../entities/access-events/api';
 import type {
   AccessEvent,
   AccessEventManualPayload,
+  AccessEventRecognitionResponse,
   AccessEventRecognizePayload,
   AccessEventsQuery,
 } from '../../shared/types/access-event';
@@ -55,7 +56,7 @@ export function useRecognizeAccessEventMutation() {
 
 export function useRecognizeImageAccessEventMutation() {
   const queryClient = useQueryClient();
-  return useMutation<AccessEvent, ApiError, { file: File; parking_lot_id: number; direction: "entry" | "exit"; plate_hint?: string }>({
+  return useMutation<AccessEventRecognitionResponse, ApiError, { file: File; parking_lot_id: number; direction: "entry" | "exit"; plate_hint?: string }>({
     mutationFn: (payload) => accessEventsApi.recognizeImage(payload),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: accessEventsQueryKeys.all });

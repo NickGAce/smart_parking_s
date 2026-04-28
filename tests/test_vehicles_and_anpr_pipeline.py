@@ -167,3 +167,99 @@ def test_video_recognition_flow_and_unknown_plate_review():
         )
         assert unknown.status_code == 201
         assert unknown.json()["decision"] == "review"
+
+import pytest
+
+from app.api.v1.endpoints import access_events as access_events_endpoint
+from app.models.vehicle_access_event import RecognitionSource
+from app.services.plate_recognition import normalize_plate_candidate, normalize_plate_number
+from app.services.plate_recognition_pipeline import EnhancedPlateRecognitionPipeline, PipelineRecognitionResult, PlateCandidate
+
+
+def test_normalization_dirty_ocr_text_to_plate():
+    assert normalize_plate_number(" a 123-bc 77 ") == "A123BC77"
+    assert normalize_plate_candidate("х123сс77") == "X123CC77"
+
+
+def test_candidate_filter_does_not_accept_garbage():
+    pipeline = EnhancedPlateRecognitionPipeline(providers=[])
+    candidates = pipeline._extract_candidates([("mock", "@@@ 1111111 ???", 0.7)])
+    assert candidates == []
+
+
+def test_cyrillic_and_latin_are_normalized_to_same_plate():
+    assert normalize_plate_number("А123ВС77") == "A123BC77"
+    assert normalize_plate_number("A123BC77") == "A123BC77"
+
+
+def test_low_confidence_leads_to_review_decision():
+    _, tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/access-events/manual",
+            json={"parking_lot_id": 1, "direction": "entry", "plate_number": "A111AA77", "recognition_confidence": 0.2},
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["decision"] == "review"
+
+
+class _StubPipelineFallback:
+    async def recognize_from_image(self, file, plate_hint=None):
+        return PipelineRecognitionResult(
+            plate_number="A111AA77",
+            normalized_plate_number="A111AA77",
+            confidence=0.55,
+            source=RecognitionSource.mock,
+            raw_text=plate_hint or file.filename,
+            candidate_plates=[
+                PlateCandidate(
+                    value="A111AA77",
+                    normalized="A111AA77",
+                    confidence=0.55,
+                    is_valid=True,
+                    reason="fallback used",
+                )
+            ],
+            selected_plate="A111AA77",
+            normalized_plate="A111AA77",
+            provider="filename_hint",
+            preprocessing_steps=["noop"],
+            reason="fallback",
+            processing_status="processed",
+        )
+
+    async def recognize_from_video(self, file, plate_hint=None):
+        return await self.recognize_from_image(file, plate_hint)
+
+
+class _StubPipelineProvider(_StubPipelineFallback):
+    async def recognize_from_image(self, file, plate_hint=None):
+        result = await super().recognize_from_image(file, plate_hint)
+        result.source = RecognitionSource.provider
+        result.confidence = 0.92
+        result.provider = "tesseract"
+        result.reason = "ocr valid"
+        return result
+
+
+@pytest.mark.parametrize(
+    "pipeline_cls, expected_provider, expected_source",
+    [(_StubPipelineFallback, "filename_hint", "mock"), (_StubPipelineProvider, "tesseract", "provider")],
+)
+def test_image_endpoint_returns_diagnostics_and_marks_fallback(monkeypatch, pipeline_cls, expected_provider, expected_source):
+    _, tokens = _setup_state()
+    monkeypatch.setattr(access_events_endpoint, "plate_recognition_pipeline", pipeline_cls())
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/access-events/recognize/image",
+            files={"file": ("fixture_plate.png", BytesIO(b"fake-image-bytes"), "image/png")},
+            data={"parking_lot_id": "1", "direction": "entry", "plate_hint": "A111AA77"},
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["provider"] == expected_provider
+        assert payload["recognition_source"] == expected_source
+        assert payload["raw_text"]
+        assert len(payload["candidates"]) >= 1

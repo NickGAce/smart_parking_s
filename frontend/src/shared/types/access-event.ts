@@ -25,6 +25,27 @@ export interface AccessEvent {
   created_at: string;
 }
 
+
+export interface RecognitionCandidate {
+  plate: string;
+  normalized_plate: string;
+  confidence: number;
+  valid: boolean;
+  reason: string;
+}
+
+export interface AccessEventRecognitionResponse extends AccessEvent {
+  raw_text: string | null;
+  candidates: RecognitionCandidate[];
+  provider: string | null;
+  confidence: number | null;
+  recognition_reason: string | null;
+  processing_status_detail: string | null;
+  selected_plate: string | null;
+  normalized_plate: string | null;
+  preprocessing_steps: string[];
+}
+
 export interface AccessEventManualPayload {
   parking_lot_id: number;
   direction: AccessDirection;

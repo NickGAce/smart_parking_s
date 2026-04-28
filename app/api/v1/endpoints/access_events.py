@@ -9,7 +9,14 @@ from app.db.session import get_session
 from app.models.parking_lot import ParkingLot
 from app.models.user import User, UserRole
 from app.models.vehicle_access_event import AccessDecision, AccessDirection, ProcessingStatus, VehicleAccessEvent
-from app.schemas.access_event import AccessEventListResponse, AccessEventManualIn, AccessEventOut, AccessEventRecognizeIn
+from app.schemas.access_event import (
+    AccessEventListResponse,
+    AccessEventManualIn,
+    AccessEventOut,
+    AccessEventRecognitionOut,
+    AccessEventRecognizeIn,
+    RecognitionCandidateOut,
+)
 from app.schemas.pagination import PaginationMeta
 from app.services.access_events import process_access_event, process_manual_access_event, process_recognition_access_event
 from app.services.audit import build_source_metadata
@@ -60,7 +67,7 @@ async def recognize_access_event(
     return event
 
 
-@router.post("/recognize/image", response_model=AccessEventOut, status_code=201)
+@router.post("/recognize/image", response_model=AccessEventRecognitionOut, status_code=201)
 async def recognize_access_event_image(
     request: Request,
     file: UploadFile = File(...),
@@ -93,7 +100,27 @@ async def recognize_access_event_image(
         frame_timestamp=result.frame_timestamp,
         processing_status=ProcessingStatus.processed,
     )
-    return event
+    return AccessEventRecognitionOut(
+        **AccessEventOut.model_validate(event).model_dump(),
+        raw_text=result.raw_text,
+        candidates=[
+            RecognitionCandidateOut(
+                plate=item.value,
+                normalized_plate=item.normalized,
+                confidence=item.confidence,
+                valid=item.is_valid,
+                reason=item.reason,
+            )
+            for item in result.candidate_plates
+        ],
+        provider=result.provider,
+        confidence=result.confidence,
+        recognition_reason=result.reason,
+        processing_status_detail=result.processing_status,
+        selected_plate=result.selected_plate,
+        normalized_plate=result.normalized_plate,
+        preprocessing_steps=result.preprocessing_steps,
+    )
 
 
 @router.post("/recognize/video", response_model=AccessEventOut, status_code=201)

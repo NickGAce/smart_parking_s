@@ -47,6 +47,26 @@ class AccessEventOut(BaseModel):
         from_attributes = True
 
 
+class RecognitionCandidateOut(BaseModel):
+    plate: str
+    normalized_plate: str
+    confidence: float
+    valid: bool
+    reason: str
+
+
+class AccessEventRecognitionOut(AccessEventOut):
+    raw_text: str | None = None
+    candidates: list[RecognitionCandidateOut] = Field(default_factory=list)
+    provider: str | None = None
+    confidence: float | None = None
+    recognition_reason: str | None = None
+    processing_status_detail: str | None = None
+    selected_plate: str | None = None
+    normalized_plate: str | None = None
+    preprocessing_steps: list[str] = Field(default_factory=list)
+
+
 class AccessEventListResponse(BaseModel):
     items: list[AccessEventOut]
     meta: PaginationMeta

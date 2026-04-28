@@ -161,9 +161,33 @@ export function AccessControlPage() {
           </DataPanel>
 
           {latestResult ? (
-            <Alert severity={latestResult.decision === 'allowed' ? 'success' : latestResult.decision === 'review' ? 'warning' : 'error'}>
-              Номер: {latestResult.plate_number}; достоверность: {latestResult.recognition_confidence ?? '—'}; пользователь: {latestResult.user_id ?? '—'}; автомобиль: {latestResult.vehicle_id ?? '—'}; бронирование: {latestResult.booking_id ?? '—'}; решение: {decisionLabel[latestResult.decision]}.
-            </Alert>
+            <Stack spacing={1}>
+              <Alert severity={latestResult.decision === 'allowed' ? 'success' : latestResult.decision === 'review' ? 'warning' : 'error'}>
+                Номер: {latestResult.plate_number}; достоверность: {latestResult.recognition_confidence ?? ('confidence' in latestResult ? latestResult.confidence : null) ?? '—'}; пользователь: {latestResult.user_id ?? '—'}; автомобиль: {latestResult.vehicle_id ?? '—'}; бронирование: {latestResult.booking_id ?? '—'}; решение: {decisionLabel[latestResult.decision]}.
+              </Alert>
+              {'provider' in latestResult ? (
+                <Box sx={{ p: 1.5, border: '1px dashed', borderColor: 'border.subtle', borderRadius: 2 }}>
+                  <Typography variant="subtitle2">Диагностика OCR</Typography>
+                  <Typography variant="caption" display="block" color="text.secondary">provider: {latestResult.provider ?? '—'} · confidence: {latestResult.confidence ?? '—'} · processing: {latestResult.processing_status_detail ?? latestResult.processing_status}</Typography>
+                  <Typography variant="caption" display="block" color="text.secondary">raw text: {latestResult.raw_text ?? '—'}</Typography>
+                  <Typography variant="caption" display="block" color="text.secondary">selected: {latestResult.selected_plate ?? latestResult.plate_number} ({latestResult.normalized_plate ?? latestResult.normalized_plate_number})</Typography>
+                  <Typography variant="caption" display="block" color="text.secondary">reason: {latestResult.recognition_reason ?? latestResult.reason}</Typography>
+                  {(latestResult.preprocessing_steps ?? []).length > 0 ? (
+                    <Typography variant="caption" display="block" color="text.secondary">preprocessing: {latestResult.preprocessing_steps.join(', ')}</Typography>
+                  ) : null}
+                  {(latestResult.candidates ?? []).length > 0 ? (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      candidates: {latestResult.candidates.map((item) => `${item.plate}/${item.normalized_plate} (${item.confidence})${item.valid ? '' : ' [invalid]'}`).join('; ')}
+                    </Typography>
+                  ) : null}
+                  {latestResult.provider?.includes('filename') || latestResult.recognition_source === 'mock' ? (
+                    <Alert severity="warning" sx={{ mt: 1 }}>
+                      Номер получен fallback-методом (filename/plate_hint), а не полноценным OCR.
+                    </Alert>
+                  ) : null}
+                </Box>
+              ) : null}
+            </Stack>
           ) : null}
 
           <DataPanel title="События доступа">

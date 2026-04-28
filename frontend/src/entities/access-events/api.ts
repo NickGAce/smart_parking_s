@@ -6,6 +6,7 @@ import type {
   AccessEventListResponse,
   AccessEventManualPayload,
   AccessEventRecognizePayload,
+  AccessEventRecognitionResponse,
   AccessEventsQuery,
 } from '../../shared/types/access-event';
 
@@ -18,13 +19,13 @@ export const accessEventsApi = {
     const { data } = await httpClient.post<AccessEvent>('/access-events/manual', payload);
     return data;
   },
-  recognizeImage: async (payload: { file: File; parking_lot_id: number; direction: "entry" | "exit"; plate_hint?: string }): Promise<AccessEvent> => {
+  recognizeImage: async (payload: { file: File; parking_lot_id: number; direction: "entry" | "exit"; plate_hint?: string }): Promise<AccessEventRecognitionResponse> => {
     const formData = new FormData();
     formData.append('file', payload.file);
     formData.append('parking_lot_id', String(payload.parking_lot_id));
     formData.append('direction', payload.direction);
     if (payload.plate_hint) formData.append('plate_hint', payload.plate_hint);
-    const { data } = await httpClient.post<AccessEvent>('/access-events/recognize/image', formData);
+    const { data } = await httpClient.post<AccessEventRecognitionResponse>('/access-events/recognize/image', formData);
     return data;
   },
   recognizeVideo: async (payload: { file: File; parking_lot_id: number; direction: "entry" | "exit"; plate_hint?: string }): Promise<AccessEvent> => {
