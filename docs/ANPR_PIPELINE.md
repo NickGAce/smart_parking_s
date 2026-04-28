@@ -49,6 +49,21 @@ Attribution: **ANPR provider adapted from Runoi/ANPR-System, MIT License**.
 
 Если пути неверные/файлы отсутствуют, backend возвращает `provider_unavailable` и автоматически переключается на fallback.
 
+### Какие файлы взять из Runoi/ANPR-System
+Из репозитория `https://github.com/Runoi/ANPR-System` для инференса нужны 2 файла:
+- `models/yolo/model/best.pt`
+- `models/ocr_crnn/quant/crnn_ocr_model_int8_fx.pth`
+
+Скопировать в текущий проект можно скриптом:
+```bash
+./scripts/setup_runoi_models.sh /path/to/ANPR-System
+```
+Или вручную:
+```bash
+cp /path/to/ANPR-System/models/yolo/model/best.pt ./app/services/anpr/runoi/models/yolo/best.pt
+cp /path/to/ANPR-System/models/ocr_crnn/quant/crnn_ocr_model_int8_fx.pth ./app/services/anpr/runoi/models/crnn/crnn_ocr_model_int8_fx.pth
+```
+
 ### Environment variables
 - `ANPR_PROVIDER=runoi|mock|fallback`
 - `ANPR_RUNOI_YOLO_MODEL_PATH=...`
