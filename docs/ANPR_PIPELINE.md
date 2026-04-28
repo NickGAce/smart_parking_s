@@ -23,7 +23,9 @@
    - thresholding;
    - denoise (median filter);
    - опциональный crop центральной/нижней области (region heuristic).
-2. **Основной OCR provider**: `TesseractOcrProvider` (если доступны Pillow + pytesseract).
+2. **Основной OCR provider chain**:
+   - `OcrSpaceProvider` (HTTP OCR; можно задать `OCR_SPACE_API_KEY`);
+   - `TesseractOcrProvider` (локальный OCR, если доступны Pillow + pytesseract).
 3. **Fallback provider**: `filename_hint` используется только если OCR не дал валидного кандидата.
 
 ### Postprocessing

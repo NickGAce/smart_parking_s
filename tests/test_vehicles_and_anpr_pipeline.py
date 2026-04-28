@@ -277,7 +277,7 @@ def test_numeric_filename_is_not_selected_as_plate_when_ocr_unavailable():
         assert response.status_code == 201
         payload = response.json()
         assert payload["plate_number"] == "UNKNOWN"
-        assert payload["provider"] == "mock-filename"
+        assert payload["provider"] == "none"
         assert payload["decision"] == "review"
         assert payload["processing_status"] == "failed"
         assert payload["candidates"] == []

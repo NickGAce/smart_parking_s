@@ -429,7 +429,7 @@ Scoring formula:
   - `plate_hint` (optional; **fallback only**)
 - Backend flow:
   - media storage;
-  - preprocessing + OCR provider chain;
+  - preprocessing + OCR provider chain (`ocr_space` -> `tesseract` -> fallback);
   - regex validation + candidate ranking;
   - fallback filename/plate_hint only при отсутствии валидного OCR.
 - Response включает стандартный access-event + OCR diagnostics:

@@ -180,7 +180,7 @@ export function AccessControlPage() {
                       candidates: {latestResult.candidates.map((item) => `${item.plate}/${item.normalized_plate} (${item.confidence})${item.valid ? '' : ' [invalid]'}`).join('; ')}
                     </Typography>
                   ) : null}
-                  {latestResult.provider?.includes('filename') || latestResult.recognition_source === 'mock' ? (
+                  {latestResult.provider?.includes('filename') || latestResult.recognition_source === 'mock' || latestResult.processing_status_detail === 'failed' ? (
                     <Alert severity="warning" sx={{ mt: 1 }}>
                       {latestResult.selected_plate
                         ? 'Номер получен fallback-методом (filename/plate_hint), а не полноценным OCR.'

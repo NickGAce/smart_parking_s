@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import base64
+import json
+import os
 import re
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections import Counter
 from dataclasses import dataclass, field
 from io import BytesIO
-from pathlib import Path
 from typing import Protocol
 
 from fastapi import UploadFile
@@ -81,6 +86,49 @@ class TesseractOcrProvider:
         return raw, round(avg_confidence, 3)
 
 
+class OcrSpaceProvider:
+    name = "ocr_space"
+
+    def __init__(self, *, api_key: str | None = None, timeout_seconds: float = 3.0):
+        self.api_key = api_key or os.getenv("OCR_SPACE_API_KEY", "helloworld")
+        self.timeout_seconds = timeout_seconds
+
+    async def recognize(self, image_bytes: bytes, *, filename: str | None) -> tuple[str, float]:
+        # Skip network roundtrip for tiny/non-image placeholders used in tests/demo stubs.
+        if len(image_bytes) < 256:
+            return "", 0.0
+
+        payload = {
+            "apikey": self.api_key,
+            "language": "eng",
+            "isOverlayRequired": "false",
+            "scale": "true",
+            "OCREngine": "2",
+            "base64Image": f"data:image/png;base64,{base64.b64encode(image_bytes).decode('ascii')}",
+        }
+        data = urllib.parse.urlencode(payload).encode("utf-8")
+        request = urllib.request.Request(
+            "https://api.ocr.space/parse/image",
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                body = json.loads(response.read().decode("utf-8"))
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError):
+            return "", 0.0
+
+        parsed = body.get("ParsedResults") or []
+        if not parsed:
+            return "", 0.0
+        text = (parsed[0].get("ParsedText") or "").strip()
+        if not text:
+            return "", 0.0
+        # OCR.Space free tier does not provide stable confidence; keep conservative score.
+        return text, 0.76
+
+
 class FilenameHintProvider:
     name = "filename_hint"
 
@@ -99,7 +147,7 @@ class PlateRecognitionPipeline:
 
 class EnhancedPlateRecognitionPipeline(PlateRecognitionPipeline):
     def __init__(self, providers: list[OcrProvider] | None = None):
-        self.providers = providers or [TesseractOcrProvider()]
+        self.providers = providers or [OcrSpaceProvider(), TesseractOcrProvider()]
         self.fallback_provider = FilenameHintProvider()
 
     async def recognize_from_image(self, file: UploadFile, plate_hint: str | None = None) -> PipelineRecognitionResult:
@@ -143,12 +191,12 @@ class EnhancedPlateRecognitionPipeline(PlateRecognitionPipeline):
                 confidence=0.0,
                 source=RecognitionSource.provider,
                 raw_text="",
-                candidate_plates=candidates,
+                candidate_plates=[item for item in candidates if item.is_valid],
                 selected_plate=None,
                 normalized_plate="UNKNOWN",
                 provider="none",
                 preprocessing_steps=preprocessing_steps,
-                reason="No valid plate candidates after OCR and fallback",
+                reason="No valid plate candidates after OCR and fallback (configure OCR provider/dependencies)",
                 processing_status="failed",
             )
 
@@ -265,46 +313,7 @@ class EnhancedPlateRecognitionPipeline(PlateRecognitionPipeline):
 
 class MockPlateRecognitionPipeline(EnhancedPlateRecognitionPipeline):
     def __init__(self):
-        super().__init__(providers=[])
-
-    async def recognize_from_image(self, file: UploadFile, plate_hint: str | None = None) -> PipelineRecognitionResult:
-        if pytesseract and Image:
-            return await super().recognize_from_image(file, plate_hint)
-
-        fallback_raw = plate_hint or file.filename or "UNKNOWN"
-        fallback_candidates = self._extract_candidates([("mock-filename", Path(fallback_raw).stem, 0.55)])
-        selected = self._select_candidate(fallback_candidates)
-        if selected is None:
-            return PipelineRecognitionResult(
-                plate_number="UNKNOWN",
-                normalized_plate_number="UNKNOWN",
-                confidence=0.0,
-                source=RecognitionSource.mock,
-                raw_text=fallback_raw,
-                candidate_plates=[],
-                selected_plate=None,
-                normalized_plate="UNKNOWN",
-                provider="mock-filename",
-                preprocessing_steps=["noop"],
-                reason="OCR dependencies are unavailable and fallback value does not match plate regex",
-                processing_status="failed",
-            )
-
-        return PipelineRecognitionResult(
-            plate_number=selected.value,
-            normalized_plate_number=selected.normalized,
-            confidence=selected.confidence,
-            bounding_box={"x": 12, "y": 24, "w": 180, "h": 64},
-            source=RecognitionSource.mock,
-            raw_text=fallback_raw,
-            candidate_plates=fallback_candidates,
-            selected_plate=selected.value,
-            normalized_plate=selected.normalized,
-            provider="mock-filename",
-            preprocessing_steps=["noop"],
-            reason="Pytesseract is unavailable, valid plate selected from fallback value",
-            processing_status="processed",
-        )
+        super().__init__(providers=[OcrSpaceProvider(), TesseractOcrProvider()])
 
     async def recognize_from_video(self, file: UploadFile, plate_hint: str | None = None) -> PipelineRecognitionResult:
         base = await self.recognize_from_image(file, plate_hint)
