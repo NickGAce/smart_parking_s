@@ -448,7 +448,7 @@ curl -X POST "$API/api/v1/access-events/recognize/image" \
 - `normalized_plate_number`
 - `recognition_confidence`
 - `recognition_source` (provider/mock/manual)
-- `recognition_provider` (конкретный провайдер: `platerecognizer`, `ocr_space`, `ocr_optional`, `mock`, `filename_hint`, `none`)
+- `recognition_provider` (конкретный провайдер: `runoi_anpr`, `platerecognizer`, `ocr_space`, `ocr_optional`, `mock`, `filename_hint`, `none`)
 - `processing_status` (`pending|processed|failed`)
 - `decision` (`allowed|review|denied`)
 - `reason`
@@ -473,3 +473,5 @@ curl -X POST "$API/api/v1/access-events/recognize/image" \
 Backend can use managed ANPR via Plate Recognizer when `ANPR_PLATERECOGNIZER_TOKEN` is configured. In this mode `recognition_provider` may be `platerecognizer`.
 
 OCR provider can be configured in backend. For real images you may see `recognition_provider=ocr_space` or `platerecognizer` when cloud OCR is used.
+
+`recognition_diagnostics.raw_response.trace[]` now includes `detail` for no-result/error states, intended for frontend debug panel.

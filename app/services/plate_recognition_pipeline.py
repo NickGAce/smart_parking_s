@@ -96,6 +96,60 @@ class FilenameHintPlateRecognitionProvider:
 
 
 
+
+
+class RunoiAnprServiceProvider:
+    """Adapter for external Runoi/ANPR-System service."""
+
+    name = "runoi_anpr"
+
+    def __init__(self) -> None:
+        self.api_url = os.getenv("ANPR_RUNOI_SERVICE_URL")
+
+    async def recognize(
+        self,
+        *,
+        file: UploadFile,
+        file_bytes: bytes,
+        plate_hint: str | None,
+        media_type: str,
+    ) -> PipelineRecognitionResult | None:
+        if media_type != "image" or not self.api_url:
+            return None
+
+        def _send_request() -> dict[str, Any]:
+            boundary = "----smartparkingrunoi"
+            filename = file.filename or "upload.jpg"
+            content_type = file.content_type or "image/jpeg"
+            parts = [
+                f"--{boundary}\r\n".encode(),
+                f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'.encode(),
+                f"Content-Type: {content_type}\r\n\r\n".encode(),
+                file_bytes,
+                b"\r\n",
+                f"--{boundary}--\r\n".encode(),
+            ]
+            req = urllib.request.Request(self.api_url, data=b"".join(parts), method="POST")
+            req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+            with urllib.request.urlopen(req, timeout=12) as resp:  # noqa: S310
+                return json.loads(resp.read().decode("utf-8"))
+
+        data = await __import__("asyncio").to_thread(_send_request)
+        candidate = data.get("plate") or data.get("plate_number") or data.get("number")
+        plate = extract_plate_candidate(plate_hint, candidate, Path(file.filename or "").stem)
+        if not plate:
+            return None
+
+        confidence_raw = data.get("confidence")
+        confidence = round(float(confidence_raw), 3) if isinstance(confidence_raw, (int, float)) else 0.9
+        return PipelineRecognitionResult(
+            plate_number=plate,
+            normalized_plate_number=plate,
+            confidence=confidence,
+            provider=self.name,
+            source=RecognitionSource.provider,
+            raw_response={"mode": media_type, "service": self.api_url},
+        )
 class PlateRecognizerApiProvider:
     name = "platerecognizer"
 
@@ -265,10 +319,12 @@ class PlateRecognitionPipeline:
 
 class ProviderChainPlateRecognitionPipeline(PlateRecognitionPipeline):
     def __init__(self):
+        self.runoi_provider = RunoiAnprServiceProvider()
         self.cloud_provider = PlateRecognizerApiProvider()
         self.ocr_space_provider = OcrSpaceApiProvider()
         self.ocr_provider = OptionalOcrPlateRecognitionProvider()
         self.providers: list[BasePlateRecognitionProvider] = [
+            self.runoi_provider,
             self.cloud_provider,
             self.ocr_space_provider,
             self.ocr_provider,
@@ -285,6 +341,22 @@ class ProviderChainPlateRecognitionPipeline(PlateRecognitionPipeline):
         self._validate_file(file, "video")
         file_bytes = await self._read_file_bytes(file)
         return await self._recognize(file=file, file_bytes=file_bytes, plate_hint=plate_hint, media_type="video")
+
+    @staticmethod
+    def _no_result_detail(provider: BasePlateRecognitionProvider, *, plate_hint: str | None, filename: str | None) -> str:
+        if provider.name == "runoi_anpr":
+            return "runoi_service_not_configured"
+        if provider.name == "platerecognizer":
+            return "platerecognizer_token_missing_or_no_plate"
+        if provider.name == "ocr_space":
+            return "ocr_space_no_plate_detected"
+        if provider.name == "ocr_optional":
+            return "local_ocr_dependencies_missing_or_no_plate"
+        if provider.name == "mock":
+            return "plate_hint_missing" if not plate_hint else "hint_no_plate_pattern"
+        if provider.name == "filename_hint":
+            return "filename_no_plate_pattern"
+        return "no_result"
 
     async def _recognize(
         self,
@@ -314,7 +386,7 @@ class ProviderChainPlateRecognitionPipeline(PlateRecognitionPipeline):
                     "trace": trace + [{"provider": provider.name, "status": "success"}],
                 }
                 return result
-            trace.append({"provider": provider.name, "status": "no_result"})
+            trace.append({"provider": provider.name, "status": "no_result", "detail": self._no_result_detail(provider, plate_hint=plate_hint, filename=file.filename)})
 
         return PipelineRecognitionResult(
             plate_number="UNKNOWN",
