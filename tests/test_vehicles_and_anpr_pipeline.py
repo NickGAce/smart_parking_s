@@ -263,3 +263,19 @@ def test_image_endpoint_returns_diagnostics_and_marks_fallback(monkeypatch, pipe
         assert payload["recognition_source"] == expected_source
         assert payload["raw_text"]
         assert len(payload["candidates"]) >= 1
+
+
+def test_numeric_filename_is_not_selected_as_plate_when_ocr_unavailable():
+    _, tokens = _setup_state()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/access-events/recognize/image",
+            files={"file": ("5573_1495523540.jpg", BytesIO(b"mock-image"), "image/jpeg")},
+            data={"parking_lot_id": "1", "direction": "entry"},
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["plate_number"] == "UNKNOWN"
+        assert payload["provider"] == "mock-filename"
+        assert payload["decision"] == "review"

@@ -272,34 +272,38 @@ class MockPlateRecognitionPipeline(EnhancedPlateRecognitionPipeline):
             return await super().recognize_from_image(file, plate_hint)
 
         fallback_raw = plate_hint or file.filename or "UNKNOWN"
-        tokens = self._tokenize(Path(fallback_raw).stem)
-        normalized = normalize_plate_number(tokens[0] if tokens else fallback_raw)
-        is_valid = self._is_valid_plate(normalized)
-        confidence = 0.91 if is_valid else 0.51
+        fallback_candidates = self._extract_candidates([("mock-filename", Path(fallback_raw).stem, 0.55)])
+        selected = self._select_candidate(fallback_candidates)
+        if selected is None:
+            return PipelineRecognitionResult(
+                plate_number="UNKNOWN",
+                normalized_plate_number="UNKNOWN",
+                confidence=0.0,
+                source=RecognitionSource.mock,
+                raw_text=fallback_raw,
+                candidate_plates=fallback_candidates,
+                selected_plate=None,
+                normalized_plate="UNKNOWN",
+                provider="mock-filename",
+                preprocessing_steps=["noop"],
+                reason="Pytesseract is unavailable and fallback value does not match plate regex",
+                processing_status="failed",
+            )
+
         return PipelineRecognitionResult(
-            plate_number=normalized,
-            normalized_plate_number=normalized,
-            confidence=confidence,
-            bounding_box={"x": 12, "y": 24, "w": 180, "h": 64} if is_valid else None,
+            plate_number=selected.value,
+            normalized_plate_number=selected.normalized,
+            confidence=selected.confidence,
+            bounding_box={"x": 12, "y": 24, "w": 180, "h": 64},
             source=RecognitionSource.mock,
             raw_text=fallback_raw,
-            candidate_plates=[
-                PlateCandidate(
-                    value=normalized,
-                    normalized=normalized,
-                    confidence=confidence,
-                    is_valid=is_valid,
-                    reason="mock fallback by filename/hint",
-                )
-            ]
-            if normalized != "UNKNOWN"
-            else [],
-            selected_plate=normalized if normalized != "UNKNOWN" else None,
-            normalized_plate=normalized,
+            candidate_plates=fallback_candidates,
+            selected_plate=selected.value,
+            normalized_plate=selected.normalized,
             provider="mock-filename",
             preprocessing_steps=["noop"],
-            reason="Pytesseract is unavailable, fallback to mock filename/hint recognition",
-            processing_status="processed" if normalized != "UNKNOWN" else "failed",
+            reason="Pytesseract is unavailable, valid plate selected from fallback value",
+            processing_status="processed",
         )
 
     async def recognize_from_video(self, file: UploadFile, plate_hint: str | None = None) -> PipelineRecognitionResult:
