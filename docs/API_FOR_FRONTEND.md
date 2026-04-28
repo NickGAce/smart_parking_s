@@ -448,6 +448,7 @@ curl -X POST "$API/api/v1/access-events/recognize/image" \
 - `normalized_plate_number`
 - `recognition_confidence`
 - `recognition_source` (provider/mock/manual)
+- `recognition_provider` (конкретный провайдер: `mock`, `filename_hint`, `ocr_optional`, `none`)
 - `processing_status` (`pending|processed|failed`)
 - `decision` (`allowed|review|denied`)
 - `reason`

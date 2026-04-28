@@ -46,6 +46,7 @@ class VehicleAccessEvent(Base):
     direction: Mapped[AccessDirection] = mapped_column(Enum(AccessDirection), nullable=False, index=True)
     recognition_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     recognition_source: Mapped[RecognitionSource] = mapped_column(Enum(RecognitionSource), nullable=False)
+    recognition_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     video_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     frame_timestamp: Mapped[float | None] = mapped_column(Numeric(10, 3), nullable=True)

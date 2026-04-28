@@ -35,6 +35,7 @@ class AccessEventOut(BaseModel):
     direction: AccessDirection
     recognition_confidence: float | None
     recognition_source: RecognitionSource
+    recognition_provider: str | None
     image_url: str | None
     video_url: str | None
     frame_timestamp: float | None

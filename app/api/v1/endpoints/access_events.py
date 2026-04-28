@@ -101,6 +101,7 @@ async def recognize_access_event_image(
         processing_status=processing_status,
         decision_override=(AccessDecision.review if (result.normalized_plate_number == "UNKNOWN" or result.error) else None),
         reason_override=("provider_error" if result.error else ("plate_not_recognized" if result.normalized_plate_number == "UNKNOWN" else None)),
+        recognition_provider=result.provider,
     )
     return event
 
@@ -146,6 +147,7 @@ async def recognize_access_event_video(
         processing_status=processing_status,
         decision_override=(AccessDecision.review if (result.normalized_plate_number == "UNKNOWN" or result.error) else None),
         reason_override=("provider_error" if result.error else ("plate_not_recognized" if result.normalized_plate_number == "UNKNOWN" else None)),
+        recognition_provider=result.provider,
     )
     return event
 

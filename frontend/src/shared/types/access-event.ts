@@ -16,6 +16,7 @@ export interface AccessEvent {
   direction: AccessDirection;
   recognition_confidence: number | null;
   recognition_source: RecognitionSource;
+  recognition_provider: string | null;
   image_url: string | null;
   video_url: string | null;
   frame_timestamp: number | null;

@@ -116,6 +116,7 @@ def test_image_recognition_with_plate_in_filename_and_auto_check_in():
         payload = response.json()
         assert payload["decision"] == "allowed"
         assert payload["vehicle_id"] is not None
+        assert payload["recognition_provider"] == "filename_hint"
 
     async def verify():
         session_local = async_sessionmaker(engine, expire_on_commit=False)
@@ -137,6 +138,7 @@ def test_image_recognition_with_plate_hint():
         )
         assert response.status_code == 201
         assert response.json()["normalized_plate_number"] == "A111AA77"
+        assert response.json()["recognition_provider"] == "mock"
 
 
 def test_image_unknown_plate_goes_to_review():
@@ -152,6 +154,7 @@ def test_image_unknown_plate_goes_to_review():
         payload = response.json()
         assert payload["decision"] == "review"
         assert payload["reason"] == "plate_not_recognized"
+        assert payload["recognition_provider"] == "none"
 
 
 def test_known_plate_exit_auto_checkout_completed():

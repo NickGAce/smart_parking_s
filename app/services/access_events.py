@@ -165,6 +165,7 @@ async def process_access_event(
     processing_status: ProcessingStatus = ProcessingStatus.processed,
     decision_override: AccessDecision | None = None,
     reason_override: str | None = None,
+    recognition_provider: str | None = None,
 ) -> VehicleAccessEvent:
     await sync_booking_statuses(session)
 
@@ -227,6 +228,7 @@ async def process_access_event(
         direction=direction,
         recognition_confidence=recognition.confidence,
         recognition_source=recognition.source,
+        recognition_provider=recognition_provider,
         image_url=image_url,
         video_url=video_url,
         frame_timestamp=frame_timestamp,
