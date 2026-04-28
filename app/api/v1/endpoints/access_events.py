@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
@@ -93,7 +94,7 @@ async def recognize_access_event_image(
         frame_timestamp=result.frame_timestamp,
         processing_status=ProcessingStatus.failed if result.error else ProcessingStatus.processed,
     )
-    event.diagnostics = build_diagnostics(result).__dict__
+    event.diagnostics = asdict(build_diagnostics(result))
     return event
 
 
@@ -130,7 +131,7 @@ async def recognize_access_event_video(
         frame_timestamp=result.frame_timestamp,
         processing_status=ProcessingStatus.failed if result.error else ProcessingStatus.processed,
     )
-    event.diagnostics = build_diagnostics(result).__dict__
+    event.diagnostics = asdict(build_diagnostics(result))
     return event
 
 

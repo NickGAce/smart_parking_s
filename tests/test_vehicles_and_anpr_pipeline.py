@@ -139,6 +139,7 @@ def test_image_recognition_flow_known_plate_auto_check_in():
         assert response.status_code == 201
         assert response.json()["decision"] == "allowed"
         assert response.json()["image_url"] is not None
+        assert response.json()["diagnostics"] is not None
 
     async def verify():
         session_local = async_sessionmaker(engine, expire_on_commit=False)
