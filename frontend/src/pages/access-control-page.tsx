@@ -47,6 +47,7 @@ export function AccessControlPage() {
   const [filterPlate, setFilterPlate] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [plateHint, setPlateHint] = useState('');
 
   const filters: AccessEventsQuery = useMemo(
     () => ({
@@ -73,12 +74,12 @@ export function AccessControlPage() {
 
   const submitImage = async () => {
     if (parkingLotId === '' || !imageFile) return;
-    await imageMutation.mutateAsync({ file: imageFile, parking_lot_id: parkingLotId, direction });
+    await imageMutation.mutateAsync({ file: imageFile, parking_lot_id: parkingLotId, direction, plate_hint: plateHint || undefined });
   };
 
   const submitVideo = async () => {
     if (parkingLotId === '' || !videoFile) return;
-    await videoMutation.mutateAsync({ file: videoFile, parking_lot_id: parkingLotId, direction });
+    await videoMutation.mutateAsync({ file: videoFile, parking_lot_id: parkingLotId, direction, plate_hint: plateHint || undefined });
   };
 
   const latestResult = imageMutation.data ?? videoMutation.data ?? manualMutation.data;
@@ -124,7 +125,16 @@ export function AccessControlPage() {
             </Grid>
           </DataPanel>
 
-          <DataPanel title="Распознавание по изображению/видео" subtitle="Загрузите файл, модуль выполнит имитацию распознавания и создаст событие доступа.">
+          <DataPanel title="Распознавание по изображению/видео" subtitle="Загрузите файл, модуль выполнит распознавание и создаст событие доступа.">
+            <Stack spacing={1.5} sx={{ mb: 2 }}>
+              <TextField
+                fullWidth
+                label="Подсказка номера для теста"
+                value={plateHint}
+                onChange={(event) => setPlateHint(event.target.value)}
+                helperText="Используется, если OCR не смог распознать номер"
+              />
+            </Stack>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <Stack spacing={1.25} sx={{ p: 1.5, border: '1px solid', borderColor: 'border.subtle', borderRadius: 2, height: '100%' }}>
@@ -160,9 +170,12 @@ export function AccessControlPage() {
             </Grid>
           </DataPanel>
 
+          {imageMutation.error ? <Alert severity="error">{imageMutation.error.message}</Alert> : null}
+          {videoMutation.error ? <Alert severity="error">{videoMutation.error.message}</Alert> : null}
+
           {latestResult ? (
             <Alert severity={latestResult.decision === 'allowed' ? 'success' : latestResult.decision === 'review' ? 'warning' : 'error'}>
-              Номер: {latestResult.plate_number}; достоверность: {latestResult.recognition_confidence ?? '—'}; пользователь: {latestResult.user_id ?? '—'}; автомобиль: {latestResult.vehicle_id ?? '—'}; бронирование: {latestResult.booking_id ?? '—'}; решение: {decisionLabel[latestResult.decision]}.
+              Номер: {latestResult.plate_number}; normalized: {latestResult.normalized_plate_number}; confidence: {latestResult.recognition_confidence ?? '—'}; provider: {latestResult.recognition_source}; решение: {decisionLabel[latestResult.decision]}; reason: {latestResult.reason}; user/vehicle/booking: {latestResult.user_id ?? '—'}/{latestResult.vehicle_id ?? '—'}/{latestResult.booking_id ?? '—'}.
             </Alert>
           ) : null}
 

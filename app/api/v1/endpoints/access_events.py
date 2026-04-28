@@ -14,7 +14,7 @@ from app.schemas.pagination import PaginationMeta
 from app.services.access_events import process_access_event, process_manual_access_event, process_recognition_access_event
 from app.services.audit import build_source_metadata
 from app.services.media_storage import media_storage_service
-from app.services.plate_recognition import PlateRecognitionResult
+from app.services.plate_recognition import PlateRecognitionResult, normalize_plate_number
 from app.services.plate_recognition_pipeline import plate_recognition_pipeline
 
 router = APIRouter(prefix="/access-events", tags=["access-events"])
@@ -67,14 +67,21 @@ async def recognize_access_event_image(
     parking_lot_id: int = Form(...),
     direction: AccessDirection = Form(...),
     plate_hint: str | None = Form(None),
+    expected_plate: str | None = Form(None),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
     if not _can_operate(current_user):
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
+    merged_hint = plate_hint or expected_plate
+    try:
+        result = await plate_recognition_pipeline.recognize_from_image(file, plate_hint=merged_hint)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    processing_status = ProcessingStatus.failed if result.error else ProcessingStatus.processed
     stored = await media_storage_service.save(file, folder="images")
-    result = await plate_recognition_pipeline.recognize_from_image(file, plate_hint=plate_hint)
     recognition = PlateRecognitionResult(
         plate_number=result.plate_number,
         normalized_plate_number=result.normalized_plate_number,
@@ -91,7 +98,9 @@ async def recognize_access_event_image(
         request_metadata=build_source_metadata(request),
         image_url=stored.url,
         frame_timestamp=result.frame_timestamp,
-        processing_status=ProcessingStatus.processed,
+        processing_status=processing_status,
+        decision_override=(AccessDecision.review if (result.normalized_plate_number == "UNKNOWN" or result.error) else None),
+        reason_override=("provider_error" if result.error else ("plate_not_recognized" if result.normalized_plate_number == "UNKNOWN" else None)),
     )
     return event
 
@@ -103,14 +112,21 @@ async def recognize_access_event_video(
     parking_lot_id: int = Form(...),
     direction: AccessDirection = Form(...),
     plate_hint: str | None = Form(None),
+    expected_plate: str | None = Form(None),
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
     if not _can_operate(current_user):
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
+    merged_hint = plate_hint or expected_plate
+    try:
+        result = await plate_recognition_pipeline.recognize_from_video(file, plate_hint=merged_hint)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    processing_status = ProcessingStatus.failed if result.error else ProcessingStatus.processed
     stored = await media_storage_service.save(file, folder="videos")
-    result = await plate_recognition_pipeline.recognize_from_video(file, plate_hint=plate_hint)
     recognition = PlateRecognitionResult(
         plate_number=result.plate_number,
         normalized_plate_number=result.normalized_plate_number,
@@ -127,7 +143,9 @@ async def recognize_access_event_video(
         request_metadata=build_source_metadata(request),
         video_url=stored.url,
         frame_timestamp=result.frame_timestamp,
-        processing_status=ProcessingStatus.processed,
+        processing_status=processing_status,
+        decision_override=(AccessDecision.review if (result.normalized_plate_number == "UNKNOWN" or result.error) else None),
+        reason_override=("provider_error" if result.error else ("plate_not_recognized" if result.normalized_plate_number == "UNKNOWN" else None)),
     )
     return event
 
@@ -177,7 +195,7 @@ async def list_access_events(
     if parking_lot_id is not None:
         filters.append(VehicleAccessEvent.parking_lot_id == parking_lot_id)
     if plate_number:
-        filters.append(VehicleAccessEvent.normalized_plate_number == plate_number.upper().replace(" ", "").replace("-", ""))
+        filters.append(VehicleAccessEvent.normalized_plate_number == normalize_plate_number(plate_number))
     if decision is not None:
         filters.append(VehicleAccessEvent.decision == decision)
     if direction is not None:

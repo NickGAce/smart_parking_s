@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
 from app.models.vehicle_access_event import RecognitionSource
+
+_PLATE_PATTERN = re.compile(r"[A-Z0-9]{6,10}")
 
 
 @dataclass(slots=True)
@@ -19,23 +22,31 @@ class PlateRecognitionService(Protocol):
         ...
 
 
-
 def normalize_plate_number(plate_number: str) -> str:
-    return plate_number.upper().replace(" ", "").replace("-", "")
+    cleaned = re.sub(r"[^A-Za-zА-Яа-я0-9]", "", plate_number or "")
+    return cleaned.upper() or "UNKNOWN"
+
+
+def extract_plate_candidate(*candidates: str | None) -> str | None:
+    for candidate in candidates:
+        if not candidate:
+            continue
+        normalized_candidate = normalize_plate_number(candidate)
+        if normalized_candidate == "UNKNOWN":
+            continue
+        direct_match = _PLATE_PATTERN.search(normalized_candidate)
+        if direct_match:
+            return direct_match.group(0)
+    return None
 
 
 class MockPlateRecognitionService:
     async def recognize(self, *, image_token: str | None, plate_number_hint: str | None = None) -> PlateRecognitionResult:
-        raw_plate = (plate_number_hint or image_token or "UNKNOWN").strip() or "UNKNOWN"
-        normalized = normalize_plate_number(raw_plate)
-
-        confidence = 0.96
-        if "LOW" in normalized or normalized == "UNKNOWN":
-            confidence = 0.52
-
+        plate = extract_plate_candidate(plate_number_hint, image_token) or "UNKNOWN"
+        confidence = 0.96 if plate != "UNKNOWN" else 0.52
         return PlateRecognitionResult(
-            plate_number=raw_plate,
-            normalized_plate_number=normalized,
+            plate_number=plate,
+            normalized_plate_number=plate,
             confidence=confidence,
             source=RecognitionSource.mock,
         )

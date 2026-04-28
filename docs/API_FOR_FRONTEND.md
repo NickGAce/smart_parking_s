@@ -415,3 +415,46 @@ Scoring formula:
 - `video_url`
 - `frame_timestamp`
 - `processing_status` (`pending|processed|failed`)
+
+---
+
+## 11) ANPR / access-events recognize (multipart)
+
+### POST `/access-events/recognize/image`
+- Auth: `admin|owner|guard`
+- Content-Type: `multipart/form-data`
+- Fields:
+  - `file` (required, image/*)
+  - `parking_lot_id` (required)
+  - `direction` (required: `entry|exit`)
+  - `plate_hint` (optional)
+  - `expected_plate` (optional alias for demo/tests)
+
+Example:
+```bash
+curl -X POST "$API/api/v1/access-events/recognize/image" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@./car_A123BC77.jpg" \
+  -F "parking_lot_id=1" \
+  -F "direction=entry" \
+  -F "plate_hint=A123BC77"
+```
+
+### POST `/access-events/recognize/video`
+- Same multipart fields, but `file` should be `video/*`.
+
+### Response fields (important for UI)
+- `plate_number`
+- `normalized_plate_number`
+- `recognition_confidence`
+- `recognition_source` (provider/mock/manual)
+- `processing_status` (`pending|processed|failed`)
+- `decision` (`allowed|review|denied`)
+- `reason`
+- `vehicle_id`, `user_id`, `booking_id` (when linked)
+
+### Error semantics
+- file missing -> `422`
+- unsupported format -> `400` with readable `detail`
+- plate not recognized -> event created with `decision=review`, `processing_status=processed`, `reason=plate_not_recognized`
+- provider failure -> event created with `decision=review`, `processing_status=failed`, `reason=provider_error`

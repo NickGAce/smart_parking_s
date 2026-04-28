@@ -163,6 +163,8 @@ async def process_access_event(
     video_url: str | None = None,
     frame_timestamp: float | None = None,
     processing_status: ProcessingStatus = ProcessingStatus.processed,
+    decision_override: AccessDecision | None = None,
+    reason_override: str | None = None,
 ) -> VehicleAccessEvent:
     await sync_booking_statuses(session)
 
@@ -208,6 +210,11 @@ async def process_access_event(
             transition_booking_status(booking, BookingStatus.completed)
             decision = AccessDecision.allowed
             reason = "Выполнено автоматическое подтверждение выезда"
+
+    if decision_override is not None:
+        decision = decision_override
+    if reason_override is not None:
+        reason = reason_override
 
     event = VehicleAccessEvent(
         parking_lot_id=parking_lot_id,
