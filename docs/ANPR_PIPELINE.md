@@ -51,3 +51,8 @@ alembic upgrade head
 ```
 
 Это добавляет колонку `recognition_provider` в `vehicle_access_events`; без миграции возможен `500 UndefinedColumnError`.
+
+
+## OCR-поправки для похожих символов
+
+`extract_plate_candidate` теперь исправляет типичные OCR-ошибки по позициям номера (например, `O->0`, `B->8` в цифровых позициях), что помогает извлекать номер из шумного текста OCR (`B7O7OP77` -> `B707OP77`).

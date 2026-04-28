@@ -247,3 +247,11 @@ def test_normalization_is_consistent():
     assert normalize_plate_number("A 123 BC 77") == "A123BC77"
     assert normalize_plate_number("a-123-bc-77") == "A123BC77"
     assert normalize_plate_number("А123ВС77") == "A123BC77"
+
+
+def test_extract_plate_with_ocr_confusions():
+    from app.services.plate_recognition import extract_plate_candidate
+
+    # OCR may confuse O/0 and B/8
+    assert extract_plate_candidate("BO7OOP77") == "B070OP77"
+    assert extract_plate_candidate("B7O7OP77") == "B707OP77"

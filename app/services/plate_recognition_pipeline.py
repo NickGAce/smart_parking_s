@@ -227,13 +227,15 @@ class OcrSpaceApiProvider:
         if media_type != "image":
             return None
 
-        def _send_request() -> dict[str, Any]:
+        def _send_request(language: str) -> dict[str, Any]:
             payload = urllib.parse.urlencode(
                 {
                     "apikey": self.api_key,
                     "base64Image": "data:image/jpeg;base64," + base64.b64encode(file_bytes).decode("utf-8"),
-                    "language": "eng",
+                    "language": language,
                     "isOverlayRequired": "false",
+                    "OCREngine": "2",
+                    "scale": "true",
                 }
             ).encode("utf-8")
             req = urllib.request.Request(self.api_url, data=payload, method="POST")
@@ -241,10 +243,21 @@ class OcrSpaceApiProvider:
             with urllib.request.urlopen(req, timeout=12) as resp:  # noqa: S310
                 return json.loads(resp.read().decode("utf-8"))
 
-        data = await __import__("asyncio").to_thread(_send_request)
-        parsed_results = data.get("ParsedResults") or []
-        text = " ".join((item.get("ParsedText") or "") for item in parsed_results)
-        plate = extract_plate_candidate(plate_hint, text, Path(file.filename or "").stem)
+        texts: list[str] = []
+        parsed_count = 0
+        for language in ("eng", "rus"):
+            data = await __import__("asyncio").to_thread(_send_request, language)
+            if data.get("IsErroredOnProcessing") is True:
+                raise RuntimeError(str(data.get("ErrorMessage") or "ocr_space_processing_error"))
+
+            parsed_results = data.get("ParsedResults") or []
+            parsed_count += len(parsed_results)
+            text = " ".join((item.get("ParsedText") or "") for item in parsed_results)
+            if text:
+                texts.append(text)
+
+        merged_text = " ".join(texts)
+        plate = extract_plate_candidate(plate_hint, merged_text, Path(file.filename or "").stem)
         if not plate:
             return None
 
@@ -254,7 +267,7 @@ class OcrSpaceApiProvider:
             confidence=0.79,
             provider=self.name,
             source=RecognitionSource.provider,
-            raw_response={"parsed_count": len(parsed_results), "mode": media_type},
+            raw_response={"parsed_count": parsed_count, "mode": media_type},
         )
 
 class OptionalOcrPlateRecognitionProvider:
