@@ -295,6 +295,7 @@ class ProviderChainPlateRecognitionPipeline(PlateRecognitionPipeline):
         media_type: str,
     ) -> PipelineRecognitionResult:
         errors: list[str] = []
+        trace: list[dict[str, str]] = []
         for provider in self.providers:
             try:
                 result = await provider.recognize(
@@ -303,11 +304,17 @@ class ProviderChainPlateRecognitionPipeline(PlateRecognitionPipeline):
                     plate_hint=plate_hint,
                     media_type=media_type,
                 )
-            except Exception:
+            except Exception as exc:
                 errors.append(f"provider:{provider.name}")
+                trace.append({"provider": provider.name, "status": "error", "detail": str(exc)[:120]})
                 continue
             if result and normalize_plate_number(result.plate_number) != "UNKNOWN":
+                result.raw_response = {
+                    **(result.raw_response or {}),
+                    "trace": trace + [{"provider": provider.name, "status": "success"}],
+                }
                 return result
+            trace.append({"provider": provider.name, "status": "no_result"})
 
         return PipelineRecognitionResult(
             plate_number="UNKNOWN",
@@ -315,7 +322,7 @@ class ProviderChainPlateRecognitionPipeline(PlateRecognitionPipeline):
             confidence=None,
             provider="none",
             source=RecognitionSource.provider,
-            raw_response={"providers": [provider.name for provider in self.providers]},
+            raw_response={"providers": [provider.name for provider in self.providers], "trace": trace},
             error=";".join(errors) if errors else None,
         )
 

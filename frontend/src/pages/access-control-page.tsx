@@ -84,6 +84,9 @@ export function AccessControlPage() {
 
   const latestResult = imageMutation.data ?? videoMutation.data ?? manualMutation.data;
   const latestUnknown = latestResult?.normalized_plate_number === 'UNKNOWN';
+  const diagnosticsText = latestResult?.recognition_diagnostics
+    ? JSON.stringify(latestResult.recognition_diagnostics, null, 2)
+    : null;
 
   return (
     <DataListPageTemplate
@@ -179,11 +182,19 @@ export function AccessControlPage() {
           {videoMutation.error ? <Alert severity="error">{videoMutation.error.message}</Alert> : null}
 
           {latestResult ? (
-            <Alert severity={latestResult.decision === 'allowed' ? 'success' : latestResult.decision === 'review' ? 'warning' : 'error'}>
-              {latestUnknown
-                ? `Номер не распознан (provider: ${latestResult.recognition_provider ?? latestResult.recognition_source}, reason: ${latestResult.reason}). Для российских номеров используйте формат A123BC77/A123BC777 и при необходимости заполните поле «Подсказка номера для теста».`
-                : `Распознано алгоритмом: ${latestResult.plate_number}; normalized (канонический для поиска): ${latestResult.normalized_plate_number}; confidence: ${latestResult.recognition_confidence ?? '—'}; provider: ${latestResult.recognition_provider ?? latestResult.recognition_source}; решение: ${decisionLabel[latestResult.decision]}; reason: ${latestResult.reason}; user/vehicle/booking: ${latestResult.user_id ?? '—'}/${latestResult.vehicle_id ?? '—'}/${latestResult.booking_id ?? '—'}.`}
-            </Alert>
+            <Stack spacing={1}>
+              <Alert severity={latestResult.decision === 'allowed' ? 'success' : latestResult.decision === 'review' ? 'warning' : 'error'}>
+                {latestUnknown
+                  ? `Номер не распознан (provider: ${latestResult.recognition_provider ?? latestResult.recognition_source}, reason: ${latestResult.reason}). Для российских номеров используйте формат A123BC77/A123BC777 и при необходимости заполните поле «Подсказка номера для теста».`
+                  : `Распознано алгоритмом: ${latestResult.plate_number}; normalized (канонический для поиска): ${latestResult.normalized_plate_number}; confidence: ${latestResult.recognition_confidence ?? '—'}; provider: ${latestResult.recognition_provider ?? latestResult.recognition_source}; решение: ${decisionLabel[latestResult.decision]}; reason: ${latestResult.reason}; user/vehicle/booking: ${latestResult.user_id ?? '—'}/${latestResult.vehicle_id ?? '—'}/${latestResult.booking_id ?? '—'}.`}
+              </Alert>
+              {diagnosticsText ? (
+                <Box sx={{ bgcolor: 'grey.50', border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
+                  <Typography variant="caption" color="text.secondary">Диагностика распознавания</Typography>
+                  <Typography component="pre" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12, m: 0 }}>{diagnosticsText}</Typography>
+                </Box>
+              ) : null}
+            </Stack>
           ) : null}
 
           <DataPanel title="События доступа">

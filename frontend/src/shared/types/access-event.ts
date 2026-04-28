@@ -17,6 +17,7 @@ export interface AccessEvent {
   recognition_confidence: number | null;
   recognition_source: RecognitionSource;
   recognition_provider: string | null;
+  recognition_diagnostics: Record<string, unknown> | null;
   image_url: string | null;
   video_url: string | null;
   frame_timestamp: number | null;

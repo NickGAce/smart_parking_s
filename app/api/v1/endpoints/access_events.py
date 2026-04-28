@@ -103,6 +103,12 @@ async def recognize_access_event_image(
         reason_override=("provider_error" if result.error else ("plate_not_recognized" if result.normalized_plate_number == "UNKNOWN" else None)),
         recognition_provider=result.provider,
     )
+    event.recognition_diagnostics = {
+        "provider": result.provider,
+        "provider_error": result.error,
+        "raw_response": result.raw_response,
+        "hint_used": bool(merged_hint),
+    }
     return event
 
 
@@ -149,6 +155,12 @@ async def recognize_access_event_video(
         reason_override=("provider_error" if result.error else ("plate_not_recognized" if result.normalized_plate_number == "UNKNOWN" else None)),
         recognition_provider=result.provider,
     )
+    event.recognition_diagnostics = {
+        "provider": result.provider,
+        "provider_error": result.error,
+        "raw_response": result.raw_response,
+        "hint_used": bool(merged_hint),
+    }
     return event
 
 

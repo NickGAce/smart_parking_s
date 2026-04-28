@@ -36,6 +36,7 @@ class AccessEventOut(BaseModel):
     recognition_confidence: float | None
     recognition_source: RecognitionSource
     recognition_provider: str | None
+    recognition_diagnostics: dict | None = None
     image_url: str | None
     video_url: str | None
     frame_timestamp: float | None
