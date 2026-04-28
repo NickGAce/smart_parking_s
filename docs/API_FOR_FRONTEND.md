@@ -415,3 +415,29 @@ Scoring formula:
 - `video_url`
 - `frame_timestamp`
 - `processing_status` (`pending|processed|failed`)
+
+---
+
+## 11) Access events image/video diagnostics
+
+### POST `/access-events/recognize/image`
+### POST `/access-events/recognize/video`
+- Content-Type: `multipart/form-data`
+- Fields:
+  - `file` (required)
+  - `parking_lot_id` (required)
+  - `direction` (`entry|exit`)
+  - `plate_hint` (optional)
+
+Response расширен полем `diagnostics`:
+- `provider`
+- `raw_text`
+- `candidates[]`
+- `confidence`
+- `bbox`
+- `processing_status` (`processed|fallback`)
+- `reason`
+- `frame_timestamp` (для видео)
+- `preprocessing_steps[]`
+
+Frontend should show warning banner when `diagnostics.provider == "filename_fallback"`.

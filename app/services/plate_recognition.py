@@ -19,9 +19,26 @@ class PlateRecognitionService(Protocol):
         ...
 
 
+CYRILLIC_TO_LATIN = {
+    "А": "A",
+    "В": "B",
+    "Е": "E",
+    "К": "K",
+    "М": "M",
+    "Н": "H",
+    "О": "O",
+    "Р": "P",
+    "С": "C",
+    "Т": "T",
+    "У": "Y",
+    "Х": "X",
+}
+
 
 def normalize_plate_number(plate_number: str) -> str:
-    return plate_number.upper().replace(" ", "").replace("-", "")
+    compact = plate_number.upper().replace(" ", "").replace("-", "")
+    normalized_chars = [CYRILLIC_TO_LATIN.get(ch, ch) for ch in compact]
+    return "".join(ch for ch in normalized_chars if ch.isalnum()) or "UNKNOWN"
 
 
 class MockPlateRecognitionService:

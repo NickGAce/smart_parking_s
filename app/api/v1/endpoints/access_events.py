@@ -15,7 +15,7 @@ from app.services.access_events import process_access_event, process_manual_acce
 from app.services.audit import build_source_metadata
 from app.services.media_storage import media_storage_service
 from app.services.plate_recognition import PlateRecognitionResult
-from app.services.plate_recognition_pipeline import plate_recognition_pipeline
+from app.services.plate_recognition_pipeline import build_diagnostics, plate_recognition_pipeline
 
 router = APIRouter(prefix="/access-events", tags=["access-events"])
 
@@ -74,7 +74,7 @@ async def recognize_access_event_image(
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     stored = await media_storage_service.save(file, folder="images")
-    result = await plate_recognition_pipeline.recognize_from_image(file, plate_hint=plate_hint)
+    result = await plate_recognition_pipeline.recognize_from_image(stored.local_path, plate_hint=plate_hint)
     recognition = PlateRecognitionResult(
         plate_number=result.plate_number,
         normalized_plate_number=result.normalized_plate_number,
@@ -91,8 +91,9 @@ async def recognize_access_event_image(
         request_metadata=build_source_metadata(request),
         image_url=stored.url,
         frame_timestamp=result.frame_timestamp,
-        processing_status=ProcessingStatus.processed,
+        processing_status=ProcessingStatus.failed if result.error else ProcessingStatus.processed,
     )
+    event.diagnostics = build_diagnostics(result).__dict__
     return event
 
 
@@ -110,7 +111,7 @@ async def recognize_access_event_video(
         raise HTTPException(status_code=403, detail="Недостаточно прав")
 
     stored = await media_storage_service.save(file, folder="videos")
-    result = await plate_recognition_pipeline.recognize_from_video(file, plate_hint=plate_hint)
+    result = await plate_recognition_pipeline.recognize_from_video(stored.local_path, plate_hint=plate_hint)
     recognition = PlateRecognitionResult(
         plate_number=result.plate_number,
         normalized_plate_number=result.normalized_plate_number,
@@ -127,8 +128,9 @@ async def recognize_access_event_video(
         request_metadata=build_source_metadata(request),
         video_url=stored.url,
         frame_timestamp=result.frame_timestamp,
-        processing_status=ProcessingStatus.processed,
+        processing_status=ProcessingStatus.failed if result.error else ProcessingStatus.processed,
     )
+    event.diagnostics = build_diagnostics(result).__dict__
     return event
 
 

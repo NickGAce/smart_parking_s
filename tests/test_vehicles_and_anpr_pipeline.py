@@ -19,6 +19,8 @@ from app.models.parking_lot import ParkingLot
 from app.models.parking_spot import ParkingSpot, SpotStatus
 from app.models.user import User, UserRole
 from app.models.vehicle import Vehicle
+from app.services.anpr.providers.runoi_provider import RunoiANPRProvider
+from app.services.plate_recognition import normalize_plate_number
 
 
 def _setup_state():
@@ -167,3 +169,142 @@ def test_video_recognition_flow_and_unknown_plate_review():
         )
         assert unknown.status_code == 201
         assert unknown.json()["decision"] == "review"
+
+
+def test_runoi_provider_unavailable_fallback_chain():
+    _, tokens = _setup_state()
+    provider = RunoiANPRProvider()
+    provider._initialized = True
+    provider._init_error = "provider_unavailable: missing libs"
+    from app.services.plate_recognition_pipeline import plate_recognition_pipeline
+
+    plate_recognition_pipeline.runoi_provider = provider
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/access-events/recognize/image",
+            files={"file": ("A111AA77.png", BytesIO(b"mock-image"), "image/png")},
+            data={"parking_lot_id": "1", "direction": "entry"},
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["diagnostics"]["provider"] == "filename_fallback"
+        assert "provider_unavailable" in (payload["diagnostics"]["reason"] or "")
+
+
+def test_plate_normalization_russian_letters():
+    assert normalize_plate_number("А123ВС-77") == "A123BC77"
+
+
+def test_image_endpoint_uses_provider_chain():
+    _, tokens = _setup_state()
+    from app.services.anpr.providers.base import PlateRecognitionResult
+    from app.services.plate_recognition_pipeline import plate_recognition_pipeline
+
+    class StubRunoiProvider:
+        async def recognize_from_image(self, file_path: str, *, plate_hint: str | None = None):
+            return PlateRecognitionResult(
+                plate_number="A111AA77",
+                normalized_plate_number="A111AA77",
+                confidence=0.95,
+                raw_text="A111AA77",
+                candidate_plates=["A111AA77"],
+                provider="runoi_yolo_crnn",
+            )
+
+        async def recognize_from_video(self, file_path: str, *, plate_hint: str | None = None):
+            return PlateRecognitionResult(
+                plate_number="A111AA77",
+                normalized_plate_number="A111AA77",
+                confidence=0.95,
+                raw_text="A111AA77",
+                candidate_plates=["A111AA77"],
+                provider="runoi_yolo_crnn",
+                frame_timestamp=2.5,
+            )
+
+    plate_recognition_pipeline.runoi_provider = StubRunoiProvider()
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/access-events/recognize/image",
+            files={"file": ("test.png", BytesIO(b"mock-image"), "image/png")},
+            data={"parking_lot_id": "1", "direction": "entry"},
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["diagnostics"]["provider"] == "runoi_yolo_crnn"
+
+
+def test_low_confidence_is_review():
+    _, tokens = _setup_state()
+    from app.services.anpr.providers.base import PlateRecognitionResult
+    from app.services.plate_recognition_pipeline import plate_recognition_pipeline
+
+    class LowConfidenceProvider:
+        async def recognize_from_image(self, file_path: str, *, plate_hint: str | None = None):
+            return PlateRecognitionResult(
+                plate_number="A111AA77",
+                normalized_plate_number="A111AA77",
+                confidence=0.1,
+                provider="runoi_yolo_crnn",
+            )
+
+        async def recognize_from_video(self, file_path: str, *, plate_hint: str | None = None):
+            return await self.recognize_from_image(file_path, plate_hint=plate_hint)
+
+    plate_recognition_pipeline.runoi_provider = LowConfidenceProvider()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/access-events/recognize/image",
+            files={"file": ("test.png", BytesIO(b"mock-image"), "image/png")},
+            data={"parking_lot_id": "1", "direction": "entry"},
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["decision"] == "review"
+        assert response.json()["reason"] == "low_confidence"
+
+
+def test_video_endpoint_returns_frame_timestamp():
+    _, tokens = _setup_state()
+    from app.services.anpr.providers.base import PlateRecognitionResult
+    from app.services.plate_recognition_pipeline import plate_recognition_pipeline
+
+    class StableVideoProvider:
+        async def recognize_from_image(self, file_path: str, *, plate_hint: str | None = None):
+            return PlateRecognitionResult(
+                plate_number="A111AA77",
+                normalized_plate_number="A111AA77",
+                confidence=0.9,
+                provider="runoi_yolo_crnn",
+            )
+
+        async def recognize_from_video(self, file_path: str, *, plate_hint: str | None = None):
+            return PlateRecognitionResult(
+                plate_number="A111AA77",
+                normalized_plate_number="A111AA77",
+                confidence=0.91,
+                provider="runoi_yolo_crnn",
+                frame_timestamp=4.0,
+                candidate_plates=["A111AA77", "A111AA77", "A111AA77", "A111AB77"],
+            )
+
+    plate_recognition_pipeline.runoi_provider = StableVideoProvider()
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/access-events/recognize/video",
+            files={"file": ("test.mp4", BytesIO(b"mock-video"), "video/mp4")},
+            data={"parking_lot_id": "1", "direction": "entry"},
+            headers={"Authorization": f"Bearer {tokens['guard']}"},
+        )
+        assert response.status_code == 201
+        assert response.json()["frame_timestamp"] == 4.0
+
+
+def test_app_works_without_torch_ultralytics():
+    provider = RunoiANPRProvider()
+    result = asyncio.run(provider.recognize_from_image("/tmp/not-found.png"))
+    assert result.error is not None
+    assert "provider_unavailable" in result.error

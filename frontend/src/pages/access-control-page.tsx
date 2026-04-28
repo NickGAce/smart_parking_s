@@ -163,7 +163,11 @@ export function AccessControlPage() {
           {latestResult ? (
             <Alert severity={latestResult.decision === 'allowed' ? 'success' : latestResult.decision === 'review' ? 'warning' : 'error'}>
               Номер: {latestResult.plate_number}; достоверность: {latestResult.recognition_confidence ?? '—'}; пользователь: {latestResult.user_id ?? '—'}; автомобиль: {latestResult.vehicle_id ?? '—'}; бронирование: {latestResult.booking_id ?? '—'}; решение: {decisionLabel[latestResult.decision]}.
+              {latestResult.diagnostics ? ` Провайдер: ${latestResult.diagnostics.provider ?? '—'}; raw_text: ${latestResult.diagnostics.raw_text ?? '—'}; candidates: ${(latestResult.diagnostics.candidates ?? []).join(', ') || '—'}; reason: ${latestResult.diagnostics.reason ?? '—'}.` : ''}
             </Alert>
+          ) : null}
+          {latestResult?.diagnostics?.provider === 'filename_fallback' ? (
+            <Alert severity="warning">Модель ANPR недоступна, используется fallback.</Alert>
           ) : null}
 
           <DataPanel title="События доступа">
