@@ -85,26 +85,32 @@ class RunoiANPRProvider:
         self._torch = torch
         self._cv2 = cv2
         self._np = np
-        self._yolo_model = YOLO(str(model_paths.yolo_model_path))
-        self._yolo_model.to(settings.anpr_device)
+        try:
+            self._yolo_model = YOLO(str(model_paths.yolo_model_path))
+            self._yolo_model.to(settings.anpr_device)
 
-        alphabet = "0123456789ABCEHKMOPTXY"
-        int_to_char = {i + 1: char for i, char in enumerate(alphabet)}
-        int_to_char[0] = ""
+            alphabet = "0123456789ABCEHKMOPTXY"
+            int_to_char = {i + 1: char for i, char in enumerate(alphabet)}
+            int_to_char[0] = ""
 
-        num_classes = len(alphabet) + 1
-        model_to_load = CRNN(num_classes).eval()
-        qconfig_mapping = QConfigMapping().set_global(torch.ao.quantization.get_default_qconfig("fbgemm"))
-        example_inputs = (torch.randn(1, 1, 32, 128),)
-        model_prepared = quantize_fx.prepare_fx(model_to_load, qconfig_mapping, example_inputs)
-        model_quantized = quantize_fx.convert_fx(model_prepared)
-        model_quantized.load_state_dict(torch.load(str(model_paths.crnn_model_path), map_location=settings.anpr_device))
-        self._crnn_model = model_quantized
-        self._int_to_char = int_to_char
-        self._transform = transforms.Compose(
-            [transforms.ToPILImage(), transforms.Resize((32, 128)), transforms.Grayscale(), transforms.ToTensor()]
-        )
-        self._initialized = True
+            num_classes = len(alphabet) + 1
+            model_to_load = CRNN(num_classes).eval()
+            qconfig_mapping = QConfigMapping().set_global(torch.ao.quantization.get_default_qconfig("fbgemm"))
+            example_inputs = (torch.randn(1, 1, 32, 128),)
+            model_prepared = quantize_fx.prepare_fx(model_to_load, qconfig_mapping, example_inputs)
+            model_quantized = quantize_fx.convert_fx(model_prepared)
+            model_quantized.load_state_dict(
+                torch.load(str(model_paths.crnn_model_path), map_location=settings.anpr_device)
+            )
+            self._crnn_model = model_quantized
+            self._int_to_char = int_to_char
+            self._transform = transforms.Compose(
+                [transforms.ToPILImage(), transforms.Resize((32, 128)), transforms.Grayscale(), transforms.ToTensor()]
+            )
+        except Exception as exc:  # pragma: no cover - depends on runtime env/model files
+            self._init_error = f"provider_unavailable: model init failed ({exc})"
+        finally:
+            self._initialized = True
 
     def _preprocess_plate(self, plate_image):
         gray = self._cv2.cvtColor(plate_image, self._cv2.COLOR_BGR2GRAY)
