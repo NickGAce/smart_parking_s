@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import mimetypes
+import os
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Protocol
+
+import httpx
 
 from fastapi import UploadFile
 
@@ -89,6 +92,57 @@ class FilenameHintPlateRecognitionProvider:
         )
 
 
+
+
+class PlateRecognizerApiProvider:
+    name = "platerecognizer"
+
+    def __init__(self) -> None:
+        self.api_token = os.getenv("ANPR_PLATERECOGNIZER_TOKEN")
+        self.api_url = os.getenv("ANPR_PLATERECOGNIZER_URL", "https://api.platerecognizer.com/v1/plate-reader/")
+
+    async def recognize(
+        self,
+        *,
+        file: UploadFile,
+        file_bytes: bytes,
+        plate_hint: str | None,
+        media_type: str,
+    ) -> PipelineRecognitionResult | None:
+        if media_type != "image" or not self.api_token:
+            return None
+
+        headers = {"Authorization": f"Token {self.api_token}"}
+        files = {"upload": (file.filename or "upload.jpg", file_bytes, file.content_type or "image/jpeg")}
+
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            response = await client.post(self.api_url, headers=headers, files=files)
+            response.raise_for_status()
+            data = response.json()
+
+        best = (data.get("results") or [None])[0]
+        if not best:
+            return None
+
+        candidate = best.get("plate")
+        plate = extract_plate_candidate(plate_hint, candidate, Path(file.filename or "").stem)
+        if not plate:
+            return None
+
+        confidence = best.get("score")
+        if isinstance(confidence, (int, float)):
+            confidence = round(float(confidence), 3)
+        else:
+            confidence = 0.87
+
+        return PipelineRecognitionResult(
+            plate_number=plate,
+            normalized_plate_number=plate,
+            confidence=confidence,
+            provider=self.name,
+            source=RecognitionSource.provider,
+            raw_response={"result_count": len(data.get("results") or []), "mode": media_type},
+        )
 class OptionalOcrPlateRecognitionProvider:
     name = "ocr_optional"
 
@@ -151,8 +205,10 @@ class PlateRecognitionPipeline:
 
 class ProviderChainPlateRecognitionPipeline(PlateRecognitionPipeline):
     def __init__(self):
+        self.cloud_provider = PlateRecognizerApiProvider()
         self.ocr_provider = OptionalOcrPlateRecognitionProvider()
         self.providers: list[BasePlateRecognitionProvider] = [
+            self.cloud_provider,
             self.ocr_provider,
             MockPlateRecognitionProvider(),
             FilenameHintPlateRecognitionProvider(),

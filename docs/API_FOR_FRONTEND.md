@@ -467,3 +467,7 @@ curl -X POST "$API/api/v1/access-events/recognize/image" \
 - В ответе используйте:
   - `plate_number` — номер, который алгоритм признал итоговым,
   - `normalized_plate_number` — канонический формат, который нужно показывать как «формат хранения/поиска».
+
+
+### Optional production ANPR provider
+Backend can use managed ANPR via Plate Recognizer when `ANPR_PLATERECOGNIZER_TOKEN` is configured. In this mode `recognition_provider` may be `platerecognizer`.

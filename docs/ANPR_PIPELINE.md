@@ -4,9 +4,10 @@
 
 Реальный OCR может быть недоступен в dev/test среде, поэтому pipeline построен как цепочка провайдеров с безопасным fallback:
 
-1. `OptionalOcrPlateRecognitionProvider` — пытается распознать номер с изображения через локальный OCR (`pytesseract` + `Pillow`), если зависимости доступны; иначе тихо пропускает шаг.
-2. `MockPlateRecognitionProvider` — использует `plate_hint` / `expected_plate`.
-3. `FilenameHintPlateRecognitionProvider` — извлекает номер из имени файла (`car_A123BC77.jpg`).
+1. `PlateRecognizerApiProvider` — интеграция с готовым облачным ANPR сервисом Plate Recognizer (включается через `ANPR_PLATERECOGNIZER_TOKEN`).
+2. `OptionalOcrPlateRecognitionProvider` — пытается распознать номер с изображения через локальный OCR (`pytesseract` + `Pillow`), если зависимости доступны; иначе тихо пропускает шаг.
+3. `MockPlateRecognitionProvider` — использует `plate_hint` / `expected_plate`.
+4. `FilenameHintPlateRecognitionProvider` — извлекает номер из имени файла (`car_A123BC77.jpg`).
 
 Если номер не найден, backend возвращает `decision=review`, `processing_status=processed`, `reason=plate_not_recognized`.
 Если провайдеры падают, backend возвращает `decision=review`, `processing_status=failed`, `reason=provider_error`.
