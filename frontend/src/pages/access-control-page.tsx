@@ -83,6 +83,7 @@ export function AccessControlPage() {
   };
 
   const latestResult = imageMutation.data ?? videoMutation.data ?? manualMutation.data;
+  const latestUnknown = latestResult?.normalized_plate_number === 'UNKNOWN';
 
   return (
     <DataListPageTemplate
@@ -179,7 +180,9 @@ export function AccessControlPage() {
 
           {latestResult ? (
             <Alert severity={latestResult.decision === 'allowed' ? 'success' : latestResult.decision === 'review' ? 'warning' : 'error'}>
-              Распознано алгоритмом: {latestResult.plate_number}; normalized (канонический для поиска): {latestResult.normalized_plate_number}; confidence: {latestResult.recognition_confidence ?? '—'}; provider: {latestResult.recognition_provider ?? latestResult.recognition_source}; решение: {decisionLabel[latestResult.decision]}; reason: {latestResult.reason}; user/vehicle/booking: {latestResult.user_id ?? '—'}/{latestResult.vehicle_id ?? '—'}/{latestResult.booking_id ?? '—'}.
+              {latestUnknown
+                ? `Номер не распознан (provider: ${latestResult.recognition_provider ?? latestResult.recognition_source}, reason: ${latestResult.reason}). Для российских номеров используйте формат A123BC77/A123BC777 и при необходимости заполните поле «Подсказка номера для теста».`
+                : `Распознано алгоритмом: ${latestResult.plate_number}; normalized (канонический для поиска): ${latestResult.normalized_plate_number}; confidence: ${latestResult.recognition_confidence ?? '—'}; provider: ${latestResult.recognition_provider ?? latestResult.recognition_source}; решение: ${decisionLabel[latestResult.decision]}; reason: ${latestResult.reason}; user/vehicle/booking: ${latestResult.user_id ?? '—'}/${latestResult.vehicle_id ?? '—'}/${latestResult.booking_id ?? '—'}.`}
             </Alert>
           ) : null}
 
