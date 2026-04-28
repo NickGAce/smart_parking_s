@@ -4,7 +4,7 @@
 
 Реальный OCR может быть недоступен в dev/test среде, поэтому pipeline построен как цепочка провайдеров с безопасным fallback:
 
-1. `OptionalOcrPlateRecognitionProvider` — опциональный слой для будущего реального OCR (по умолчанию пропускает обработку).
+1. `OptionalOcrPlateRecognitionProvider` — пытается распознать номер с изображения через локальный OCR (`pytesseract` + `Pillow`), если зависимости доступны; иначе тихо пропускает шаг.
 2. `MockPlateRecognitionProvider` — использует `plate_hint` / `expected_plate`.
 3. `FilenameHintPlateRecognitionProvider` — извлекает номер из имени файла (`car_A123BC77.jpg`).
 

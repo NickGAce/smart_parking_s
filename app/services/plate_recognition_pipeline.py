@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import mimetypes
 from dataclasses import dataclass
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -99,8 +100,45 @@ class OptionalOcrPlateRecognitionProvider:
         plate_hint: str | None,
         media_type: str,
     ) -> PipelineRecognitionResult | None:
-        # Safe optional OCR provider stub. If OCR deps are unavailable, silently skip.
-        return None
+        if media_type != "image":
+            return None
+
+        # Optional OCR: works only when dependencies are available in runtime.
+        try:
+            import pytesseract  # type: ignore
+            from PIL import Image, ImageOps  # type: ignore
+        except Exception:
+            return None
+
+        image = Image.open(BytesIO(file_bytes))
+        grayscale = ImageOps.grayscale(image)
+        # Simple binarization often helps plate OCR for high-contrast images.
+        prepared = grayscale.point(lambda p: 255 if p > 135 else 0)
+
+        ocr_text = pytesseract.image_to_string(
+            prepared,
+            config=(
+                "--psm 7 "
+                "-c tessedit_char_whitelist="
+                "ABEKMHOPCTYX0123456789АВЕКМНОРСТУХ"
+            ),
+        )
+        plate = extract_plate_candidate(plate_hint, ocr_text, Path(file.filename or "").stem)
+        if not plate:
+            return None
+
+        return PipelineRecognitionResult(
+            plate_number=plate,
+            normalized_plate_number=plate,
+            confidence=0.82,
+            provider=self.name,
+            source=RecognitionSource.provider,
+            raw_response={
+                "ocr_text": ocr_text[:128],
+                "mode": media_type,
+                "bytes": len(file_bytes),
+            },
+        )
 
 
 class PlateRecognitionPipeline:
