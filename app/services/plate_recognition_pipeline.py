@@ -281,12 +281,12 @@ class MockPlateRecognitionPipeline(EnhancedPlateRecognitionPipeline):
                 confidence=0.0,
                 source=RecognitionSource.mock,
                 raw_text=fallback_raw,
-                candidate_plates=fallback_candidates,
+                candidate_plates=[],
                 selected_plate=None,
                 normalized_plate="UNKNOWN",
                 provider="mock-filename",
                 preprocessing_steps=["noop"],
-                reason="Pytesseract is unavailable and fallback value does not match plate regex",
+                reason="OCR dependencies are unavailable and fallback value does not match plate regex",
                 processing_status="failed",
             )
 

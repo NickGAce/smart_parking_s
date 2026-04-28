@@ -89,6 +89,7 @@ async def recognize_access_event_image(
         source=result.source,
     )
 
+    mapped_processing_status = ProcessingStatus.failed if result.processing_status == "failed" else ProcessingStatus.processed
     event = await process_access_event(
         session,
         actor=current_user,
@@ -98,7 +99,7 @@ async def recognize_access_event_image(
         request_metadata=build_source_metadata(request),
         image_url=stored.url,
         frame_timestamp=result.frame_timestamp,
-        processing_status=ProcessingStatus.processed,
+        processing_status=mapped_processing_status,
     )
     return AccessEventRecognitionOut(
         **AccessEventOut.model_validate(event).model_dump(),

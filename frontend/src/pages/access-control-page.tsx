@@ -182,7 +182,9 @@ export function AccessControlPage() {
                   ) : null}
                   {latestResult.provider?.includes('filename') || latestResult.recognition_source === 'mock' ? (
                     <Alert severity="warning" sx={{ mt: 1 }}>
-                      Номер получен fallback-методом (filename/plate_hint), а не полноценным OCR.
+                      {latestResult.selected_plate
+                        ? 'Номер получен fallback-методом (filename/plate_hint), а не полноценным OCR.'
+                        : 'OCR недоступен или не дал валидный номер; fallback был отклонён по regex-проверке.'}
                     </Alert>
                   ) : null}
                 </Box>

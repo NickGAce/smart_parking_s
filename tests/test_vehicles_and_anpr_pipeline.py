@@ -279,3 +279,5 @@ def test_numeric_filename_is_not_selected_as_plate_when_ocr_unavailable():
         assert payload["plate_number"] == "UNKNOWN"
         assert payload["provider"] == "mock-filename"
         assert payload["decision"] == "review"
+        assert payload["processing_status"] == "failed"
+        assert payload["candidates"] == []
