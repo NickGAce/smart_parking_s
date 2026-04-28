@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import mimetypes
+import base64
+import json
 import os
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Protocol
-
-import httpx
 
 from fastapi import UploadFile
 
@@ -112,29 +114,37 @@ class PlateRecognizerApiProvider:
         if media_type != "image" or not self.api_token:
             return None
 
-        headers = {"Authorization": f"Token {self.api_token}"}
-        files = {"upload": (file.filename or "upload.jpg", file_bytes, file.content_type or "image/jpeg")}
+        def _send_request() -> dict[str, Any]:
+            boundary = "----smartparkinganpr"
+            filename = file.filename or "upload.jpg"
+            content_type = file.content_type or "image/jpeg"
 
-        async with httpx.AsyncClient(timeout=12.0) as client:
-            response = await client.post(self.api_url, headers=headers, files=files)
-            response.raise_for_status()
-            data = response.json()
+            parts = [
+                f"--{boundary}\r\n".encode(),
+                f'Content-Disposition: form-data; name="upload"; filename="{filename}"\r\n'.encode(),
+                f"Content-Type: {content_type}\r\n\r\n".encode(),
+                file_bytes,
+                b"\r\n",
+                f"--{boundary}--\r\n".encode(),
+            ]
+            body = b"".join(parts)
+            req = urllib.request.Request(self.api_url, data=body, method="POST")
+            req.add_header("Authorization", f"Token {self.api_token}")
+            req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+            with urllib.request.urlopen(req, timeout=12) as resp:  # noqa: S310
+                return json.loads(resp.read().decode("utf-8"))
 
+        data = await __import__("asyncio").to_thread(_send_request)
         best = (data.get("results") or [None])[0]
         if not best:
             return None
 
-        candidate = best.get("plate")
-        plate = extract_plate_candidate(plate_hint, candidate, Path(file.filename or "").stem)
+        plate = extract_plate_candidate(plate_hint, best.get("plate"), Path(file.filename or "").stem)
         if not plate:
             return None
 
-        confidence = best.get("score")
-        if isinstance(confidence, (int, float)):
-            confidence = round(float(confidence), 3)
-        else:
-            confidence = 0.87
-
+        confidence_raw = best.get("score")
+        confidence = round(float(confidence_raw), 3) if isinstance(confidence_raw, (int, float)) else 0.87
         return PipelineRecognitionResult(
             plate_number=plate,
             normalized_plate_number=plate,
@@ -143,6 +153,56 @@ class PlateRecognizerApiProvider:
             source=RecognitionSource.provider,
             raw_response={"result_count": len(data.get("results") or []), "mode": media_type},
         )
+
+
+class OcrSpaceApiProvider:
+    name = "ocr_space"
+
+    def __init__(self) -> None:
+        self.api_key = os.getenv("ANPR_OCRSPACE_API_KEY", "helloworld")
+        self.api_url = os.getenv("ANPR_OCRSPACE_API_URL", "https://api.ocr.space/parse/image")
+
+    async def recognize(
+        self,
+        *,
+        file: UploadFile,
+        file_bytes: bytes,
+        plate_hint: str | None,
+        media_type: str,
+    ) -> PipelineRecognitionResult | None:
+        if media_type != "image":
+            return None
+
+        def _send_request() -> dict[str, Any]:
+            payload = urllib.parse.urlencode(
+                {
+                    "apikey": self.api_key,
+                    "base64Image": "data:image/jpeg;base64," + base64.b64encode(file_bytes).decode("utf-8"),
+                    "language": "eng",
+                    "isOverlayRequired": "false",
+                }
+            ).encode("utf-8")
+            req = urllib.request.Request(self.api_url, data=payload, method="POST")
+            req.add_header("Content-Type", "application/x-www-form-urlencoded")
+            with urllib.request.urlopen(req, timeout=12) as resp:  # noqa: S310
+                return json.loads(resp.read().decode("utf-8"))
+
+        data = await __import__("asyncio").to_thread(_send_request)
+        parsed_results = data.get("ParsedResults") or []
+        text = " ".join((item.get("ParsedText") or "") for item in parsed_results)
+        plate = extract_plate_candidate(plate_hint, text, Path(file.filename or "").stem)
+        if not plate:
+            return None
+
+        return PipelineRecognitionResult(
+            plate_number=plate,
+            normalized_plate_number=plate,
+            confidence=0.79,
+            provider=self.name,
+            source=RecognitionSource.provider,
+            raw_response={"parsed_count": len(parsed_results), "mode": media_type},
+        )
+
 class OptionalOcrPlateRecognitionProvider:
     name = "ocr_optional"
 
@@ -206,9 +266,11 @@ class PlateRecognitionPipeline:
 class ProviderChainPlateRecognitionPipeline(PlateRecognitionPipeline):
     def __init__(self):
         self.cloud_provider = PlateRecognizerApiProvider()
+        self.ocr_space_provider = OcrSpaceApiProvider()
         self.ocr_provider = OptionalOcrPlateRecognitionProvider()
         self.providers: list[BasePlateRecognitionProvider] = [
             self.cloud_provider,
+            self.ocr_space_provider,
             self.ocr_provider,
             MockPlateRecognitionProvider(),
             FilenameHintPlateRecognitionProvider(),
