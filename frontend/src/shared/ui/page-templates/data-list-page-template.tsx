@@ -23,27 +23,12 @@ interface DataListPageTemplateProps {
   stateSx?: SxProps<Theme>;
 }
 
-export function DataListPageTemplate({
-  title,
-  subtitle,
-  headerMeta,
-  headerActions,
-  topBanner,
-  kpiStrip,
-  filters,
-  dataView,
-  loadingView,
-  isLoading,
-  errorText,
-  isEmpty,
-  emptyText,
-  stateSx,
-}: DataListPageTemplateProps) {
+export function DataListPageTemplate({ title, subtitle, headerMeta, headerActions, topBanner, kpiStrip, filters, dataView, loadingView, isLoading, errorText, isEmpty, emptyText, stateSx }: DataListPageTemplateProps) {
   const hasState = Boolean((isLoading && !loadingView) || errorText || isEmpty);
 
   return (
-    <PageContentLayout maxWidth="100%" spacing={2.5}>
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }} gap={1.5}>
+    <PageContentLayout maxWidth={1280} spacing={2.25}>
+      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'flex-start' }} gap={1.25}>
         <Stack spacing={0.5}>
           {headerMeta ? <Typography variant="tableLabel" color="text.secondary">{headerMeta}</Typography> : null}
           <Typography variant="sectionTitle">{title}</Typography>
@@ -55,11 +40,9 @@ export function DataListPageTemplate({
       {kpiStrip ? <Box>{kpiStrip}</Box> : null}
       {filters ? <Box>{filters}</Box> : null}
       {isLoading && loadingView ? loadingView : hasState ? (
-        <Stack spacing={2}>
-          <ContentCard sx={{ p: { xs: 3, md: 5 }, borderRadius: (theme) => theme.foundation.radius.xs, ...stateSx }}>
-            <PageState isLoading={isLoading} errorText={errorText} isEmpty={isEmpty} emptyText={emptyText} />
-          </ContentCard>
-        </Stack>
+        <ContentCard sx={{ p: { xs: 2.75, md: 3.5 }, borderRadius: (theme) => theme.foundation.radius.xs, ...stateSx }}>
+          <PageState isLoading={isLoading} errorText={errorText} isEmpty={isEmpty} emptyText={emptyText} />
+        </ContentCard>
       ) : (
         dataView
       )}

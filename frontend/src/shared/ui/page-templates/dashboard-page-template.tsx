@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Grid, Stack, Typography } from '@mui/material';
+import { ContentGrid } from '../content-grid';
 
 import { ContentCard } from '../content-card';
 import { PageContentLayout } from '../page-content-layout';
@@ -50,16 +51,16 @@ export function DashboardPageTemplate({
         ) : null}
       </ContentCard>
 
-      {kpis ? <Grid container spacing={2}>{kpis}</Grid> : null}
+      {kpis ? <ContentGrid spacing={2}>{kpis}</ContentGrid> : null}
 
-      <Grid container spacing={2}>
+      <ContentGrid spacing={2}>
         <Grid item xs={12} lg={8} sx={{ display: 'flex' }}>
           {analytics ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs, height: '100%' }}>{analytics}</ContentCard> : null}
         </Grid>
         <Grid item xs={12} lg={4} sx={{ display: 'flex' }}>
           {activity ? <ContentCard sx={{ borderRadius: (theme) => theme.foundation.radius.xs, height: '100%' }}>{activity}</ContentCard> : null}
         </Grid>
-      </Grid>
+      </ContentGrid>
     </PageContentLayout>
   );
 }

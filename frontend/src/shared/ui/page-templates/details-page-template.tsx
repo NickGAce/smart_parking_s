@@ -27,7 +27,7 @@ export function DetailsPageTemplate({
   topBanner,
 }: DetailsPageTemplateProps) {
   return (
-    <PageContentLayout maxWidth={1280} spacing={2.5}>
+    <PageContentLayout maxWidth={1280} spacing={2.25}>
       <EntityHeader title={title} subtitle={subtitle} meta={meta} actions={primaryActions} />
       {topBanner}
       {summaryCards ? (
@@ -35,7 +35,7 @@ export function DetailsPageTemplate({
           <Grid container spacing={1.5}>{summaryCards}</Grid>
         </ContentCard>
       ) : null}
-      <Stack spacing={2}>{relatedSections}</Stack>
+      <Stack spacing={1.75}>{relatedSections}</Stack>
       {secondaryActions ? <ContentCard sx={{ p: { xs: 1.5, md: 2 } }}>{secondaryActions}</ContentCard> : null}
     </PageContentLayout>
   );
