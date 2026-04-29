@@ -152,8 +152,8 @@ export function AnalyticsPage() {
       </DataPanel>
 
       <Grid container spacing={2}>
-        <Grid item xs={12} lg={5} sx={{ display: 'flex' }}>
-          <DataPanel title="Воронка бронирований" subtitle="Структура статусов и качество пользовательского потока." sx={{ height: '100%' }}>
+        <Grid item xs={12} lg={5}>
+          <DataPanel title="Воронка бронирований" subtitle="Структура статусов и качество пользовательского потока.">
             <BookingsMetricsSection
               isLoading={queries.bookingsQuery.isLoading}
               isError={queries.bookingsQuery.isError}
@@ -161,8 +161,8 @@ export function AnalyticsPage() {
             />
           </DataPanel>
         </Grid>
-        <Grid item xs={12} lg={7} sx={{ display: 'flex' }}>
-          <DataPanel title="Прогноз загрузки" subtitle="Оценка будущей занятости по временным бакетам." sx={{ height: '100%' }}>
+        <Grid item xs={12} lg={7}>
+          <DataPanel title="Прогноз загрузки" subtitle="Оценка будущей занятости по временным бакетам.">
             <ForecastSection
               isLoading={queries.forecastQuery.isLoading}
               isError={queries.forecastQuery.isError}

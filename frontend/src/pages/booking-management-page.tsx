@@ -284,7 +284,7 @@ export function BookingManagementPage() {
   return (
     <>
       <DataListPageTemplate
-        title="Управление бронированиями"
+        title="Операционный реестр бронирований"
         subtitle="Операционный экран для контроля статусов, интервалов и действий по жизненному циклу бронирований."
                 topBanner={(
           <Stack spacing={1.5}>

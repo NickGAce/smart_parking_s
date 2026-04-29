@@ -379,7 +379,7 @@ export function CreateBookingPage() {
   return (
     <FormPageTemplate
       maxWidth="100%"
-      title="Создание бронирования"
+      title="Новая заявка на бронирование"
       subtitle="Сначала выберите период и парковку, затем режим назначения места — ручной или автоматический."
       helperText={<Alert severity="info">Мы не меняем бизнес-логику: экран только упрощает принятие решения и снижает риск ошибки ввода.</Alert>}
       formSections={(
