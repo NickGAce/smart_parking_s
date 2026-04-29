@@ -193,7 +193,7 @@ export function DashboardPage() {
           <Stack spacing={1}>
             <SectionHeader title="Краткая лента событий" subtitle="Последние события контроля доступа и риска в одном месте." />
             <Grid container spacing={1.5}>
-              {(latestAccessEventsQuery.data?.items ?? []).slice(0, 2).map((event) => (
+              {(latestAccessEventsQuery.data?.items ?? []).slice(0, 4).map((event) => (
                 <Grid item xs={12} md={6} key={`feed-${event.id}`}>
                   <MetricCard
                     align="left"
