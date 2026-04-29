@@ -157,7 +157,7 @@ export function DashboardPage() {
         <Stack spacing={2}>
           <SectionHeader title="Ключевая аналитика" subtitle="Актуальные метрики за день для быстрого операционного решения." />
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} xl={4}>
               <MetricCard
                 align="center"
                 label="Средняя длительность бронирования"
@@ -165,7 +165,7 @@ export function DashboardPage() {
                 helperText="Реальные данные из analytics/summary"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} xl={4}>
               <MetricCard
                 align="center"
                 label="Пиковый час бронирований"
@@ -174,10 +174,22 @@ export function DashboardPage() {
                 helperText="Источник: analytics/occupancy (peak_hours)"
               />
             </Grid>
+            <Grid item xs={12} xl={4}>
+              <MetricCard
+                align="left"
+                label="Фокус смены"
+                value={criticalAnomalies > 0 ? `${criticalAnomalies} критичных аномалий` : 'Критичных аномалий нет'}
+                secondaryValue={unreadNotificationsQuery.data ? `Непрочитанные уведомления: ${unreadNotificationsQuery.data}` : 'Новых уведомлений нет'}
+                badgeLabel={criticalAnomalies > 0 ? 'Действие' : 'Стабильно'}
+                badgeColor={criticalAnomalies > 0 ? 'warning' : 'success'}
+                helperText="Откройте раздел аналитики для детального списка отклонений."
+              />
+            </Grid>
           </Grid>
-          <Typography variant="body2" color="text.secondary">
-            Для детализации трендов и прогноза откройте полный раздел аналитики.
-          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Button component={RouterLink} to="/analytics" size="small" variant="outlined">Открыть аналитику</Button>
+            <Button component={RouterLink} to="/booking-management" size="small" variant="outlined">Проверить бронирования</Button>
+          </Stack>
         </Stack>
       )}
       activity={(
