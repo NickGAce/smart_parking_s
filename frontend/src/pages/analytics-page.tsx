@@ -151,7 +151,7 @@ export function AnalyticsPage() {
         />
       </DataPanel>
 
-      <Grid container spacing={2}>
+      <Grid container spacing={2} alignItems="flex-start">
         <Grid item xs={12} lg={5}>
           <DataPanel title="Воронка бронирований" subtitle="Структура статусов и качество пользовательского потока.">
             <BookingsMetricsSection
