@@ -35,7 +35,7 @@ export function MetricCard({
         ...sx,
       }}
     >
-      <Stack spacing={1} minWidth={0} height="100%" justifyContent="space-between" textAlign={isCentered ? 'center' : 'left'}>
+      <Stack spacing={1} minWidth={0} height="100%" justifyContent="flex-start" textAlign={isCentered ? 'center' : 'left'}>
         <Stack spacing={0.75} minWidth={0} alignItems={isCentered ? 'center' : 'stretch'}>
           <Stack
             direction="row"
@@ -59,7 +59,7 @@ export function MetricCard({
           ) : null}
         </Stack>
         {helperText ? (
-          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ wordBreak: 'break-word', mt: 'auto', pt: 0.5 }}>
             {helperText}
           </Typography>
         ) : null}

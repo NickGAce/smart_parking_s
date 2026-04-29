@@ -414,7 +414,7 @@ export function CreateBookingPage() {
 
 
           <FormSection
-            title="1.1 Выбор автомобиля"
+            title="Автомобиль"
             subtitle="Выберите автомобиль; если не выбрать, будет использован основной."
             sx={{ p: { xs: 2.5, md: 3.25 } }}
           >
@@ -435,7 +435,7 @@ export function CreateBookingPage() {
             </TextField>
           </FormSection>
 
-          <FormSection title="2. Способ назначения места" subtitle="Выберите удобный сценарий бронирования." sx={{ p: { xs: 2.5, md: 3.25 } }}>
+          <FormSection title="Способ назначения места" subtitle="Выберите удобный сценарий бронирования." sx={{ p: { xs: 2.5, md: 3.25 } }}>
             <RadioGroup row value={mode} onChange={(event) => setMode(event.target.value as 'manual' | 'auto')}>
               <FormControlLabel value="manual" control={<Radio />} label="Ручной выбор" />
               <FormControlLabel value="auto" control={<Radio />} label="Автоподбор" />
@@ -449,14 +449,14 @@ export function CreateBookingPage() {
           </FormSection>
 
           {mode === 'manual' && (
-            <FormSection title="3. Выберите место" subtitle="Нажмите на строку в таблице, чтобы выбрать свободное место." sx={{ p: { xs: 2.5, md: 3.25 } }}>
+            <FormSection title="Выбор места" subtitle="Нажмите на строку в таблице, чтобы выбрать свободное место." sx={{ p: { xs: 2.5, md: 3.25 } }}>
               {availableSpotsQuery.error && <Alert severity="error">{getStatusErrorMessage(availableSpotsQuery.error as unknown as ApiError)}</Alert>}
               <AvailabilityTable items={availableSpotsQuery.data?.items ?? []} selectedSpotId={selectedSpotId} onSelect={setSelectedSpotId} />
             </FormSection>
           )}
 
           {mode === 'auto' && (
-            <FormSection title="3. Параметры автоподбора" subtitle="Настройте ограничения и предпочтения перед запросом рекомендаций." sx={{ p: { xs: 2.5, md: 3.25 } }}>
+            <FormSection title="Параметры автоподбора" subtitle="Настройте ограничения и предпочтения перед запросом рекомендаций." sx={{ p: { xs: 2.5, md: 3.25 } }}>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
                   <TextField
