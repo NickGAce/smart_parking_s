@@ -7,6 +7,7 @@ import { useCurrentUser } from '../features/auth/use-current-user';
 import { useUnreadNotificationsCountQuery } from '../features/notifications/use-notifications-query';
 import { useLatestAccessEventsQuery } from '../features/access-events/hooks';
 import { userRoleLabels } from '../shared/config/display-labels';
+import type { UserRole } from '../shared/types/common';
 import { MetricCard } from '../shared/ui/metric-card';
 import { SectionHeader } from '../shared/ui/section-header';
 import { DashboardPageTemplate } from '../shared/ui/page-templates';
@@ -54,8 +55,8 @@ export function DashboardPage() {
 
   const summary = analytics.summaryQuery.data;
   const occupancy = analytics.occupancyQuery.data;
-  const { data, isLoading, isError } = analytics.anomaliesQuery;
-  const anomalies = data;
+  const { data: anomaliesData, isLoading: anomaliesLoading, isError: anomaliesError } = analytics.anomaliesQuery;
+  const anomalies = anomaliesData;
 
   const criticalAnomalies = anomalies?.items.filter((item) => item.severity === 'high').length ?? 0;
   const hottestZone = occupancy?.by_zone.reduce<{ zone: string; occupancy_percent: number } | null>((acc, zone) => {
@@ -236,10 +237,10 @@ export function DashboardPage() {
           <Stack spacing={1}>
             <SectionHeader title="Аномалии (компактно)" subtitle="Быстрый обзор; откройте детали по каждой записи." />
             <AnomaliesSection
-              role={role ?? undefined}
-              isLoading={isLoading}
-              isError={isError}
-              data={data}
+              role={role as UserRole}
+              isLoading={anomaliesLoading}
+              isError={anomaliesError}
+              data={anomaliesData}
               mode="compact"
               maxItems={3}
             />
