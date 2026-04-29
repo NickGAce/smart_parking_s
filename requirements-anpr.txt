@@ -1,0 +1,7 @@
+# Optional heavy dependencies for Runoi ANPR provider
+# Install only when enabling ANPR_PROVIDER=runoi
+numpy
+opencv-python
+ultralytics
+torch
+torchvision

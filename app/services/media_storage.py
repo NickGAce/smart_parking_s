@@ -11,6 +11,7 @@ from fastapi import UploadFile
 class StoredMedia:
     url: str
     filename: str
+    local_path: str
 
 
 class LocalMockStorageService:
@@ -28,7 +29,11 @@ class LocalMockStorageService:
         content = await file.read()
         path.write_bytes(content)
         await file.seek(0)
-        return StoredMedia(url=f"/mock-storage/access-events/{folder}/{filename}", filename=filename)
+        return StoredMedia(
+            url=f"/mock-storage/access-events/{folder}/{filename}",
+            filename=filename,
+            local_path=str(path),
+        )
 
 
 media_storage_service = LocalMockStorageService()

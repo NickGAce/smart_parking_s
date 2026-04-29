@@ -28,3 +28,56 @@
 
 ## Поток обработки (изображение/видео -> решение)
 `загрузка медиа -> распознавание номера -> нормализация -> поиск автомобиля -> поиск бронирования -> переход жизненного цикла -> запись события доступа -> уведомления/аудит`
+
+## Runoi provider integration (YOLOv8 + CRNN)
+
+С апреля 2026 backend использует provider architecture:
+1. `RunoiANPRProvider` (`provider=runoi_yolo_crnn`) — YOLOv8 detection + CRNN OCR + OpenCV preprocessing.
+2. Fallback provider (`provider=filename_fallback`) — только для demo/test, **не полноценное OCR**.
+
+### Что было адаптировано из Runoi/ANPR-System
+- CRNN архитектура и CTC decode.
+- OpenCV preprocessing (grayscale + blur + Otsu + contour + perspective transform).
+- Видео-логика со стабилизацией по частоте распознанных кандидатов.
+
+Attribution: **ANPR provider adapted from Runoi/ANPR-System, MIT License**.
+
+### Пути к моделям
+Положите модели в:
+- `ANPR_RUNOI_YOLO_MODEL_PATH` (например `./app/services/anpr/runoi/models/yolo/best.pt`)
+- `ANPR_RUNOI_CRNN_MODEL_PATH` (например `./app/services/anpr/runoi/models/crnn/crnn_ocr_model_int8_fx.pth`)
+
+Если пути неверные/файлы отсутствуют, backend возвращает `provider_unavailable` и автоматически переключается на fallback.
+
+### Какие файлы взять из Runoi/ANPR-System
+Из репозитория `https://github.com/Runoi/ANPR-System` для инференса нужны 2 файла:
+- `models/yolo/model/best.pt`
+- `models/ocr_crnn/quant/crnn_ocr_model_int8_fx.pth`
+
+Скопировать в текущий проект можно скриптом:
+```bash
+./scripts/setup_runoi_models.sh /path/to/ANPR-System
+```
+Или вручную:
+```bash
+cp /path/to/ANPR-System/models/yolo/model/best.pt ./app/services/anpr/runoi/models/yolo/best.pt
+cp /path/to/ANPR-System/models/ocr_crnn/quant/crnn_ocr_model_int8_fx.pth ./app/services/anpr/runoi/models/crnn/crnn_ocr_model_int8_fx.pth
+```
+
+### Environment variables
+- `ANPR_PROVIDER=runoi|mock|fallback`
+- `ANPR_RUNOI_YOLO_MODEL_PATH=...`
+- `ANPR_RUNOI_CRNN_MODEL_PATH=...`
+- `ANPR_CONFIDENCE_THRESHOLD=0.5`
+- `ANPR_DEVICE=cpu|cuda`
+
+### Зависимости
+Тяжелые зависимости вынесены в `requirements-anpr.txt`:
+`torch`, `torchvision`, `ultralytics`, `opencv-python`, `numpy`.
+
+Установка:
+```bash
+pip install -r requirements-anpr.txt
+```
+
+Без этих библиотек приложение продолжит работать через fallback provider.

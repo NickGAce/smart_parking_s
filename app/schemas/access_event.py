@@ -42,6 +42,7 @@ class AccessEventOut(BaseModel):
     decision: AccessDecision
     reason: str
     created_at: datetime
+    diagnostics: dict | None = None
 
     class Config:
         from_attributes = True

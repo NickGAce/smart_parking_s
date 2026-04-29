@@ -192,3 +192,11 @@ Rules are built on top of already implemented analytics/anomaly primitives (with
 - media-атрибуты и статус обработки в `vehicle_access_events`;
 - интеллектуальное связывание: `plate -> vehicle -> user -> booking -> access decision`;
 - frontend-страница «Мои автомобили» и расширенный интерфейс контроля доступа с загрузкой изображений/видео.
+
+## ANPR upgrade to YOLOv8 + CRNN (2026-04-28)
+
+ANPR pipeline upgraded from mock-first recognition to provider chain with primary provider:
+- `runoi_yolo_crnn` (YOLOv8 detector + CRNN PyTorch OCR + OpenCV preprocessing).
+- fallback provider remains enabled for resilience when models/dependencies are unavailable.
+
+Attribution: **ANPR provider adapted from Runoi/ANPR-System, MIT License**.

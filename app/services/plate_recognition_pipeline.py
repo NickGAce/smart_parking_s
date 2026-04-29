@@ -1,79 +1,73 @@
 from __future__ import annotations
 
-import re
-from collections import Counter
 from dataclasses import dataclass
 
-from fastapi import UploadFile
-
-from app.models.vehicle_access_event import RecognitionSource
-from app.services.plate_recognition import normalize_plate_number
-
-
-PLATE_PATTERN = re.compile(r"([A-Za-zА-Яа-я0-9]{5,10})")
+from app.core.config import settings
+from app.services.anpr.providers.base import PlateRecognitionResult
+from app.services.anpr.providers.fallback_provider import FilenameFallbackANPRProvider
+from app.services.anpr.providers.runoi_provider import RunoiANPRProvider
 
 
 @dataclass(slots=True)
-class PipelineRecognitionResult:
-    plate_number: str
-    normalized_plate_number: str
-    confidence: float
-    bounding_box: dict | None = None
-    frame_timestamp: float | None = None
-    source: RecognitionSource = RecognitionSource.mock
+class PlateRecognitionDiagnostics:
+    provider: str
+    raw_text: str | None
+    candidates: list[str]
+    confidence: float | None
+    bbox: dict[str, int] | None
+    processing_status: str
+    reason: str | None
+    frame_timestamp: float | None
+    preprocessing_steps: list[str]
 
 
 class PlateRecognitionPipeline:
-    async def recognize_from_image(self, file: UploadFile, plate_hint: str | None = None) -> PipelineRecognitionResult:
-        raise NotImplementedError
+    def __init__(self) -> None:
+        self.runoi_provider = RunoiANPRProvider()
+        self.fallback_provider = FilenameFallbackANPRProvider()
 
-    async def recognize_from_video(self, file: UploadFile, plate_hint: str | None = None) -> PipelineRecognitionResult:
-        raise NotImplementedError
+    async def recognize_from_image(self, file_path: str, *, plate_hint: str | None = None) -> PlateRecognitionResult:
+        return await self._recognize("image", file_path=file_path, plate_hint=plate_hint)
 
+    async def recognize_from_video(self, file_path: str, *, plate_hint: str | None = None) -> PlateRecognitionResult:
+        return await self._recognize("video", file_path=file_path, plate_hint=plate_hint)
 
-class MockPlateRecognitionPipeline(PlateRecognitionPipeline):
-    async def recognize_from_image(self, file: UploadFile, plate_hint: str | None = None) -> PipelineRecognitionResult:
-        candidate = plate_hint or file.filename or "UNKNOWN"
-        match = PLATE_PATTERN.search(candidate)
-        plate = (match.group(1) if match else "UNKNOWN").upper()
-        normalized = normalize_plate_number(plate)
-        confidence = 0.93 if normalized != "UNKNOWN" else 0.51
-        return PipelineRecognitionResult(
-            plate_number=plate,
-            normalized_plate_number=normalized,
-            confidence=confidence,
-            bounding_box={"x": 12, "y": 24, "w": 180, "h": 64} if normalized != "UNKNOWN" else None,
-        )
+    async def _recognize(self, media_type: str, *, file_path: str, plate_hint: str | None) -> PlateRecognitionResult:
+        provider = settings.anpr_provider.lower()
+        runoi_result: PlateRecognitionResult | None = None
 
-    async def recognize_from_video(self, file: UploadFile, plate_hint: str | None = None) -> PipelineRecognitionResult:
-        base_candidate = plate_hint or file.filename or "UNKNOWN"
-        frames = [f"{base_candidate}_frame_{idx}" for idx in range(1, 6)]
-        detections: list[PipelineRecognitionResult] = []
-        for idx, frame in enumerate(frames, start=1):
-            match = PLATE_PATTERN.search(frame)
-            plate = (match.group(1) if match else "UNKNOWN").upper()
-            normalized = normalize_plate_number(plate)
-            detections.append(
-                PipelineRecognitionResult(
-                    plate_number=plate,
-                    normalized_plate_number=normalized,
-                    confidence=0.9 if normalized != "UNKNOWN" else 0.5,
-                    bounding_box={"x": 12, "y": 24, "w": 180, "h": 64} if normalized != "UNKNOWN" else None,
-                    frame_timestamp=float(idx * 2),
-                )
-            )
+        if provider == "runoi":
+            if media_type == "image":
+                runoi_result = await self.runoi_provider.recognize_from_image(file_path, plate_hint=plate_hint)
+            else:
+                runoi_result = await self.runoi_provider.recognize_from_video(file_path, plate_hint=plate_hint)
 
-        plate_counter = Counter(item.normalized_plate_number for item in detections)
-        best_plate, _ = plate_counter.most_common(1)[0]
-        winners = [item for item in detections if item.normalized_plate_number == best_plate]
-        avg_confidence = round(sum(item.confidence for item in winners) / len(winners), 3)
-        return PipelineRecognitionResult(
-            plate_number=winners[0].plate_number,
-            normalized_plate_number=best_plate,
-            confidence=avg_confidence,
-            bounding_box=winners[0].bounding_box,
-            frame_timestamp=winners[len(winners) // 2].frame_timestamp,
-        )
+        if runoi_result and not runoi_result.error and runoi_result.normalized_plate_number != "UNKNOWN":
+            return runoi_result
+
+        if media_type == "image":
+            fallback = await self.fallback_provider.recognize_from_image(file_path, plate_hint=plate_hint)
+        else:
+            fallback = await self.fallback_provider.recognize_from_video(file_path, plate_hint=plate_hint)
+
+        if runoi_result and runoi_result.error:
+            fallback.preprocessing_steps = [*runoi_result.preprocessing_steps, *fallback.preprocessing_steps]
+            fallback.error = runoi_result.error
+        return fallback
 
 
-plate_recognition_pipeline: PlateRecognitionPipeline = MockPlateRecognitionPipeline()
+plate_recognition_pipeline = PlateRecognitionPipeline()
+
+
+def build_diagnostics(result: PlateRecognitionResult) -> PlateRecognitionDiagnostics:
+    return PlateRecognitionDiagnostics(
+        provider=result.provider,
+        raw_text=result.raw_text,
+        candidates=result.candidate_plates,
+        confidence=result.confidence,
+        bbox=result.bounding_box,
+        processing_status="fallback" if result.provider == "filename_fallback" else "processed",
+        reason=result.error,
+        frame_timestamp=result.frame_timestamp,
+        preprocessing_steps=result.preprocessing_steps,
+    )

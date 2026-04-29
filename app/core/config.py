@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     booking_sync_interval_seconds: int = 60
     booking_sync_run_on_startup: bool = False
     booking_starts_soon_minutes: int = 30
+    anpr_provider: str = "fallback"
+    anpr_runoi_yolo_model_path: str = "./app/services/anpr/runoi/models/yolo/best.pt"
+    anpr_runoi_crnn_model_path: str = "./app/services/anpr/runoi/models/crnn/crnn_ocr_model_int8_fx.pth"
+    anpr_confidence_threshold: float = 0.5
+    anpr_device: str = "cpu"
 
 
 settings = Settings()

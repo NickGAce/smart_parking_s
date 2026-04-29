@@ -23,6 +23,17 @@ export interface AccessEvent {
   decision: AccessDecision;
   reason: string;
   created_at: string;
+  diagnostics?: {
+    provider?: string;
+    raw_text?: string | null;
+    candidates?: string[];
+    confidence?: number | null;
+    bbox?: Record<string, number> | null;
+    processing_status?: string;
+    reason?: string | null;
+    frame_timestamp?: number | null;
+    preprocessing_steps?: string[];
+  } | null;
 }
 
 export interface AccessEventManualPayload {

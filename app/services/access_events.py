@@ -24,8 +24,9 @@ from app.services.booking_lifecycle import sync_booking_statuses, sync_parking_s
 from app.services.bookings import transition_booking_status
 from app.services.notifications import NotificationPayload, notification_service
 from app.services.plate_recognition import PlateRecognitionResult, normalize_plate_number, plate_recognition_service
+from app.core.config import settings
 
-LOW_CONFIDENCE_THRESHOLD = 0.7
+LOW_CONFIDENCE_THRESHOLD = settings.anpr_confidence_threshold
 
 
 async def _find_vehicle_by_plate(session: AsyncSession, normalized_plate_number: str) -> Vehicle | None:
@@ -184,9 +185,12 @@ async def process_access_event(
     decision = AccessDecision.review
     reason = "Требуется ручная проверка"
 
-    if recognition.confidence is not None and recognition.confidence < LOW_CONFIDENCE_THRESHOLD:
+    if recognition.normalized_plate_number == "UNKNOWN":
         decision = AccessDecision.review
-        reason = "Низкая уверенность распознавания номера"
+        reason = "plate_not_recognized"
+    elif recognition.confidence is not None and recognition.confidence < LOW_CONFIDENCE_THRESHOLD:
+        decision = AccessDecision.review
+        reason = "low_confidence"
     elif direction == AccessDirection.entry:
         if booking is None:
             decision = AccessDecision.review
