@@ -158,6 +158,7 @@ export function AnalyticsPage() {
               isLoading={queries.bookingsQuery.isLoading}
               isError={queries.bookingsQuery.isError}
               data={queries.bookingsQuery.data}
+              peakHours={queries.occupancyQuery.data?.peak_hours ?? []}
             />
           </DataPanel>
         </Grid>
