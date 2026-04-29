@@ -233,19 +233,6 @@ export function DashboardPage() {
             <Button component={RouterLink} to="/booking-management" size="small" variant="outlined">Бронирования</Button>
           </Stack>
           <Stack spacing={1}>
-            <SectionHeader title="Контроль доступа (последние события)" subtitle="ANPR/LPR события въезда и выезда." />
-            {(latestAccessEventsQuery.data?.items ?? []).slice(0, 3).map((event) => (
-              <MetricCard
-                key={event.id}
-                align="left"
-                label={`${event.plate_number} · ${directionLabel[event.direction]}`}
-                value={decisionLabel[event.decision]}
-                secondaryValue={event.reason}
-                helperText={new Date(event.created_at).toLocaleString()}
-              />
-            ))}
-          </Stack>
-          <Stack spacing={1}>
             <SectionHeader title="Аномалии (компактно)" subtitle="Быстрый обзор; откройте детали по каждой записи." />
             <AnomaliesSection
               role={role}
