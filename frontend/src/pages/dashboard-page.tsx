@@ -54,7 +54,8 @@ export function DashboardPage() {
 
   const summary = analytics.summaryQuery.data;
   const occupancy = analytics.occupancyQuery.data;
-  const anomalies = analytics.anomaliesQuery.data;
+  const { data, isLoading, isError } = analytics.anomaliesQuery;
+  const anomalies = data;
 
   const criticalAnomalies = anomalies?.items.filter((item) => item.severity === 'high').length ?? 0;
   const hottestZone = occupancy?.by_zone.reduce<{ zone: string; occupancy_percent: number } | null>((acc, zone) => {
@@ -235,10 +236,10 @@ export function DashboardPage() {
           <Stack spacing={1}>
             <SectionHeader title="Аномалии (компактно)" subtitle="Быстрый обзор; откройте детали по каждой записи." />
             <AnomaliesSection
-              role={role}
-              isLoading={analytics.anomaliesQuery.isLoading}
-              isError={analytics.anomaliesQuery.isError}
-              data={analytics.anomaliesQuery.data}
+              role={role ?? undefined}
+              isLoading={isLoading}
+              isError={isError}
+              data={data}
               mode="compact"
               maxItems={3}
             />
