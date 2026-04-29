@@ -225,8 +225,7 @@ export function AdminUsersPage() {
     <>
       <FormPageTemplate
         maxWidth="100%"
-        meta="администрирование / пользователи"
-        title="Пользователи и роли"
+                title="Управление пользователями"
         subtitle="Операционный сценарий создания и изменения ролей с единым UX-паттерном для админской зоны."
         helperText={(
           <StateFeedback severity="info">

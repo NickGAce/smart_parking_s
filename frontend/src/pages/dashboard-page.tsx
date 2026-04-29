@@ -157,7 +157,7 @@ export function DashboardPage() {
         <Stack spacing={2}>
           <SectionHeader title="Ключевая аналитика" subtitle="Актуальные метрики за день для быстрого операционного решения." />
           <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} xl={4}>
               <MetricCard
                 align="center"
                 label="Средняя длительность бронирования"
@@ -165,7 +165,7 @@ export function DashboardPage() {
                 helperText="Реальные данные из analytics/summary"
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={6} xl={4}>
               <MetricCard
                 align="center"
                 label="Пиковый час бронирований"
@@ -174,10 +174,47 @@ export function DashboardPage() {
                 helperText="Источник: analytics/occupancy (peak_hours)"
               />
             </Grid>
+            <Grid item xs={12} xl={4}>
+              <MetricCard
+                align="left"
+                label="Фокус смены"
+                value={criticalAnomalies > 0 ? `${criticalAnomalies} критичных аномалий` : 'Критичных аномалий нет'}
+                secondaryValue={unreadNotificationsQuery.data ? `Непрочитанные уведомления: ${unreadNotificationsQuery.data}` : 'Новых уведомлений нет'}
+                badgeLabel={criticalAnomalies > 0 ? 'Действие' : 'Стабильно'}
+                badgeColor={criticalAnomalies > 0 ? 'warning' : 'success'}
+                helperText="Откройте раздел аналитики для детального списка отклонений."
+              />
+            </Grid>
           </Grid>
-          <Typography variant="body2" color="text.secondary">
-            Для детализации трендов и прогноза откройте полный раздел аналитики.
-          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+            <Button component={RouterLink} to="/analytics" size="small" variant="outlined">Открыть аналитику</Button>
+            <Button component={RouterLink} to="/booking-management" size="small" variant="outlined">Проверить бронирования</Button>
+          </Stack>
+          <Stack spacing={1}>
+            <SectionHeader title="Краткая лента событий" subtitle="Последние события контроля доступа и риска в одном месте." />
+            <Grid container spacing={1.5}>
+              {(latestAccessEventsQuery.data?.items ?? []).slice(0, 4).map((event) => (
+                <Grid item xs={12} md={6} key={`feed-${event.id}`}>
+                  <MetricCard
+                    align="left"
+                    label={`${event.plate_number} · ${directionLabel[event.direction]}`}
+                    value={decisionLabel[event.decision]}
+                    secondaryValue={event.reason}
+                    helperText={new Date(event.created_at).toLocaleString()}
+                  />
+                </Grid>
+              ))}
+              <Grid item xs={12}>
+                <MetricCard
+                  align="left"
+                  label="Сводка аномалий"
+                  value={analytics.anomaliesQuery.data?.items?.length ?? 0}
+                  secondaryValue={criticalAnomalies > 0 ? `Критичных: ${criticalAnomalies}` : 'Критичных нет'}
+                  helperText="Источник: analytics/anomalies. Детали доступны справа в компактном блоке."
+                />
+              </Grid>
+            </Grid>
+          </Stack>
         </Stack>
       )}
       activity={(
@@ -194,19 +231,6 @@ export function DashboardPage() {
             <Button component={RouterLink} to="/notifications" size="small" variant="outlined">Уведомления</Button>
             <Button component={RouterLink} to="/analytics" size="small" variant="outlined">Аномалии</Button>
             <Button component={RouterLink} to="/booking-management" size="small" variant="outlined">Бронирования</Button>
-          </Stack>
-          <Stack spacing={1}>
-            <SectionHeader title="Контроль доступа (последние события)" subtitle="ANPR/LPR события въезда и выезда." />
-            {(latestAccessEventsQuery.data?.items ?? []).slice(0, 3).map((event) => (
-              <MetricCard
-                key={event.id}
-                align="left"
-                label={`${event.plate_number} · ${directionLabel[event.direction]}`}
-                value={decisionLabel[event.decision]}
-                secondaryValue={event.reason}
-                helperText={new Date(event.created_at).toLocaleString()}
-              />
-            ))}
           </Stack>
           <Stack spacing={1}>
             <SectionHeader title="Аномалии (компактно)" subtitle="Быстрый обзор; откройте детали по каждой записи." />

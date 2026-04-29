@@ -60,22 +60,6 @@ export function OccupancySection({ isLoading, isError, data }: { isLoading: bool
           </Stack>
         </ContentCard>
       </Grid>
-      <Grid item xs={12}>
-        <ContentCard sx={{ p: 2 }}>
-          <Typography variant="cardTitle" gutterBottom>Пиковые часы</Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {data.peak_hours.length === 0 ? (
-              <Typography color="text.secondary">Для выбранного периода пиковые часы отсутствуют.</Typography>
-            ) : data.peak_hours.map((peakHour) => (
-              <ContentCard key={`${peakHour.hour}-${peakHour.bookings}`} sx={{ p: 1.5, minWidth: 128, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">{String(peakHour.hour).padStart(2, '0')}:00</Typography>
-                <Typography variant="h6">{peakHour.bookings}</Typography>
-                <Typography variant="caption" sx={{ display: 'block' }}>бронирований</Typography>
-              </ContentCard>
-            ))}
-          </Stack>
-        </ContentCard>
-      </Grid>
     </Grid>
   );
 }

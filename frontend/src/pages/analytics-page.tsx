@@ -119,7 +119,7 @@ export function AnalyticsPage() {
 
       <Grid container spacing={2} alignItems="stretch">
         <Grid item xs={12} xl={8} sx={{ display: 'flex' }}>
-          <DataPanel title="Ключевые показатели" subtitle="Базовые показатели эффективности за выбранный период." sx={{ height: '100%' }}>
+          <DataPanel title="KPI по периоду" subtitle="Базовые показатели эффективности за выбранный период." sx={{ height: '100%' }}>
             <SummaryKpiSection
               isLoading={queries.summaryQuery.isLoading}
               isError={queries.summaryQuery.isError}
@@ -151,18 +151,19 @@ export function AnalyticsPage() {
         />
       </DataPanel>
 
-      <Grid container spacing={2}>
-        <Grid item xs={12} xl={6} sx={{ display: 'flex' }}>
-          <DataPanel title="Метрики бронирований" subtitle="Структура статусов и качество пользовательского потока." sx={{ height: '100%' }}>
+      <Grid container spacing={2} alignItems="flex-start">
+        <Grid item xs={12} lg={5}>
+          <DataPanel title="Воронка бронирований" subtitle="Структура статусов и качество пользовательского потока.">
             <BookingsMetricsSection
               isLoading={queries.bookingsQuery.isLoading}
               isError={queries.bookingsQuery.isError}
               data={queries.bookingsQuery.data}
+              peakHours={queries.occupancyQuery.data?.peak_hours ?? []}
             />
           </DataPanel>
         </Grid>
-        <Grid item xs={12} xl={6} sx={{ display: 'flex' }}>
-          <DataPanel title="Прогноз загрузки" subtitle="Оценка будущей занятости по временным бакетам." sx={{ height: '100%' }}>
+        <Grid item xs={12} lg={7}>
+          <DataPanel title="Прогноз загрузки" subtitle="Оценка будущей занятости по временным бакетам.">
             <ForecastSection
               isLoading={queries.forecastQuery.isLoading}
               isError={queries.forecastQuery.isError}

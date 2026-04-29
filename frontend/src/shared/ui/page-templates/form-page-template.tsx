@@ -22,7 +22,7 @@ export function FormPageTemplate({
   title,
   subtitle,
   meta,
-  maxWidth = 1100,
+  maxWidth = 1200,
   headerActions,
   helperText,
   formSections,
@@ -30,11 +30,11 @@ export function FormPageTemplate({
   topBanner,
 }: FormPageTemplateProps) {
   return (
-    <PageContentLayout maxWidth={maxWidth} spacing={3}>
+    <PageContentLayout maxWidth={maxWidth} spacing={2.5}>
       <EntityHeader title={title} subtitle={subtitle} meta={meta} actions={headerActions} />
       {topBanner}
       {helperText ? <ContentCard sx={{ p: { xs: 2, md: 2.75 } }}>{helperText}</ContentCard> : null}
-      <Stack spacing={3}>{formSections}</Stack>
+      <Stack spacing={2.5}>{formSections}</Stack>
       {stickyActions ? <StickyActionBar>{stickyActions}</StickyActionBar> : null}
     </PageContentLayout>
   );
