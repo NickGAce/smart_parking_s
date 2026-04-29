@@ -190,6 +190,31 @@ export function DashboardPage() {
             <Button component={RouterLink} to="/analytics" size="small" variant="outlined">Открыть аналитику</Button>
             <Button component={RouterLink} to="/booking-management" size="small" variant="outlined">Проверить бронирования</Button>
           </Stack>
+          <Stack spacing={1}>
+            <SectionHeader title="Краткая лента событий" subtitle="Последние события контроля доступа и риска в одном месте." />
+            <Grid container spacing={1.5}>
+              {(latestAccessEventsQuery.data?.items ?? []).slice(0, 2).map((event) => (
+                <Grid item xs={12} md={6} key={`feed-${event.id}`}>
+                  <MetricCard
+                    align="left"
+                    label={`${event.plate_number} · ${directionLabel[event.direction]}`}
+                    value={decisionLabel[event.decision]}
+                    secondaryValue={event.reason}
+                    helperText={new Date(event.created_at).toLocaleString()}
+                  />
+                </Grid>
+              ))}
+              <Grid item xs={12}>
+                <MetricCard
+                  align="left"
+                  label="Сводка аномалий"
+                  value={analytics.anomaliesQuery.data?.items?.length ?? 0}
+                  secondaryValue={criticalAnomalies > 0 ? `Критичных: ${criticalAnomalies}` : 'Критичных нет'}
+                  helperText="Источник: analytics/anomalies. Детали доступны справа в компактном блоке."
+                />
+              </Grid>
+            </Grid>
+          </Stack>
         </Stack>
       )}
       activity={(
