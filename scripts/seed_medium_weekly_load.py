@@ -89,29 +89,35 @@ async def seed_medium_weekly_load(parking_lot_id: int, target_occupancy: float, 
         while day_cursor < current_week_start + timedelta(days=7):
             is_weekend = day_cursor.weekday() >= 5
             daily_factor = 0.8 if is_weekend else 1.0
-            spots_to_book = max(1, int(len(spot_ids) * target_occupancy * daily_factor))
+            # В будни: 08:00-20:00 (12ч), выходные: 09:00-18:00 (9ч).
+            start_hour = 9 if is_weekend else 8
+            end_hour = 18 if is_weekend else 20
+            day_start = day_cursor + timedelta(hours=start_hour)
+            day_end = day_cursor + timedelta(hours=end_hour)
+            window_minutes = int((day_end - day_start).total_seconds() // 60)
 
+            target_minutes = int(len(spot_ids) * window_minutes * target_occupancy * daily_factor)
             day_spots = spot_ids.copy()
             rng.shuffle(day_spots)
-            selected_spots = day_spots[: min(spots_to_book, len(day_spots))]
+            spot_index = 0
+            booked_minutes = 0
 
-            for idx, spot_id in enumerate(selected_spots):
-                # В будни заполняем равномерно рабочее окно 08:00-20:00, в выходные 09:00-18:00.
-                start_hour = 9 if is_weekend else 8
-                end_hour = 18 if is_weekend else 20
-                slot_window = (end_hour - start_hour) * 60
-                offset = int((idx / max(1, len(selected_spots))) * max(1, slot_window - 120))
-                jitter = rng.randint(0, 25)
-                duration = rng.choice([60, 90, 120, 150])
+            while booked_minutes < target_minutes:
+                spot_id = day_spots[spot_index % len(day_spots)]
+                spot_index += 1
 
-                start = day_cursor + timedelta(hours=start_hour, minutes=offset + jitter)
-                end = start + timedelta(minutes=duration)
-                if end.hour > end_hour or (end.hour == end_hour and end.minute > 0):
-                    end = day_cursor + timedelta(hours=end_hour)
+                duration = rng.choice([60, 90, 120, 150, 180])
+                latest_start_offset = max(0, window_minutes - duration)
+                start_offset = rng.randint(0, latest_start_offset)
+
+                start = day_start + timedelta(minutes=start_offset)
+                end = min(start + timedelta(minutes=duration), day_end)
+                actual_duration = int((end - start).total_seconds() // 60)
+                if actual_duration <= 0:
+                    continue
 
                 status = BookingStatus.completed if end < now else BookingStatus.confirmed
-                user_id = user_ids[(idx + day_cursor.day) % len(user_ids)]
-
+                user_id = user_ids[(spot_index + day_cursor.day) % len(user_ids)]
                 session.add(
                     Booking(
                         start_time=start,
@@ -124,6 +130,7 @@ async def seed_medium_weekly_load(parking_lot_id: int, target_occupancy: float, 
                     )
                 )
                 created += 1
+                booked_minutes += actual_duration
 
             day_cursor += timedelta(days=1)
 
