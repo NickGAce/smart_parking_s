@@ -601,6 +601,12 @@ def _predict_bucket_value(
     day_type_avg = _day_type_average(bucket_start, historical_series, global_avg, half_life_days=half_life_days)
     same_hour_last_week = _same_hour_last_weeks_average(bucket_start, historical_series)
     spike_signal = _spike_signal(bucket_start, dow_hour_values, hour_values, default=hour_avg, half_life_days=half_life_days)
+    transition_signal = _neighbor_hour_pattern(
+        bucket_start,
+        historical_series,
+        default=max(spike_signal, hour_avg),
+        half_life_days=half_life_days,
+    )
 
     samples = len(dow_hour_values)
     if samples >= 6:
@@ -608,20 +614,22 @@ def _predict_bucket_value(
             (0.28 * dow_hour_avg)
             + (0.18 * dow_avg)
             + (0.14 * hour_avg)
-            + (0.1 * global_avg)
+            + (0.06 * global_avg)
             + (0.1 * same_hour_last_week)
             + (0.05 * day_type_avg)
             + (0.15 * spike_signal)
+            + (0.08 * transition_signal)
         )
     elif samples >= 3:
         base_prediction = (
             (0.15 * dow_hour_avg)
             + (0.23 * dow_avg)
             + (0.2 * hour_avg)
-            + (0.1 * global_avg)
+            + (0.07 * global_avg)
             + (0.1 * same_hour_last_week)
             + (0.05 * day_type_avg)
             + (0.17 * spike_signal)
+            + (0.03 * transition_signal)
         )
     else:
         base_prediction = (
@@ -743,6 +751,23 @@ def _spike_signal(
     if activity_probability >= 0.25:
         return (0.45 * expected_level) + (0.35 * active_level) + (0.2 * recent_peak)
     return (0.7 * expected_level) + (0.3 * recent_peak)
+
+
+def _neighbor_hour_pattern(
+    bucket_start: datetime,
+    historical_series: list[tuple[datetime, float]],
+    default: float,
+    half_life_days: float,
+) -> float:
+    neighbor_values: list[tuple[datetime, float]] = []
+    for historical_bucket, value in historical_series:
+        if historical_bucket.weekday() != bucket_start.weekday():
+            continue
+        hour_gap = abs(historical_bucket.hour - bucket_start.hour)
+        wrapped_hour_gap = min(hour_gap, 24 - hour_gap)
+        if wrapped_hour_gap <= 1:
+            neighbor_values.append((historical_bucket, value))
+    return _recency_weighted_mean(neighbor_values, bucket_start, default=default, half_life_days=half_life_days)
 
 
 def _recency_weighted_activity_rate(
