@@ -102,7 +102,11 @@ export function AnalyticsPage() {
             align="center"
             label="Активность бронирований"
             value={queries.summaryQuery.data ? String(queries.summaryQuery.data.bookings_count) : '—'}
-            helperText="Количество операций в выбранном периоде."
+            helperText={
+              filters.parkingLotId
+                ? `Количество операций в выбранном периоде (${selectedLotName}).`
+                : 'Количество операций в выбранном периоде (все парковки).'
+            }
           />
         </Grid>
         <Grid item xs={12} md={4}>
