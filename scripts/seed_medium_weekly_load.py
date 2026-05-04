@@ -95,42 +95,49 @@ async def seed_medium_weekly_load(parking_lot_id: int, target_occupancy: float, 
             day_start = day_cursor + timedelta(hours=start_hour)
             day_end = day_cursor + timedelta(hours=end_hour)
             window_minutes = int((day_end - day_start).total_seconds() // 60)
+            hour_slots = max(window_minutes // 60, 1)
 
             target_minutes = int(len(spot_ids) * window_minutes * target_occupancy * daily_factor)
             day_spots = spot_ids.copy()
             rng.shuffle(day_spots)
-            spot_index = 0
+            baseline_active = max(1, int(len(spot_ids) * target_occupancy * daily_factor))
             booked_minutes = 0
 
-            while booked_minutes < target_minutes:
-                spot_id = day_spots[spot_index % len(day_spots)]
-                spot_index += 1
-
-                duration = rng.choice([60, 90, 120, 150, 180])
-                latest_start_offset = max(0, window_minutes - duration)
-                start_offset = rng.randint(0, latest_start_offset)
-
-                start = day_start + timedelta(minutes=start_offset)
-                end = min(start + timedelta(minutes=duration), day_end)
-                actual_duration = int((end - start).total_seconds() // 60)
-                if actual_duration <= 0:
+            for hour_slot in range(hour_slots):
+                slot_start = day_start + timedelta(hours=hour_slot)
+                slot_end = min(slot_start + timedelta(hours=1), day_end)
+                slot_minutes = int((slot_end - slot_start).total_seconds() // 60)
+                if slot_minutes <= 0:
                     continue
 
-                status = BookingStatus.completed if end < now else BookingStatus.confirmed
-                user_id = user_ids[(spot_index + day_cursor.day) % len(user_ids)]
-                session.add(
-                    Booking(
-                        start_time=start,
-                        end_time=end,
-                        created_at=start - timedelta(hours=rng.randint(2, 24)),
-                        type=BookingType.guest,
-                        status=status,
-                        parking_spot_id=spot_id,
-                        user_id=user_id,
-                    )
+                # Гладкий профиль для прогнозирования: без резких случайных всплесков.
+                slot_active = min(
+                    len(spot_ids),
+                    max(1, baseline_active + rng.randint(-1, 1)),
                 )
-                created += 1
-                booked_minutes += actual_duration
+                slot_spots = day_spots.copy()
+                rng.shuffle(slot_spots)
+                selected_spots = slot_spots[:slot_active]
+
+                for local_idx, spot_id in enumerate(selected_spots):
+                    status = BookingStatus.completed if slot_end < now else BookingStatus.confirmed
+                    user_id = user_ids[(local_idx + hour_slot + day_cursor.day) % len(user_ids)]
+                    session.add(
+                        Booking(
+                            start_time=slot_start,
+                            end_time=slot_end,
+                            created_at=slot_start - timedelta(hours=rng.randint(2, 24)),
+                            type=BookingType.guest,
+                            status=status,
+                            parking_spot_id=spot_id,
+                            user_id=user_id,
+                        )
+                    )
+                    created += 1
+                    booked_minutes += slot_minutes
+
+                if booked_minutes >= target_minutes:
+                    break
 
             day_cursor += timedelta(days=1)
 
