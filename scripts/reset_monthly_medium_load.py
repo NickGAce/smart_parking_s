@@ -13,9 +13,11 @@ from sqlalchemy import delete, select
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.models.booking import Booking, BookingStatus, BookingType
+from app.models.notification import Notification
 from app.models.parking_lot import ParkingLot
 from app.models.parking_spot import ParkingSpot
 from app.models.user import User
+from app.models.vehicle_access_event import VehicleAccessEvent
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -51,7 +53,7 @@ def init_session_factory() -> Any:
     return AsyncSessionLocal
 
 
-async def reset_monthly_medium_load(parking_lot_id: int, target_occupancy: float, random_seed: int) -> tuple[int, int]:
+async def reset_monthly_medium_load(parking_lot_id: int, target_occupancy: float, random_seed: int) -> tuple[int, int, int, int]:
     session_factory = init_session_factory()
     rng = random.Random(random_seed)
     now = datetime.now(timezone.utc).replace(tzinfo=None, second=0, microsecond=0)
@@ -62,6 +64,12 @@ async def reset_monthly_medium_load(parking_lot_id: int, target_occupancy: float
         if lot is None:
             raise RuntimeError(f"Parking lot with id={parking_lot_id} not found.")
 
+        deleted_notifications = (
+            await session.execute(delete(Notification).where(Notification.booking_id.is_not(None)))
+        ).rowcount or 0
+        deleted_access_events = (
+            await session.execute(delete(VehicleAccessEvent).where(VehicleAccessEvent.booking_id.is_not(None)))
+        ).rowcount or 0
         deleted_count = (await session.execute(delete(Booking))).rowcount or 0
 
         spot_ids = list(
@@ -119,7 +127,7 @@ async def reset_monthly_medium_load(parking_lot_id: int, target_occupancy: float
 
         await session.commit()
 
-    return deleted_count, created
+    return deleted_notifications, deleted_access_events, deleted_count, created
 
 
 async def main() -> None:
@@ -139,13 +147,14 @@ async def main() -> None:
     if not (0 < args.target_occupancy <= 1):
         raise RuntimeError("--target-occupancy must be in (0, 1].")
 
-    deleted_count, created = await reset_monthly_medium_load(
+    deleted_notifications, deleted_access_events, deleted_bookings, created = await reset_monthly_medium_load(
         parking_lot_id=args.parking_lot_id,
         target_occupancy=args.target_occupancy,
         random_seed=args.seed,
     )
     print(
-        f"Done: deleted {deleted_count} bookings and created {created} new bookings "
+        f"Done: deleted {deleted_bookings} bookings, {deleted_notifications} linked notifications, "
+        f"and {deleted_access_events} linked access events; created {created} new bookings "
         f"for lot_id={args.parking_lot_id} across the last 30 days with target occupancy {args.target_occupancy:.0%}."
     )
 
