@@ -1,202 +1,391 @@
 # Умная часть проекта: архитектура, метрики, прогнозирование и распознавание номеров
 
 ## 1. Краткое описание
-Интеллектуальная часть проекта решает четыре основные задачи: аналитика и метрики загрузки парковки, прогнозирование будущей загрузки, автоподбор парковочного места при бронировании и ANPR-процесс распознавания номера для контроля доступа.
+Интеллектуальная часть системы помогает принимать решения в трех основных процессах:
+- анализ загрузки парковки и поведения бронирований;
+- прогноз будущей загрузки;
+- автоматическое назначение места и контроль доступа по номеру автомобиля.
 
-Система строится в основном на explainable/rule-based логике и статистике по историческим данным (а не на «черном ящике» ML для всех задач). При этом в распознавании номеров используется ML-пайплайн (YOLO + CRNN) с fallback-режимом, если модель недоступна.
+На практике это означает, что система не только хранит бронирования, но и рассчитывает показатели, строит прогнозы по историческим данным, выбирает подходящее место при `auto_assign=true` и обрабатывает события въезда/выезда через распознавание номера.
 
 ## 2. Общая архитектура
-Основные компоненты:
-- API-слой: endpoints `analytics`, `recommendations`, `bookings`, `access-events`.
-- Сервисный слой:
-  - `app/services/analytics.py` — метрики и прогнозы;
-  - `app/services/recommendations.py` — ранжирование и выбор места;
-  - `app/services/access_events.py` + `app/services/plate_recognition_pipeline.py` — распознавание и решение по допуску;
-  - `app/services/anomaly_detection.py` + `management_recommendations.py` — аномалии и управленческие рекомендации.
-- Хранилище: SQLAlchemy-модели `Booking`, `ParkingSpot`, `ParkingZone`, `Vehicle`, `VehicleAccessEvent`, `AuditLog`.
+Ниже показано, как связаны пользовательские запросы, сервисы «умной» логики и база данных.
 
 ```mermaid
 flowchart TD
-    U[Пользователь / оператор] --> API[FastAPI endpoints]
-    API --> BK[Создание бронирования]
-    API --> AN[Аналитика]
-    API --> AE[Контроль доступа ANPR]
+    U[Пользователь или оператор] --> API[API: bookings / analytics / access-events]
 
-    BK --> REC[recommendations.py\nскрининг + scoring]
-    REC --> DB[(PostgreSQL/SQLite)]
-    BK --> DB
+    API --> REC[Сервис подбора места]
+    API --> AN[Сервис аналитики и прогноза]
+    API --> ANPR[Сервис распознавания номера]
 
-    AN --> MET[Метрики occupancy/bookings]
-    AN --> FC[Прогноз occupancy]
-    AN --> MREC[Management recommendations]
-    MET --> DB
-    FC --> DB
-    MREC --> AD[Anomaly detection]
+    REC --> DB[(База данных)]
+    AN --> DB
+    ANPR --> DB
+
+    ANPR --> PROVIDER[Runoi provider (YOLO + CRNN)]
+    ANPR --> FALLBACK[Fallback provider]
+
+    AN --> MREC[Сервис управленческих рекомендаций]
+    MREC --> AD[Сервис поиска аномалий]
     AD --> DB
-
-    AE --> PIPE[plate_recognition_pipeline.py]
-    PIPE --> RUNOI[Runoi provider\nYOLO+CRNN]
-    PIPE --> FALLBACK[Filename fallback]
-    AE --> ACC[process_access_event\nallow/deny/review]
-    ACC --> DB
 ```
+
+Основные модули:
+- `app/services/analytics.py` — метрики и прогноз;
+- `app/services/recommendations.py` — автоподбор и ранжирование мест;
+- `app/services/plate_recognition_pipeline.py` и `app/services/anpr/providers/runoi_provider.py` — ANPR-пайплайн;
+- `app/services/access_events.py` — решение `allowed/denied/review` по событию доступа.
 
 ## 3. Источники данных
 
-| Источник данных | Где используется | Какие поля важны | Комментарий |
-| --------------- | ---------------- | ---------------- | ----------- |
-| `bookings` | Метрики, прогноз, подбор, поиск связанного бронирования | `start_time`, `end_time`, `status`, `parking_spot_id`, `vehicle_id`, `plate_number` | Ключевой факт-сет для «умной» логики |
-| `parking_spots` | Occupancy, автоподбор, ограничения | `status`, `spot_type`, `zone_id`, `has_charger`, `vehicle_type`, `size_category` | Определяет пул кандидатов |
-| `parking_zones` | Зональная аналитика и доступ | `name`, `access_level` | Влияет на доступ по ролям |
-| `vehicles` | Связка номера с пользователем | `plate_number`, `normalized_plate_number`, `is_active`, `user_id` | Используется в access control |
-| `vehicle_access_events` | ANPR-аудит, security-аномалии | `normalized_plate_number`, `decision`, `recognition_confidence`, `processing_status` | Источник событий доступа |
-| `audit_logs` | Security-метрики/рекомендации | `action_type`, `new_values`, `source_metadata` | Считываются unknown plate сигналы |
+| Источник данных | Где используется | Важные поля | Комментарий |
+|---|---|---|---|
+| `bookings` | Метрики, прогноз, подбор места, поиск связанного бронирования | `start_time`, `end_time`, `status`, `parking_spot_id`, `vehicle_id`, `plate_number` | Основной источник по занятости и спросу |
+| `parking_spots` | Подбор места, расчеты загрузки | `status`, `spot_type`, `zone_id`, `has_charger`, `vehicle_type`, `size_category` | Определяет доступный набор мест |
+| `parking_zones` | Зональная аналитика и ограничения доступа | `name`, `access_level` | Используется в аналитике по зонам и доступе по ролям |
+| `vehicles` | Связка распознанного номера с автомобилем и пользователем | `plate_number`, `normalized_plate_number`, `is_active`, `user_id` | Поиск автомобиля по номеру |
+| `vehicle_access_events` | История въездов/выездов и решений | `normalized_plate_number`, `decision`, `recognition_confidence`, `processing_status` | Фиксирует результат контроля доступа |
+| `audit_logs` | Выявление событий с неизвестными номерами | `action_type`, `new_values`, `source_metadata` | Используется в аномалиях и рекомендациях |
 
 ## 4. Вычисление метрик
-Ключевые метрики реализованы в `app/services/analytics.py` и вызываются из `app/api/v1/endpoints/analytics.py`.
+Раздел описывает основные метрики из `app/services/analytics.py` и их применение в API `app/api/v1/endpoints/analytics.py`.
 
-| Метрика | Назначение | Формула / логика | Где считается | Где используется |
-| ------- | ---------- | ---------------- | ------------- | ---------------- |
-| `occupancy_percent` | Средняя загрузка выбранного контура | Сумма секунд пересечения бронирований с интервалом / `(кол-во мест * длительность интервала)` * 100 | `get_occupancy_percent` | Dashboard, summary, management recommendations |
-| `occupancy_by_zone` | Сравнение зон | Аналог occupancy, но по группировке `zone` | `get_occupancy_by_zone` | Аналитика зон, дисбаланс |
-| `occupancy_by_spot_type` | Сравнение типов мест | Аналог occupancy, но по `spot_type` | `get_occupancy_by_spot_type` | Аналитика типов |
-| `bookings_count` | Объем спроса | Count бронирований в периоде | `get_booking_metrics` | KPI |
-| `average_booking_duration_minutes` | Средняя длительность | Avg(`end_time - start_time`) в минутах | `get_booking_metrics` | KPI, аномалии длительности |
-| `cancellation_rate` | Доля отмен | `cancelled / total` | `get_booking_metrics` | Рекомендации, аномалии |
-| `no_show_rate` | Доля неявок | `no_show / total` | `get_booking_metrics` | Рекомендации, аномалии |
-| `peak_hours` | Пиковые часы | Группировка по часу начала бронирования | `get_peak_hours` | UI/операционные решения |
+### 4.1 Процент занятости парковки (Occupancy Percent)
+Эта метрика показывает, какая доля доступного времени всех мест была занята в выбранный период.
 
-Пример формулы occupancy:
+Формула:
 
 $$
-OccupancyPercent = \frac{\sum overlap\_seconds(booking, [from,to])}{N_{spots} \cdot (to-from)_{seconds}} \cdot 100
+OccupancyPercent = \frac{OccupiedTime}{TotalAvailableTime} \times 100
 $$
 
-Пропуски/edge cases:
-- Если мест нет, occupancy возвращается как 0 (во избежание деления на 0).
-- Поддерживается PostgreSQL и SQLite с разными SQL-выражениями для длительности/пересечений.
+Где:
+
+| Переменная | Значение |
+|---|---|
+| `OccupiedTime` | Суммарное время занятости мест внутри выбранного интервала |
+| `TotalAvailableTime` | Общее доступное время всех мест: `N_spots × длительность интервала` |
+
+Как считается пересечение интервалов:
+- Система берет период анализа, например `10:00–11:00`.
+- Для каждого бронирования учитывается только часть, попадающая в этот период.
+- Пример: бронирование `10:30–11:30` дает в расчет только `10:30–11:00` (30 минут).
+
+Ниже схема этого пересечения.
+
+```mermaid
+gantt
+    title Пример пересечения бронирования с периодом анализа
+    dateFormat HH:mm
+    axisFormat %H:%M
+
+    section Период анализа
+    Анализируемый интервал :a1, 10:00, 60m
+
+    section Бронирование
+    Полное бронирование :b1, 10:30, 60m
+    Часть, попавшая в расчет :crit, b2, 10:30, 30m
+```
+
+Пример расчета:
+- В парковке 10 мест.
+- Период анализа: 1 час = 60 минут.
+- Общее доступное время: `10 × 60 = 600` минут.
+- Суммарная занятость в этом часу: 300 минут.
+- `OccupancyPercent = 300 / 600 × 100 = 50%`.
+
+Где используется:
+- сводная аналитика (`/analytics/summary`);
+- детальная аналитика загрузки (`/analytics/occupancy`);
+- управленческие рекомендации.
+
+### 4.2 Доля отмен (Cancellation Rate)
+Показывает долю бронирований со статусом `cancelled`.
+
+Формула:
+
+```text
+cancellation_rate = cancelled_bookings / total_bookings
+```
+
+Где:
+- `cancelled_bookings` — количество отмененных бронирований;
+- `total_bookings` — общее количество бронирований в периоде.
+
+Пример:
+- Всего 100 бронирований, из них 18 отменены.
+- `cancellation_rate = 18 / 100 = 0.18 = 18%`.
+
+Где используется:
+- в метриках бронирований;
+- в правилах аномалий и управленческих рекомендациях.
+
+### 4.3 Доля неявок (No-show Rate)
+`No-show` — это бронирование со статусом `no_show`, когда пользователь не приехал.
+
+Формула:
+
+```text
+no_show_rate = no_show_bookings / total_bookings
+```
+
+Пример:
+- Всего 80 бронирований, 12 со статусом `no_show`.
+- `no_show_rate = 12 / 80 = 0.15 = 15%`.
+
+Практический смысл:
+- помогает понять, какая часть мест была «зарезервирована на бумаге», но не использована фактически;
+- применяется в аналитике и управленческих сигналах.
+
+### 4.4 Средняя длительность бронирования (Average Booking Duration)
+Показывает, сколько в среднем длится одно бронирование.
+
+Формула:
+
+$$
+AverageDuration = \frac{\sum (end\_time - start\_time)}{TotalBookings}
+$$
+
+Пример:
+- Длительности: 30, 60 и 90 минут.
+- `AverageDuration = (30+60+90)/3 = 60 минут`.
+
+Где используется:
+- в аналитике бронирований;
+- в проверках аномалий длительности.
+
+### 4.5 Пиковые часы (Peak Hours)
+Система группирует бронирования по часу **начала** (`start_time`) и считает, в какие часы стартует больше всего бронирований.
+
+Пример:
+- в 09:00 началось 12 бронирований;
+- в 10:00 — 7;
+- в 18:00 — 15.
+
+Значит, 18:00 — один из пиковых часов спроса.
+
+### 4.6 Таблица метрик
+
+| Метрика | Что показывает | Как считается | Где используется |
+|---|---|---|---|
+| Процент занятости (`occupancy_percent`) | Среднюю загрузку парковки за период | Учет реального времени занятости мест внутри интервала | `/analytics/summary`, `/analytics/occupancy`, рекомендации |
+| Доля отмен (`cancellation_rate`) | Долю отмененных бронирований | `cancelled / total` | Аналитика, аномалии, рекомендации |
+| Доля неявок (`no_show_rate`) | Долю бронирований, где пользователь не приехал | `no_show / total` | Аналитика, аномалии, рекомендации |
+| Средняя длительность | Среднее время одного бронирования | Среднее по `(end_time - start_time)` | Аналитика, аномалии |
+| Пиковые часы | Часы максимального спроса | Группировка по часу начала бронирования | Отчеты и операционные решения |
 
 ## 5. Прогнозирование
-Прогноз реализован как explainable статистическая модель в `HistoricalPatternForecastModel`.
+Прогноз строится статистическим способом в `HistoricalPatternForecastModel`.
 
-| Прогноз | Цель | Входные признаки | Метод | Выход | Файлы / функции |
-| ------- | ---- | ---------------- | ----- | ----- | --------------- |
-| Occupancy forecast | Предсказать загрузку по бакетам | История бронирований, weekday/hour, window history_days, SMA window | Rule/statistical blend: weekday+hour averages + global average + SMA smoothing | `predicted_occupancy_percent`, `confidence`, `comment`, `samples` | `app/services/analytics.py`: `HistoricalPatternForecastModel.predict`, `_predict_bucket_value` |
-| Forecast quality | Оценить точность прогноза | Факт occupancy и backtest-prediction | MAE, MAPE, RMSE | Метрики качества + comparison series | `get_forecast_quality`, `_calculate_forecast_error_metrics` |
+Простыми словами:
+1. Система берет историю бронирований за прошлые дни.
+2. Переводит историю в проценты занятости по временным бакетам (например, по 1 часу).
+3. Ищет похожие исторические ситуации по дню недели и часу.
+4. Формирует прогноз на целевой период.
+5. Применяет сглаживание, чтобы убрать резкие случайные колебания.
 
-Важно: в прогнозе не обнаружена обучаемая ML-модель (fit/train). Это rule-based/statistical forecasting.
+Ниже схема этого конвейера.
 
 ```mermaid
 flowchart LR
-    A[Booking history] --> B[Bucketization occupancy]
-    B --> C[Pattern extraction: global/day/hour/day+hour]
-    C --> D[Blend + SMA smoothing]
-    D --> E[Prediction per bucket]
-    E --> F[Confidence label]
-    E --> G[API analytics/occupancy-forecast]
+    A[История бронирований] --> B[Расчет исторической загрузки по бакетам]
+    B --> C[Поиск похожих паттернов: день недели и час]
+    C --> D[Базовый прогноз на каждый бакет]
+    D --> E[Сглаживание скользящим средним]
+    E --> F[Прогноз загрузки + confidence + comment]
 ```
+
+### 5.1 Что означают исторические паттерны
+- **Global average** — общий средний уровень загрузки по всей доступной истории.
+- **Weekday average** — средняя загрузка для конкретного дня недели (например, все понедельники).
+- **Hour average** — средняя загрузка для конкретного часа (например, все интервалы 09:00–10:00).
+- **Weekday + hour average** — самый точный исторический срез: например, «понедельник, 09:00».
+
+Пример:
+- В прошлые понедельники в 09:00 загрузка была 68%, 72%, 70%.
+- Среднее по этому срезу: 70%.
+- Это значение используется как сильный сигнал для прогноза ближайшего понедельника в 09:00.
+
+### 5.2 Сглаживание SMA (Simple Moving Average)
+Скользящее среднее помогает сделать прогноз более плавным.
+
+Пример:
+- исходные значения: `40%, 80%, 50%`;
+- среднее: `(40+80+50)/3 = 56.7%`.
+
+После сглаживания прогноз меньше реагирует на единичный резкий скачок.
+
+### 5.3 Качество прогноза
+Для оценки качества используется endpoint `/analytics/forecast-quality`.
+
+Возвращаются:
+- `MAE`;
+- `MAPE`;
+- `RMSE`;
+- `comparison_series` (пары факт/прогноз по временным точкам).
 
 ## 6. Автоподбор места для бронирования
-Алгоритм в `app/services/recommendations.py`, интегрирован в создание бронирования (`auto_assign=true`) через `pick_best_spot_for_booking`.
+Автоподбор включается при `auto_assign=true` в создании бронирования.
 
-Основные шаги:
-1. Формирование кандидатного пула мест в паркинге (с optional filters).
-2. Отсев по hard constraints:
-   - место заблокировано;
-   - конфликт по времени с blocking-статусами;
-   - запрет по роли/уровню доступа;
-   - strict charger preference.
-3. Расчет multi-factor score.
-4. Сортировка и выбор top-N; для брони — top-1.
+Пошаговая логика:
+1. Пользователь отправляет запрос на бронирование.
+2. Система собирает потенциальные места в выбранной парковке.
+3. Применяет жесткие фильтры (hard filters).
+4. Для оставшихся мест считает итоговый балл (score).
+5. Сортирует кандидатов по score.
+6. Выбирает лучший вариант.
+7. Перед сохранением повторно проверяет конфликт по времени.
 
-Скоринговая формула:
-
-```text
-score =
- availability*w_availability +
- spot_type*w_spot_type +
- zone*w_zone +
- charger*w_charger +
- role*w_role +
- conflict*w_conflict
-```
-
-Weights по умолчанию: `0.35 / 0.15 / 0.10 / 0.10 / 0.20 / 0.10`.
-
-| Критерий | Как влияет на подбор | Вес / приоритет | Где реализован |
-| -------- | -------------------- | --------------- | -------------- |
-| availability | Базовая доступность кандидата | 0.35 | `_build_score_context` + aggregation |
-| spot_type | Предпочитаемые типы | 0.15 | `_spot_type_score` |
-| zone | Предпочтительные зоны | 0.10 | `_zone_score` |
-| charger | Наличие зарядки | 0.10 | `_charger_score`, `_build_charger_preference_mode` |
-| role | Соответствие политике доступа | 0.20 | `_is_spot_allowed_for_role`, `_role_score` |
-| conflict | Рядом по времени занятость | 0.10 | `_conflict_score` |
-
-Fallback:
-- Если кандидатов нет/все отвергнуты — в booking API возвращается `409 No suitable parking spot...`.
-- Дополнительно перед сохранением брони есть recheck конфликта, чтобы учесть race condition.
+Ниже показан общий поток выбора.
 
 ```mermaid
 flowchart TD
-    A[Запрос бронирования auto_assign] --> B[Выбор мест по lot + filters]
-    B --> C[Фильтр blocked/overlap/access]
-    C --> D[Scoring факторов]
-    D --> E[Ranked list]
-    E --> F[Top-1 для booking]
-    F --> G[Recheck overlap]
-    G --> H[Создание бронирования или 409]
+    A[Запрос бронирования с auto_assign] --> B[Сбор кандидатов]
+    B --> C[Hard filters]
+    C --> D[Scoring]
+    D --> E[Сортировка]
+    E --> F[Выбор лучшего места]
+    F --> G[Повторная проверка конфликта]
+    G --> H[Создание бронирования]
 ```
 
+### 6.1 Hard filters
+Кандидат исключается, если:
+- место имеет статус `blocked`;
+- есть пересечение с блокирующим бронированием в нужный интервал;
+- место недоступно для роли пользователя по правилам доступа;
+- в режиме строгого предпочтения зарядки место без зарядки;
+- дополнительные фильтры запроса не совпадают (тип места, зона, тип ТС, размер и др.).
+
+### 6.2 Формула оценки парковочного места
+Каждое подходящее место получает итоговый балл.
+
+$$
+Score =
+Availability \times W_{availability} +
+SpotType \times W_{spotType} +
+Zone \times W_{zone} +
+Charger \times W_{charger} +
+Role \times W_{role} +
+Conflict \times W_{conflict}
+$$
+
+Каждый фактор нормирован в диапазоне от 0 до 1.
+
+| Фактор | Что означает |
+|---|---|
+| `Availability` | Насколько место доступно для бронирования |
+| `SpotType` | Насколько тип места соответствует предпочтениям |
+| `Zone` | Насколько зона подходит под запрос |
+| `Charger` | Подходит ли место по наличию зарядки |
+| `Role` | Разрешено ли место для роли пользователя |
+| `Conflict` | Насколько мало рядом по времени соседних конфликтов |
+
+Веса по умолчанию:
+- `W_availability = 0.35`
+- `W_spotType = 0.15`
+- `W_zone = 0.10`
+- `W_charger = 0.10`
+- `W_role = 0.20`
+- `W_conflict = 0.10`
+
+Вес показывает влияние фактора на итоговый балл. Чем больше вес, тем сильнее фактор влияет на выбор.
+
+Пример расчета:
+
+```text
+Availability = 1.0
+SpotType = 0.8
+Zone = 0.5
+Charger = 1.0
+Role = 1.0
+Conflict = 0.7
+
+Score =
+1.0*0.35 + 0.8*0.15 + 0.5*0.10 + 1.0*0.10 + 1.0*0.20 + 0.7*0.10
+      = 0.35 + 0.12 + 0.05 + 0.10 + 0.20 + 0.07
+      = 0.89
+```
+
+Чем ближе значение score к 1, тем лучше место соответствует текущему запросу.
+
 ## 7. Распознавание номеров автомобилей
-Реализация распределена между:
-- `app/services/plate_recognition_pipeline.py` (оркестрация провайдеров);
-- `app/services/anpr/providers/runoi_provider.py` (YOLO+CRNN);
-- `app/services/anpr/providers/fallback_provider.py` (fallback);
-- `app/services/access_events.py` (принятие access decision);
-- `app/services/plate_recognition.py` (нормализация номера).
+Распознавание используется в endpoints `access-events/recognize/*`.
 
-| Этап | Что происходит | Используемый метод / библиотека | Файлы / функции |
-| ---- | -------------- | ------------------------------- | --------------- |
-| Ingest | Прием image/video в endpoint | FastAPI UploadFile + media storage | `access_events.py` endpoints |
-| Preprocess | Gray/blur/threshold/contours/perspective | OpenCV | `RunoiANPRProvider._preprocess_plate` |
-| Detection | Детекция зоны номера | YOLO (ultralytics) | `_recognize_frame` |
-| OCR | Распознавание символов | CRNN (PyTorch, quantized model) | `_recognize_crop`, `_decode` |
-| Postprocess | Нормализация номера | uppercase/remove separators/cyr->latin map | `normalize_plate_number` |
-| Validation/decision | Confidence & business checks | threshold + booking/vehicle linking rules | `process_access_event` |
-| Fallback | При ошибке/UNKNOWN провайдера | filename fallback provider | `PlateRecognitionPipeline._recognize` |
-
-Поддержка форматов:
-- Явного regex-валидатора формата госномера в коде не найдено.
-- Есть нормализация и маппинг кириллица→латиница (`АВЕКМНОРСТУХ`).
-
-Ошибки и confidence:
-- low confidence `< settings.anpr_confidence_threshold` → `review`.
-- `UNKNOWN` → `review`.
-- Для въезда/выезда есть правила `allowed/denied/review` по найденной связи номер↔ТС↔бронь.
+Процесс начинается с получения изображения или видео, затем система извлекает номер, нормализует его и принимает решение по доступу.
 
 ```mermaid
 flowchart LR
-    A[Фото/видео] --> B[OpenCV preprocessing]
-    B --> C[YOLO detection]
-    C --> D[CRNN OCR]
-    D --> E[normalize_plate_number]
-    E --> F{confidence and linkage checks}
-    F -->|ok| G[allowed]
-    F -->|low/unknown| H[review]
-    F -->|exit without active booking| I[denied]
+    A[Фото или видео] --> B[Предобработка изображения]
+    B --> C[Поиск области номера (YOLO)]
+    C --> D[OCR распознавание текста (CRNN)]
+    D --> E[Нормализация номера]
+    E --> F[Проверка confidence]
+    F --> G[Поиск авто и бронирования]
+    G --> H[Решение: allowed / denied / review]
 ```
 
-## 8. Математический аппарат
+### 7.1 Пояснение ключевых терминов
+- **YOLO**: модель для поиска области номера на изображении. На выходе дает координаты прямоугольника, где, вероятно, находится номер.
+- **CRNN**: модель для чтения символов внутри найденной области номера.
+- **OCR**: преобразование изображения текста в строку.
+- **Confidence**: оценка уверенности распознавания. Если значение ниже порога, событие уходит на ручную проверку.
 
-| Метод | Где используется | Идея метода | Формула / логика | Ограничения |
-| ----- | ---------------- | ----------- | ---------------- | ----------- |
-| Overlap-based occupancy | Аналитика загрузки | Интеграл занятости по времени | суммарное пересечение интервалов / емкость*время | Зависит от точности статусов и времени |
-| Weighted linear scoring | Автоподбор места | Взвешенная сумма факторов | `score=Σ(w_i*x_i)` | Весы эвристические, не обучаемые |
-| Historical pattern forecast | Прогноз | Комбинация средних по паттернам | day+hour, hour, weekday, global + SMA | Нет обучения; чувствительно к смещениям паттерна |
-| Error metrics (MAE/MAPE/RMSE) | Оценка прогноза | Backtesting ошибки | стандартные метрики | MAPE нестабилен на малых значениях факта |
-| ANPR confidence threshold | Контроль доступа | Порог уверенности OCR/детекции | `if confidence < threshold -> review` | Порог статичен, требует калибровки |
+### 7.2 Нормализация номера
+Нормализация нужна, чтобы привести номер к единому виду для поиска в базе.
+
+Что делает функция нормализации:
+1. переводит символы в верхний регистр;
+2. убирает пробелы и дефисы;
+3. заменяет похожие кириллические символы на латинские (`А→A`, `В→B`, `С→C` и т.д.);
+4. оставляет только буквенно-цифровые символы.
+
+Пример:
+
+```text
+Исходный номер: а 123 вс 77
+После нормализации: A123BC77
+```
+
+В текущем коде явная проверка формата номера через регулярное выражение не используется. Номер приводится к единому виду через нормализацию.
+
+### 7.3 Решение по событию доступа
+После распознавания система связывает номер с автомобилем и бронированием, затем выбирает одно из решений:
+- `allowed` — доступ разрешен;
+- `denied` — доступ запрещен;
+- `review` — нужна ручная проверка.
+
+Типовые правила:
+- если номер `UNKNOWN` или confidence ниже порога — `review`;
+- при въезде без связанного подходящего бронирования — `review`;
+- при выезде без активного бронирования — `denied`.
+
+## 8. Математический аппарат простыми словами
+
+### 8.1 Учет занятости по времени
+Идея: считать не количество бронирований, а время реальной занятости мест в анализируемом интервале.
+
+Это позволяет корректно учитывать частичные пересечения интервалов и получать более точную загрузку.
+
+### 8.2 Взвешенная оценка места
+Идея: каждое место получает балл как сумму факторов с весами.
+
+Если для текущего запроса важнее доступность, ее вес больше. Если важнее зарядка, этот фактор может сильнее повлиять при соответствующих настройках запроса.
+
+### 8.3 Прогноз по историческим данным
+Идея: использовать повторяемость паттернов спроса.
+
+Система сравнивает похожие дни/часы из прошлого и строит ожидаемую загрузку на будущие временные бакеты.
+
+### 8.4 Метрики ошибки прогноза
+- **MAE** (Mean Absolute Error): средняя абсолютная ошибка прогноза.
+  - Если `MAE = 8`, это означает, что в среднем ошибка составляет 8 процентных пунктов загрузки.
+- **MAPE** (Mean Absolute Percentage Error): средняя ошибка в процентах относительно фактического значения.
+- **RMSE** (Root Mean Squared Error): метрика, которая сильнее реагирует на большие промахи прогноза.
 
 ## 9. Потоки данных
+Диаграмма показывает два типовых потока: автоподбор при бронировании и обработку события распознавания номера.
 
 ```mermaid
 sequenceDiagram
@@ -206,104 +395,80 @@ sequenceDiagram
     participant DB as Database
     participant ANPR as ANPR Provider
 
-    User->>API: POST /bookings (auto_assign=true)
-    API->>Smart: recommendations.pick_best_spot_for_booking
-    Smart->>DB: spots + bookings + rules
-    DB-->>Smart: candidates
-    Smart-->>API: best spot + decision report
-    API->>DB: create booking
-    API-->>User: booking created
+    User->>API: Создать бронирование (auto_assign=true)
+    API->>Smart: Подобрать место
+    Smart->>DB: Запросить места и пересечения по времени
+    DB-->>Smart: Кандидаты
+    Smart-->>API: Лучший кандидат
+    API->>DB: Сохранить бронирование
+    API-->>User: Ответ по бронированию
 
-    User->>API: POST /access-events/recognize/image
-    API->>ANPR: recognize_from_image
-    ANPR-->>API: plate + confidence
-    API->>Smart: process_access_event
-    Smart->>DB: vehicle/booking lookup + write event
-    API-->>User: allowed/denied/review
+    User->>API: Отправить фото/видео для распознавания
+    API->>ANPR: Распознать номер
+    ANPR-->>API: Номер + confidence
+    API->>Smart: Обработать событие доступа
+    Smart->>DB: Найти авто/бронь и записать событие
+    API-->>User: Решение allowed/denied/review
 ```
 
-## 10. Обработка ошибок и edge cases
+## 10. Обработка типовых ситуаций
 
-| Ситуация | Как обнаруживается | Как обрабатывается | Где реализовано |
-| -------- | ------------------ | ------------------ | --------------- |
-| Нет доступных мест | Все кандидаты rejected / пустой ranked | 409 при создании бронирования | `bookings.create_booking`, `recommendations.recommend_spots` |
-| Некорректный интервал дат | `from >= to` | HTTP 400 | analytics/bookings endpoints |
-| Недостаточно данных для прогноза | Нет history spots/bookings | forecast с low confidence / 0.0 | `HistoricalPatternForecastModel.predict` |
-| Номер не распознан | `normalized == UNKNOWN` | `review`, уведомление охране | `process_access_event` |
-| Низкая уверенность | `confidence < threshold` | `review` | `process_access_event` |
-| Конфликт бронирований | overlap query | 409 и отмена создания | `bookings.create_booking` |
-| Недоступен ANPR provider | `_init_error` в runoi | fallback provider | `plate_recognition_pipeline.py` |
-| Сбой чтения image/video | `imread/cap` fail | error-result и failed processing | runoi provider + endpoint status |
+| Ситуация | Как обнаруживается | Что делает система | Где реализовано |
+|---|---|---|---|
+| Нет подходящих мест для `auto_assign` | После фильтров/скоринга нет кандидатов | Возвращает ошибку 409 | `bookings.py`, `recommendations.py` |
+| Некорректный период (`from >= to`) | Проверка входных параметров | Возвращает 400 | endpoints `analytics` и `bookings` |
+| Недостаточно истории для прогноза | В истории нет данных по местам/бронированиям | Возвращает прогноз с низкой уверенностью и/или нулями | `HistoricalPatternForecastModel.predict` |
+| Номер не распознан (`UNKNOWN`) | Результат распознавания | Статус `review` | `access_events.py` |
+| Низкий confidence | `confidence < settings.anpr_confidence_threshold` | Статус `review` | `access_events.py` |
+| Выезд без активного бронирования | Нет подходящего `active` бронирования | Статус `denied` | `access_events.py` |
+| Провайдер ANPR недоступен | Ошибка инициализации/запуска провайдера | Переход на fallback provider | `plate_recognition_pipeline.py` |
 
 ## 11. Где находится код
 
 | Файл / модуль | Назначение | Ключевые функции / классы |
-| ------------- | ---------- | ------------------------- |
-| `app/services/analytics.py` | Метрики и прогнозы | `get_occupancy_percent`, `get_booking_metrics`, `HistoricalPatternForecastModel`, `get_forecast_quality` |
-| `app/services/recommendations.py` | Автоподбор места | `recommend_spots`, `pick_best_spot_for_booking` |
-| `app/api/v1/endpoints/bookings.py` | Интеграция автоназначения в бронирование | `create_booking` |
-| `app/services/access_events.py` | Решения по доступу и связка с бронированием | `process_recognition_access_event`, `process_access_event` |
-| `app/services/plate_recognition_pipeline.py` | Оркестрация ANPR provider/fallback | `recognize_from_image/video`, `build_diagnostics` |
-| `app/services/anpr/providers/runoi_provider.py` | ML-распознавание номера | `RunoiANPRProvider` |
+|---|---|---|
+| `app/services/analytics.py` | Метрики, прогноз и оценка качества прогноза | `get_occupancy_percent`, `get_booking_metrics`, `HistoricalPatternForecastModel`, `get_forecast_quality` |
+| `app/services/recommendations.py` | Подбор и ранжирование мест | `recommend_spots`, `pick_best_spot_for_booking` |
+| `app/api/v1/endpoints/bookings.py` | Создание бронирования и запуск `auto_assign` | `create_booking` |
+| `app/services/access_events.py` | Логика решения по доступу | `process_recognition_access_event`, `process_access_event` |
+| `app/services/plate_recognition_pipeline.py` | Оркестрация провайдеров распознавания | `recognize_from_image`, `recognize_from_video`, `build_diagnostics` |
+| `app/services/anpr/providers/runoi_provider.py` | Детекция номера и OCR через YOLO/CRNN | `RunoiANPRProvider` |
 | `app/services/plate_recognition.py` | Нормализация номера | `normalize_plate_number` |
-| `app/services/anomaly_detection.py` | Выявление аномалий | `AnomalyDetectionService.detect` |
-| `app/services/management_recommendations.py` | Рекомендации менеджменту | `ManagementRecommendationsService.list_recommendations` |
-| `app/api/v1/endpoints/analytics.py` | API аналитики/прогнозов | `analytics_*` handlers |
-| `app/api/v1/endpoints/access_events.py` | API ANPR/control | `recognize_access_event_*` |
+| `app/services/anomaly_detection.py` | Выявление аномалий по правилам | `AnomalyDetectionService.detect` |
+| `app/services/management_recommendations.py` | Формирование управленческих рекомендаций | `ManagementRecommendationsService.list_recommendations` |
+| `app/api/v1/endpoints/analytics.py` | API метрик и прогноза | `analytics_summary`, `analytics_occupancy`, `analytics_occupancy_forecast`, `analytics_forecast_quality` |
+| `app/api/v1/endpoints/access_events.py` | API распознавания и событий доступа | `recognize_access_event_image`, `recognize_access_event_video`, `manual_access_event` |
 
 ## 12. Примеры сценариев
 ### Сценарий 1: Автоматический подбор места
-1. Клиент вызывает создание бронирования с `auto_assign=true`.
-2. Сервис рекомендаций строит кандидатный список по паркингу + фильтрам.
-3. Отбрасываются blocked/overlap/role-недоступные варианты.
-4. Для оставшихся считается multi-factor score.
-5. Берется лучший кандидат, повторно проверяется overlap.
-6. Бронирование сохраняется, статус места синхронизируется.
+1. Пользователь создает бронирование с `auto_assign=true`.
+2. Сервис подбора формирует кандидатов по парковке и фильтрам.
+3. Неподходящие места отбрасываются hard filters.
+4. Оставшиеся кандидаты получают score.
+5. Выбирается место с лучшим баллом.
+6. Перед записью выполняется повторная проверка пересечения.
+7. Бронирование сохраняется.
 
 ### Сценарий 2: Распознавание номера автомобиля
-1. Оператор отправляет фото/видео в `/access-events/recognize/*`.
-2. Pipeline пытается Runoi provider (YOLO+CRNN).
-3. При неуспехе — fallback provider.
-4. Номер нормализуется, ищется связанное ТС/бронирование.
-5. Формируется решение `allowed/denied/review`.
-6. Пишется `VehicleAccessEvent`, при проблемах уходит уведомление охране.
+1. Оператор отправляет фото или видео.
+2. Пайплайн выполняет детекцию области номера и OCR.
+3. Полученный текст нормализуется.
+4. Система ищет связанный автомобиль и бронирование.
+5. Формируется решение `allowed`, `denied` или `review`.
+6. Событие сохраняется в `vehicle_access_events`.
 
 ### Сценарий 3: Расчет метрик
-1. Запрос `/analytics/summary` или `/analytics/occupancy`.
-2. Разрешается период (`day/week/month` или custom from/to).
-3. Из БД считаются occupancy, count, average duration, cancellation/no-show.
-4. Результаты возвращаются в API и UI.
+1. Клиент вызывает `/analytics/summary` или `/analytics/occupancy`.
+2. Система определяет период анализа.
+3. Считает загрузку, количество бронирований, доли отмен и неявок, длительность.
+4. Возвращает готовые показатели для UI/отчетности.
 
 ### Сценарий 4: Прогнозирование
-1. Запрос `/analytics/occupancy-forecast` с target window.
-2. Берется история (`history_days`) и строятся occupancy buckets.
-3. Для каждого будущего бакета считается прогноз по историческим паттернам + SMA.
-4. Возвращается прогноз с confidence/comment.
+1. Клиент вызывает `/analytics/occupancy-forecast`.
+2. Система загружает исторические данные за `history_days`.
+3. Строит прогноз на будущие бакеты с учетом дня недели и часа.
+4. Применяет сглаживание.
+5. Возвращает прогнозные проценты загрузки и confidence.
 
-## 13. Ограничения текущей реализации
-- Для автоподбора используются фиксированные эвристические веса; нет data-driven калибровки.
-- В ANPR нет явной regex-валидации форматов номеров по странам/регионам.
-- Confidence threshold единый и статичный.
-- Forecast — статистический rule-based, без online learning.
-- Часть аналитики чувствительна к качеству данных статусов бронирований и их своевременной синхронизации.
-- Не во всех модулях видны расширенные quality-тесты на edge-cases pipeline ANPR/forecast.
-
-## 14. Возможные улучшения
-- Автотюнинг весов подбора места по историческим исходам (acceptance, конфликты, удовлетворенность).
-- Ввести explainability-лог «почему выбран именно этот slot» в отдельный аналитический журнал.
-- Добавить confidence calibration для ANPR и разные пороги по камерам/локациям.
-- Реализовать regex/правила валидации номерных форматов и post-OCR correction map.
-- Добавить drift-monitoring прогноза и автоматический алерт при деградации MAE/MAPE.
-- Добавить A/B тестирование стратегий ранжирования.
-
-## 15. Краткий итог
-Интеллектуальный контур проекта основан на связке explainable аналитики, rule-based оптимизации подбора мест и ANPR-контроля доступа с ML-распознаванием номера. Ключевыми модулями являются `analytics.py`, `recommendations.py`, `access_events.py` и ANPR providers. Архитектура уже поддерживает расширяемость: можно заменять модель прогноза, расширять факторы скоринга и подключать новые ANPR-провайдеры.
-
----
-
-## Финальный служебный вывод
-- Проанализированы файлы: API endpoints (`bookings`, `analytics`, `access_events`), сервисы аналитики/рекомендаций/ANPR/аномалий, схемы данных и связанная документация.
-- Ключевые модули умной логики: `app/services/analytics.py`, `app/services/recommendations.py`, `app/services/access_events.py`, `app/services/plate_recognition_pipeline.py`, `app/services/anpr/providers/runoi_provider.py`, `app/services/management_recommendations.py`, `app/services/anomaly_detection.py`.
-- Документ создан: `docs/smart-system-overview.md`.
-- Уверенно описаны: метрики, прогнозный pipeline, алгоритм автоподбора, ANPR pipeline и decision logic.
-- Требуют уточнения по коду/данным: полнота валидаторов форматов номеров, качество на реальных датасетах, стратегия калибровки confidence/весов.
+## 13. Краткий итог
+Интеллектуальная часть проекта объединяет аналитику, прогнозирование, автоматический подбор мест и ANPR-контроль доступа. Метрики и прогнозы используют исторические данные бронирований, автоподбор применяет взвешенный скоринг с жесткими ограничениями, а ANPR-пайплайн связывает распознанный номер с бизнес-решением по доступу.
