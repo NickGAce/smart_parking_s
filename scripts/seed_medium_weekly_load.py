@@ -3,7 +3,7 @@ import asyncio
 import os
 import random
 import sys
-from datetime import UTC, datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -59,7 +59,7 @@ def start_of_week(day: datetime) -> datetime:
 async def seed_medium_weekly_load(parking_lot_id: int, target_occupancy: float, random_seed: int) -> int:
     session_factory = init_session_factory()
     rng = random.Random(random_seed)
-    now = datetime.now(UTC).replace(tzinfo=None, second=0, microsecond=0)
+    now = datetime.now(timezone.utc).replace(tzinfo=None, second=0, microsecond=0)
     current_week_start = start_of_week(now)
     previous_week_start = current_week_start - timedelta(days=7)
 
